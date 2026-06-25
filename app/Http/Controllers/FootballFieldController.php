@@ -6,6 +6,7 @@ use App\Http\Requests\FootballFieldRequest;
 use App\Models\City;
 use App\Models\FootballField;
 use App\Services\ActivityLogger;
+use App\Services\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -26,8 +27,11 @@ class FootballFieldController extends Controller
         ]);
     }
 
-    public function store(FootballFieldRequest $request, ActivityLogger $activity): RedirectResponse
-    {
+    public function store(
+        FootballFieldRequest $request,
+        ActivityLogger $activity,
+        SubscriptionService $subscriptions,
+    ): RedirectResponse {
         $this->authorize('create', FootballField::class);
         $data = $request->validated();
 
@@ -43,6 +47,7 @@ class FootballFieldController extends Controller
         });
 
         $activity->log('field_created', $field);
+        $subscriptions->syncForOrganization($request->user()->organization);
 
         return back()->with('success', __('messages.field_created'));
     }
@@ -61,11 +66,15 @@ class FootballFieldController extends Controller
         return back()->with('success', __('messages.field_updated'));
     }
 
-    public function destroy(FootballField $footballField, ActivityLogger $activity): RedirectResponse
-    {
+    public function destroy(
+        FootballField $footballField,
+        ActivityLogger $activity,
+        SubscriptionService $subscriptions,
+    ): RedirectResponse {
         $this->authorize('delete', $footballField);
         $footballField->delete();
         $activity->log('field_deleted', $footballField);
+        $subscriptions->syncForOrganization(request()->user()->organization);
 
         return back()->with('success', __('messages.field_deleted'));
     }

@@ -11,7 +11,10 @@ use Illuminate\Support\Str;
 
 class OrganizationService
 {
-    public function __construct(private readonly ActivityLogger $activity) {}
+    public function __construct(
+        private readonly ActivityLogger $activity,
+        private readonly SubscriptionService $subscriptions,
+    ) {}
 
     public function register(array $data): User
     {
@@ -42,6 +45,7 @@ class OrganizationService
             ]);
 
             $this->activity->log('organization_registered', $organization, organizationId: $organization->id);
+            $this->subscriptions->syncForOrganization($organization);
 
             return $user;
         });

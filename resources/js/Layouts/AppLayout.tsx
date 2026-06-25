@@ -18,7 +18,10 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     }, [dark]);
 
     const nav = auth.user?.role === 'super_admin'
-        ? [{ label: t('organizations'), href: '/admin/organizations', icon: Building2 }]
+        ? [
+            { label: t('organizations'), href: '/admin/organizations', icon: Building2 },
+            { label: 'Cities', href: '/admin/cities', icon: Settings },
+        ]
         : [
             { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
             { label: t('calendar'), href: '/calendar', icon: CalendarDays },

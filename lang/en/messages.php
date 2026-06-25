@@ -20,4 +20,6 @@ return [
     'note_created' => 'Private note added.',
     'settings_updated' => 'Organization settings updated.',
     'organization_updated' => 'Organization status updated.',
+    'city_created' => 'City created.',
+    'city_updated' => 'City updated.',
 ];

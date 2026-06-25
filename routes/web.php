@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\CityController as AdminCityController;
 use App\Http\Controllers\Admin\OrganizationController as AdminOrganizationController;
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\EmailVerificationController;
@@ -62,5 +63,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/search', SearchController::class)->name('search')->middleware('throttle:60,1');
         Route::get('/admin/organizations', [AdminOrganizationController::class, 'index'])->name('admin.organizations');
         Route::patch('/admin/organizations/{organization}', [AdminOrganizationController::class, 'update'])->name('admin.organizations.update');
+        Route::get('/admin/cities', [AdminCityController::class, 'index'])->name('admin.cities');
+        Route::post('/admin/cities', [AdminCityController::class, 'store'])->name('admin.cities.store');
+        Route::put('/admin/cities/{city}', [AdminCityController::class, 'update'])->name('admin.cities.update');
     });
 });

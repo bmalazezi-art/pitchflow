@@ -20,4 +20,6 @@ return [
     'note_created' => 'Shënimi privat u shtua.',
     'settings_updated' => 'Cilësimet e organizatës u përditësuan.',
     'organization_updated' => 'Statusi i organizatës u përditësua.',
+    'city_created' => 'Qyteti u krijua.',
+    'city_updated' => 'Qyteti u përditësua.',
 ];
