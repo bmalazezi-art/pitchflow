@@ -1,0 +1,23 @@
+<?php
+
+return [
+    'reservation_conflict' => 'This time is no longer available. Choose another slot.',
+    'invalid_reservation_range' => 'Reservations must use valid one-hour boundaries.',
+    'field_unavailable' => 'This football field is not available for reservations.',
+    'reset_link_sent' => 'If the account exists, a password reset link has been sent.',
+    'verification_sent' => 'A new verification link has been sent.',
+    'field_created' => 'Football field created.',
+    'field_updated' => 'Football field updated.',
+    'field_deleted' => 'Football field removed.',
+    'employee_created' => 'Employee created.',
+    'employee_updated' => 'Employee updated.',
+    'employee_deleted' => 'Employee removed.',
+    'invalid_field_assignment' => 'One or more field assignments are invalid.',
+    'reservation_created' => 'Reservation created.',
+    'reservation_updated' => 'Reservation updated.',
+    'reservation_cancelled' => 'Reservation cancelled.',
+    'customer_updated' => 'Customer updated.',
+    'note_created' => 'Private note added.',
+    'settings_updated' => 'Organization settings updated.',
+    'organization_updated' => 'Organization status updated.',
+];

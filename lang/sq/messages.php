@@ -1,0 +1,23 @@
+<?php
+
+return [
+    'reservation_conflict' => 'Ky orar nuk është më i lirë. Zgjidhni një orar tjetër.',
+    'invalid_reservation_range' => 'Rezervimet duhet të përdorin intervale të vlefshme njëorëshe.',
+    'field_unavailable' => 'Ky fushë futbolli nuk është në dispozicion për rezervime.',
+    'reset_link_sent' => 'Nëse llogaria ekziston, lidhja për rivendosjen e fjalëkalimit është dërguar.',
+    'verification_sent' => 'Një lidhje e re verifikimi është dërguar.',
+    'field_created' => 'Fusha e futbollit u krijua.',
+    'field_updated' => 'Fusha e futbollit u përditësua.',
+    'field_deleted' => 'Fusha e futbollit u hoq.',
+    'employee_created' => 'Punonjësi u krijua.',
+    'employee_updated' => 'Punonjësi u përditësua.',
+    'employee_deleted' => 'Punonjësi u hoq.',
+    'invalid_field_assignment' => 'Një ose më shumë caktime të fushave janë të pavlefshme.',
+    'reservation_created' => 'Rezervimi u krijua.',
+    'reservation_updated' => 'Rezervimi u përditësua.',
+    'reservation_cancelled' => 'Rezervimi u anulua.',
+    'customer_updated' => 'Klienti u përditësua.',
+    'note_created' => 'Shënimi privat u shtua.',
+    'settings_updated' => 'Cilësimet e organizatës u përditësuan.',
+    'organization_updated' => 'Statusi i organizatës u përditësua.',
+];
