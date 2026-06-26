@@ -29,11 +29,11 @@ class PublicAvailabilityController extends Controller
                 'footballFields' => fn ($query) => $query
                     ->where('status', FieldStatus::Active)
                     ->orderBy('name')
-                    ->select(['id', 'organization_id', 'city_id', 'name', 'address']),
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour']),
                 'footballFields.city:id,name',
             ])
             ->orderBy('name')
-            ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields']);
+            ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields', 'currency']);
 
         if ($request->filled(['city', 'business'])) {
             $business = Organization::query()
@@ -46,7 +46,7 @@ class PublicAvailabilityController extends Controller
                     'footballFields' => fn ($query) => $query
                         ->where('status', FieldStatus::Active)
                         ->orderBy('name')
-                        ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'opening_time', 'closing_time']),
+                        ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
                     'footballFields.city:id,name',
                     'footballFields.organization:id,timezone',
                 ])
@@ -69,7 +69,7 @@ class PublicAvailabilityController extends Controller
                                 ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
                         });
                 })
-                ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields,timezone', 'organization.city:id,name'])
+                ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields,currency,timezone', 'organization.city:id,name'])
                 ->first();
             if ($field) {
                 $business = $field->organization->load('city:id,name');

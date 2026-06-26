@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, ParkingCircle, Phone, Search, ShowerHead, Trophy } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, Moon, ParkingCircle, Phone, Search, ShowerHead, Sun, Trophy } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { SharedProps } from '../../types';
@@ -9,6 +9,7 @@ interface PublicField {
     id: number;
     name: string;
     address?: string | null;
+    price_per_hour?: string | number | null;
     city?: { id: number; name: string } | null;
 }
 
@@ -18,6 +19,7 @@ interface PublicBusiness {
     phone?: string | null;
     address?: string | null;
     number_of_fields?: number | null;
+    currency?: string | null;
     city?: { id: number; name: string } | null;
     football_fields?: PublicField[];
 }
@@ -59,6 +61,11 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
     const selectedCity = cities.find(city => city.id === Number(filters.city));
     const hasCity = Boolean(filters.city);
     const hasBusiness = Boolean(selectedBusiness);
+    const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
+
+    useEffect(() => {
+        localStorage.setItem('public-theme', dark ? 'dark' : 'light');
+    }, [dark]);
 
     const setLocale = (nextLocale: 'en' | 'sq') => router.post('/locale', { locale: nextLocale }, { preserveScroll: true });
     const navigate = (overrides: Partial<Props['filters']>) => router.get('/', {
@@ -70,9 +77,9 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
     const setDate = (date: string) => navigate({ date });
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
 
-    return <div className="public-page">
+    return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('checkAvailabilityTitle')} />
-        <PublicNav locale={locale} setLocale={setLocale} />
+        <PublicNav locale={locale} dark={dark} setLocale={setLocale} setDark={setDark} />
         <main className="public-home">
             <section className="public-hero light">
                 <div className="hero-content">
@@ -102,7 +109,12 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
     </div>;
 }
 
-function PublicNav({ locale, setLocale }: { locale: 'en' | 'sq'; setLocale: (locale: 'en' | 'sq') => void }) {
+function PublicNav({ locale, dark, setLocale, setDark }: {
+    locale: 'en' | 'sq';
+    dark: boolean;
+    setLocale: (locale: 'en' | 'sq') => void;
+    setDark: (dark: boolean) => void;
+}) {
     const t = useTranslation();
     return <nav className="public-nav">
         <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div>
@@ -112,6 +124,9 @@ function PublicNav({ locale, setLocale }: { locale: 'en' | 'sq'; setLocale: (loc
                 <button className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')}>EN</button>
                 <button className={locale === 'sq' ? 'active' : ''} onClick={() => setLocale('sq')}>SQ</button>
             </div>
+            <button className="public-theme-toggle" onClick={() => setDark(!dark)} title={dark ? 'Light mode' : 'Dark mode'} aria-label={dark ? 'Light mode' : 'Dark mode'}>
+                {dark ? <Sun size={18} /> : <Moon size={18} />}
+            </button>
             <Link href="/login" className="btn btn-secondary">{t('login')}</Link>
             <Link href="/register" className="btn btn-primary"><span className="desktop-label">{t('register')}</span><span className="mobile-label">{t('registerShort')}</span></Link>
         </div>
@@ -198,6 +213,7 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
 function BusinessCard({ business, index, onView }: { business: PublicBusiness; index: number; onView: () => void }) {
     const t = useTranslation();
     const amenities = demoAmenities[business.name] ?? ['parking'];
+    const price = priceSummary(business.football_fields ?? [], business.currency ?? 'EUR');
     return <article className="field-discovery-card">
         <div className="venue-cover light-cover" style={{ background: venueImages[index % venueImages.length] }}>
             <div className="venue-cover-lines" />
@@ -210,6 +226,7 @@ function BusinessCard({ business, index, onView }: { business: PublicBusiness; i
             {business.address && <p><MapPin size={15} /> {business.address}</p>}
             {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={15} /> {business.phone}</a>}
             <p><Trophy size={15} /> {pitchLabel(t, business.number_of_fields ?? business.football_fields?.length ?? 1)}</p>
+            {price && <p className="venue-price"><span>{t('pricePerHour')}</span><strong>{price}</strong></p>}
             <AmenityList amenities={amenities} />
             <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
         </div>
@@ -232,7 +249,10 @@ function AvailabilitySection({ business, date, pitchAvailability }: {
         </div>
         <div className="pitch-availability-list">
             {pitchAvailability.map((pitch, index) => <section className="pitch-slots" key={pitch.field.id}>
-                <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
+                <div className="pitch-slots-header">
+                    <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
+                    {pitch.field.price_per_hour !== undefined && pitch.field.price_per_hour !== null && <span>{formatMoney(pitch.field.price_per_hour, business.currency ?? 'EUR')} / h</span>}
+                </div>
                 <div className="slot-card-grid compact">
                     {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} />)}
                 </div>
@@ -262,6 +282,33 @@ function AmenityList({ amenities }: { amenities: Amenity[] }) {
 
 function pitchLabel(t: ReturnType<typeof useTranslation>, count: number) {
     return `${count} ${count === 1 ? t('footballPitch') : t('footballPitches')}`;
+}
+
+function priceSummary(fields: PublicField[], currency: string) {
+    const prices = fields
+        .map(field => Number(field.price_per_hour))
+        .filter(price => Number.isFinite(price));
+
+    if (prices.length === 0) {
+        return null;
+    }
+
+    const min = Math.min(...prices);
+    const max = Math.max(...prices);
+
+    if (min === max) {
+        return `${formatMoney(min, currency)} / h`;
+    }
+
+    return `${formatMoney(min, currency)}–${formatMoney(max, currency)} / h`;
+}
+
+function formatMoney(value: string | number, currency: string) {
+    return new Intl.NumberFormat(undefined, {
+        style: 'currency',
+        currency,
+        maximumFractionDigits: Number(value) % 1 === 0 ? 0 : 2,
+    }).format(Number(value));
 }
 
 function today() {
