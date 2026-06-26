@@ -1,4 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
+import { useMemo, useState } from 'react';
 import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, ParkingCircle, Phone, Search, ShowerHead, Trophy } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
@@ -67,7 +68,6 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
     }, { preserveState: true, preserveScroll: true });
     const setCity = (value: string) => router.get('/', { city: value || undefined, date: filters.date }, { preserveState: true, preserveScroll: true, replace: true });
     const setDate = (date: string) => navigate({ date });
-    const shiftDate = (days: number) => setDate(dateOffset(filters.date, days));
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
 
     return <div className="public-page">
@@ -79,7 +79,7 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
                     <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
                     <h1>{t('checkAvailabilityTitle')}</h1>
                     <p>{t('availabilityHeroDescription')}</p>
-                    <SearchPanel cities={cities} filters={filters} setCity={setCity} setDate={setDate} shiftDate={shiftDate} />
+                    <SearchPanel cities={cities} filters={filters} setCity={setCity} setDate={setDate} />
                 </div>
             </section>
 
@@ -118,12 +118,11 @@ function PublicNav({ locale, setLocale }: { locale: 'en' | 'sq'; setLocale: (loc
     </nav>;
 }
 
-function SearchPanel({ cities, filters, setCity, setDate, shiftDate }: {
+function SearchPanel({ cities, filters, setCity, setDate }: {
     cities: Props['cities'];
     filters: Props['filters'];
     setCity: (value: string) => void;
     setDate: (value: string) => void;
-    shiftDate: (days: number) => void;
 }) {
     const t = useTranslation();
     return <div className="availability-search-card simple">
@@ -134,18 +133,65 @@ function SearchPanel({ cities, filters, setCity, setDate, shiftDate }: {
                 {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
             </select>
         </label>
-        <div className="date-navigator">
-            <Button variant="secondary" onClick={() => shiftDate(-1)}><ChevronLeft size={17} />{t('previousDay')}</Button>
-            <div className="date-display">
-                <CalendarDays size={18} />
-                <strong>{formatDate(filters.date)}</strong>
-                <label className="date-picker">
-                    <input aria-label={t('chooseDate')} type="date" value={filters.date} onChange={event => setDate(event.target.value)} required />
-                </label>
+        <CalendarPicker value={filters.date} onChange={setDate} />
+    </div>;
+}
+
+function CalendarPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
+    const t = useTranslation();
+    const selectedDate = parseDate(value);
+    const [open, setOpen] = useState(false);
+    const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(selectedDate));
+    const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
+    const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(visibleMonth);
+    const weekdays = useMemo(() => buildWeekdayLabels(), []);
+
+    const selectDate = (date: Date) => {
+        onChange(toDateInput(date));
+        setVisibleMonth(startOfMonth(date));
+        setOpen(false);
+    };
+
+    return <div className="calendar-picker">
+        <button
+            type="button"
+            className="calendar-trigger"
+            aria-label={t('chooseDate')}
+            aria-expanded={open}
+            onClick={() => setOpen(isOpen => !isOpen)}
+        >
+            <CalendarDays size={19} />
+            <span>{formatDate(value)}</span>
+        </button>
+        {open && <div className="calendar-popover" role="dialog" aria-label={t('chooseDate')}>
+            <div className="calendar-month">
+                <button type="button" aria-label={t('previousMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}>
+                    <ChevronLeft size={18} />
+                </button>
+                <strong>{monthLabel}</strong>
+                <button type="button" aria-label={t('nextMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, 1))}>
+                    <ChevronRight size={18} />
+                </button>
             </div>
-            <Button variant="secondary" onClick={() => setDate(today())}>{t('today')}</Button>
-            <Button variant="secondary" onClick={() => shiftDate(1)}>{t('nextDay')}<ChevronRight size={17} /></Button>
-        </div>
+            <div className="calendar-weekdays" aria-hidden="true">
+                {weekdays.map(day => <span key={day}>{day}</span>)}
+            </div>
+            <div className="calendar-grid">
+                {calendarDays.map(day => <button
+                    type="button"
+                    key={day.key}
+                    className={[
+                        'calendar-day',
+                        day.currentMonth ? '' : 'outside',
+                        sameDay(day.date, selectedDate) ? 'selected' : '',
+                        sameDay(day.date, parseDate(today())) ? 'today' : '',
+                    ].filter(Boolean).join(' ')}
+                    onClick={() => selectDate(day.date)}
+                >
+                    {day.date.getDate()}
+                </button>)}
+            </div>
+        </div>}
     </div>;
 }
 
@@ -218,14 +264,62 @@ function pitchLabel(t: ReturnType<typeof useTranslation>, count: number) {
     return `${count} ${count === 1 ? t('footballPitch') : t('footballPitches')}`;
 }
 
-function dateOffset(date: string, days: number) {
-    const next = new Date(`${date}T12:00:00`);
-    next.setDate(next.getDate() + days);
-    return next.toISOString().slice(0, 10);
-}
-
 function today() {
     return new Date().toISOString().slice(0, 10);
+}
+
+function parseDate(date: string) {
+    return new Date(`${date}T12:00:00`);
+}
+
+function startOfMonth(date: Date) {
+    return new Date(date.getFullYear(), date.getMonth(), 1, 12);
+}
+
+function addMonths(date: Date, amount: number) {
+    return new Date(date.getFullYear(), date.getMonth() + amount, 1, 12);
+}
+
+function toDateInput(date: Date) {
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+}
+
+function sameDay(left: Date, right: Date) {
+    return left.getFullYear() === right.getFullYear()
+        && left.getMonth() === right.getMonth()
+        && left.getDate() === right.getDate();
+}
+
+function buildCalendarDays(month: Date) {
+    const firstDay = startOfMonth(month);
+    const mondayOffset = (firstDay.getDay() + 6) % 7;
+    const gridStart = new Date(firstDay);
+    gridStart.setDate(firstDay.getDate() - mondayOffset);
+
+    return Array.from({ length: 42 }, (_, index) => {
+        const date = new Date(gridStart);
+        date.setDate(gridStart.getDate() + index);
+
+        return {
+            date,
+            key: toDateInput(date),
+            currentMonth: date.getMonth() === month.getMonth(),
+        };
+    });
+}
+
+function buildWeekdayLabels() {
+    const monday = new Date(2024, 0, 1, 12);
+
+    return Array.from({ length: 7 }, (_, index) => {
+        const date = new Date(monday);
+        date.setDate(monday.getDate() + index);
+
+        return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
+    });
 }
 
 function formatDate(date: string) {

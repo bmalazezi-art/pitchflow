@@ -88,6 +88,7 @@ const messages = {
         selectedFootballField: 'Selected football field', availableTimeSlots: 'Available time slots',
         viewAvailability: 'View Availability',
         previousDay: 'Previous', today: 'Today', nextDay: 'Next',
+        previousMonth: 'Previous month', nextMonth: 'Next month',
     },
     sq: {
         dashboard: 'Paneli', calendar: 'Kalendari', reservations: 'Rezervimet', customers: 'Klientët',
@@ -175,6 +176,7 @@ const messages = {
         selectedFootballField: 'Fusha e zgjedhur', availableTimeSlots: 'Oraret e lira',
         viewAvailability: 'Shiko oraret',
         previousDay: 'Mbrapa', today: 'Sot', nextDay: 'Para',
+        previousMonth: 'Muaji paraprak', nextMonth: 'Muaji tjetër',
     },
 } as const;
 
