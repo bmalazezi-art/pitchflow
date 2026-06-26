@@ -82,6 +82,8 @@ class LocalTestingSeeder extends Seeder
                 ],
             ));
 
+            $this->seedDemoVenues();
+
             $primaryField = $fields->first();
             $employee->assignedFields()->syncWithoutDetaching([
                 $primaryField->id => ['organization_id' => $organization->id],
@@ -142,6 +144,98 @@ class LocalTestingSeeder extends Seeder
 
             $this->printCredentials($superAdmin, $owner, $employee);
         });
+    }
+
+    private function seedDemoVenues(): void
+    {
+        $venues = [
+            ['city' => 'Prizren', 'name' => 'Getoari Sport Center', 'slug' => 'getoari-sport-center', 'phone' => '+383 44 210 111', 'pitches' => 2, 'address' => 'Rruga Tirana, Prizren', 'price' => 35],
+            ['city' => 'Prizren', 'name' => 'Arena Sport', 'slug' => 'arena-sport', 'phone' => '+383 44 320 222', 'pitches' => 2, 'address' => 'Rruga William Walker, Prizren', 'price' => 40],
+            ['city' => 'Prizren', 'name' => 'Andrra Sport Center', 'slug' => 'andrra-sport-center', 'phone' => '+383 45 410 333', 'pitches' => 1, 'address' => 'Rruga Janina, Prizren', 'price' => 32],
+            ['city' => 'Prishtinë', 'name' => 'Rilindja Football Center', 'slug' => 'rilindja-football-center', 'phone' => '+383 44 510 444', 'pitches' => 3, 'address' => 'Rruga B, Prishtinë', 'price' => 45],
+            ['city' => 'Prishtinë', 'name' => 'Princi Football Arena', 'slug' => 'princi-football-arena', 'phone' => '+383 44 620 555', 'pitches' => 2, 'address' => 'Veternik, Prishtinë', 'price' => 42],
+            ['city' => 'Prishtinë', 'name' => 'Green Sport Arena', 'slug' => 'green-sport-arena', 'phone' => '+383 45 730 666', 'pitches' => 2, 'address' => 'Mati 1, Prishtinë', 'price' => 38],
+            ['city' => 'Prishtinë', 'name' => 'Arena 7', 'slug' => 'arena-7', 'phone' => '+383 49 840 777', 'pitches' => 1, 'address' => 'Bregu i Diellit, Prishtinë', 'price' => 35],
+        ];
+
+        foreach ($venues as $venue) {
+            $city = City::query()->where('name', $venue['city'])->firstOrFail();
+            $organization = Organization::query()->updateOrCreate(
+                ['slug' => $venue['slug']],
+                [
+                    'city_id' => $city->id,
+                    'name' => $venue['name'],
+                    'email' => $venue['slug'].'@example.test',
+                    'phone' => $venue['phone'],
+                    'address' => $venue['address'],
+                    'status' => OrganizationStatus::Approved,
+                    'subscription_plan' => $venue['pitches'] > 2 ? '3–5 Fields' : '1–2 Fields',
+                    'number_of_fields' => $venue['pitches'],
+                    'timezone' => 'Europe/Pristina',
+                    'currency' => 'EUR',
+                    'locale' => 'en',
+                    'cancellation_window_minutes' => 120,
+                    'approved_at' => now(),
+                    'rejected_at' => null,
+                    'suspended_at' => null,
+                ],
+            );
+
+            $field = FootballField::query()->updateOrCreate(
+                ['organization_id' => $organization->id, 'slug' => $venue['slug'].'-main'],
+                [
+                    'city_id' => $city->id,
+                    'name' => $venue['name'],
+                    'address' => $venue['address'],
+                    'status' => FieldStatus::Active,
+                    'price_per_hour' => $venue['price'],
+                    'opening_time' => '12:00',
+                    'closing_time' => '01:00',
+                ],
+            );
+
+            if (in_array($venue['name'], ['Arena Sport', 'Rilindja Football Center'], true)) {
+                $hour = $venue['name'] === 'Arena Sport' ? 17 : 19;
+                $this->seedDemoVenueReservation($organization, $field, $hour);
+            }
+        }
+    }
+
+    private function seedDemoVenueReservation(Organization $organization, FootballField $field, int $hour): void
+    {
+        $localStart = CarbonImmutable::now(Timezones::resolve($organization->timezone))->setTime($hour, 0);
+        $startsAt = $localStart->utc();
+        $endsAt = $localStart->addHour()->utc();
+        $customer = $this->customer($organization->id, $field->id, $field->name.' Customer', '+38344129999');
+
+        $reservation = Reservation::query()->updateOrCreate(
+            [
+                'organization_id' => $organization->id,
+                'football_field_id' => $field->id,
+                'starts_at' => $startsAt,
+            ],
+            [
+                'customer_id' => $customer->id,
+                'customer_name' => $customer->name,
+                'customer_phone' => $customer->phone,
+                'ends_at' => $endsAt,
+                'status' => ReservationStatus::Confirmed,
+                'payment_status' => PaymentStatus::Paid,
+                'price' => $field->price_per_hour,
+                'paid_amount' => $field->price_per_hour,
+                'currency' => $organization->currency,
+                'is_walk_in' => false,
+                'notes' => 'Local demo reservation.',
+            ],
+        );
+
+        ReservationSlot::query()->updateOrCreate(
+            ['football_field_id' => $field->id, 'starts_at' => $startsAt],
+            [
+                'organization_id' => $organization->id,
+                'reservation_id' => $reservation->id,
+            ],
+        );
     }
 
     private function user(string $email, string $name, UserRole $role, ?int $organizationId = null, ?string $phone = null): User

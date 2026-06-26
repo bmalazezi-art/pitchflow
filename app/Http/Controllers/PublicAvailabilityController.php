@@ -23,7 +23,7 @@ class PublicAvailabilityController extends Controller
                 ->whereKey($request->integer('field'))
                 ->where('status', FieldStatus::Active)
                 ->whereHas('organization', fn ($query) => $query->where('status', OrganizationStatus::Approved))
-                ->with('organization:id,name,timezone')
+                ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields,timezone', 'organization.city:id,name'])
                 ->first();
             if ($field) {
                 $slots = $availability->slots($field, $request->input('date', now()->toDateString()));
@@ -42,7 +42,7 @@ class PublicAvailabilityController extends Controller
                                 ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
                         });
                 }))
-                ->with('organization:id,name')
+                ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields', 'organization.city:id,name'])
                 ->orderBy('name')->get(['id', 'organization_id', 'city_id', 'name', 'address']),
             'selectedField' => $field,
             'slots' => $slots,
