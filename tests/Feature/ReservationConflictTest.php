@@ -19,7 +19,7 @@ class ReservationConflictTest extends TestCase
         $organization = Organization::factory()->create();
         $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
         $field = FootballField::factory()->for($organization)->create();
-        $start = now(Timezones::resolve($organization->timezone))->addDay()->startOfHour();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
         $payload = [
             'customer_name' => 'First Customer',
             'customer_phone' => '+38344111111',
@@ -32,7 +32,9 @@ class ReservationConflictTest extends TestCase
         $this->actingAs($owner)->post('/reservations', $payload)->assertRedirect();
         $payload['customer_name'] = 'Second Customer';
         $payload['customer_phone'] = '+38344222222';
-        $this->actingAs($owner)->post('/reservations', $payload)->assertSessionHasErrors('starts_at');
+        $this->actingAs($owner)->post('/reservations', $payload)
+            ->assertSessionHasErrors('starts_at')
+            ->assertSessionHas('slot_suggestions');
 
         $this->assertDatabaseCount('reservations', 1);
         $this->assertDatabaseCount('reservation_slots', 1);

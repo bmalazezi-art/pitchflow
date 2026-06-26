@@ -2,6 +2,7 @@ import { Link } from '@inertiajs/react';
 import { AlertCircle, X } from 'lucide-react';
 import type { ReactNode } from 'react';
 import clsx from 'clsx';
+import { useTranslation } from '../lib/i18n';
 
 export function Button({ children, variant = 'primary', className, ...props }: React.ButtonHTMLAttributes<HTMLButtonElement> & { variant?: 'primary' | 'secondary' | 'danger' | 'success' }) {
     return <button className={clsx('btn', `btn-${variant}`, className)} {...props}>{children}</button>;
@@ -20,17 +21,30 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 }
 
 export function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+    const t = useTranslation();
     if (!open) return null;
     return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
         <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
-            <header><h2 id="modal-title">{title}</h2><button className="icon-btn" onClick={onClose} aria-label="Close"><X size={20} /></button></header>
+            <header><h2 id="modal-title">{title}</h2><button className="icon-btn" onClick={onClose} aria-label={t('close')}><X size={20} /></button></header>
             {children}
         </section>
     </div>;
 }
 
 export function Badge({ value }: { value: string }) {
-    return <span className={clsx('badge', `badge-${value}`)}>{value.replaceAll('_', ' ')}</span>;
+    const t = useTranslation();
+    const key = ({
+        reliable: 'reliable', needs_attention: 'needsAttention', high_risk: 'highRisk',
+        pending: 'pending', confirmed: 'confirmed', completed: 'completed',
+        cancelled: 'cancelled', late_cancelled: 'lateCancelled', no_show: 'noShow',
+        unpaid: 'unpaid', partial: 'partial', paid: 'paid',
+        active: 'active', maintenance: 'maintenance', closed: 'closed',
+        approved: 'approved', rejected: 'rejected', suspended: 'suspended',
+        available: 'available', occupied: 'occupied', past: 'past',
+        trial: 'trial', expired: 'expired',
+    } as Record<string, any>)[value];
+
+    return <span className={clsx('badge', `badge-${value}`)}>{key ? t(key) : value.replaceAll('_', ' ')}</span>;
 }
 
 export function EmptyState({ title, action }: { title: string; action?: ReactNode }) {
@@ -38,7 +52,8 @@ export function EmptyState({ title, action }: { title: string; action?: ReactNod
 }
 
 export function Pagination({ links }: { links: Array<{ url: string | null; label: string; active: boolean }> }) {
-    return <nav className="pagination" aria-label="Pagination">{links.map((link, index) =>
+    const t = useTranslation();
+    return <nav className="pagination" aria-label={t('pagination')}>{links.map((link, index) =>
         link.url ? <Link key={index} href={link.url} className={link.active ? 'active' : ''} dangerouslySetInnerHTML={{ __html: link.label }} />
             : <span key={index} dangerouslySetInnerHTML={{ __html: link.label }} />
     )}</nav>;

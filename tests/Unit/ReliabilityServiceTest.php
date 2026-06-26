@@ -40,6 +40,7 @@ class ReliabilityServiceTest extends TestCase
         app(ReliabilityService::class)->recalculate($customer);
 
         $this->assertSame(ReliabilityStatus::HighRisk, $customer->refresh()->reliability_status);
+        $this->assertSame(40, $customer->reliability_score);
         $this->assertSame(2, $customer->no_shows);
     }
 }

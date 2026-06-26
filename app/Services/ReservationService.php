@@ -9,6 +9,7 @@ use App\Models\Customer;
 use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\Reservation;
+use App\Models\ReservationSlot;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -20,6 +21,7 @@ class ReservationService
         private readonly PhoneNormalizer $phones,
         private readonly ReliabilityService $reliability,
         private readonly ActivityLogger $activity,
+        private readonly OperatingScheduleService $schedule,
     ) {}
 
     public function create(Organization $organization, array $data, int $actorId): Reservation
@@ -33,6 +35,7 @@ class ReservationService
             $this->ensureFieldBookable($field);
             [$startsAt, $endsAt] = $this->utcRange($organization, $data);
             $this->ensureValidRange($startsAt, $endsAt);
+            $this->ensureWithinOperatingHours($field, $startsAt, $endsAt);
 
             $normalizedPhone = $this->phones->normalize($data['customer_phone']);
             $customer = Customer::withTrashed()->firstOrNew([
@@ -47,6 +50,9 @@ class ReservationService
             $customer->save();
 
             $status = ReservationStatus::from($data['status'] ?? ReservationStatus::Confirmed->value);
+            if (! in_array($status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true)) {
+                throw new ReservationConflictException(__('messages.invalid_reservation_status'));
+            }
             $reservation = Reservation::create([
                 ...$data,
                 'organization_id' => $organization->id,
@@ -54,7 +60,7 @@ class ReservationService
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
                 'status' => $status,
-                'price' => $data['price'] ?? $field->price_per_hour * ($startsAt->diffInMinutes($endsAt) / 60),
+                'price' => $data['price'] ?? (float) $field->price_per_hour * ($startsAt->diffInMinutes($endsAt) / 60),
                 'currency' => $organization->currency,
                 'created_by' => $actorId,
                 'updated_by' => $actorId,
@@ -87,13 +93,31 @@ class ReservationService
             ];
             [$startsAt, $endsAt] = $this->utcRange($organization, $payload);
             $this->ensureValidRange($startsAt, $endsAt);
+            $this->ensureWithinOperatingHours($field, $startsAt, $endsAt);
+
+            $customer = $reservation->customer;
+            if (isset($data['customer_phone']) && $this->phones->normalize($data['customer_phone']) !== $customer->phone_normalized) {
+                $customer = Customer::query()->firstOrCreate(
+                    [
+                        'organization_id' => $organization->id,
+                        'phone_normalized' => $this->phones->normalize($data['customer_phone']),
+                    ],
+                    ['name' => $data['customer_name'], 'phone' => $data['customer_phone']],
+                );
+            } elseif (isset($data['customer_name'], $data['customer_phone'])) {
+                $customer->update(['name' => $data['customer_name'], 'phone' => $data['customer_phone']]);
+            }
 
             $reservation->slots()->delete();
+            $nextStatus = ReservationStatus::from($data['status'] ?? $reservation->status->value);
+            $this->ensureStatusTransition($reservation->status, $nextStatus);
             $reservation->fill([
                 ...$data,
                 'football_field_id' => $field->id,
+                'customer_id' => $customer->id,
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
+                'status' => $nextStatus,
                 'updated_by' => $actorId,
             ])->save();
 
@@ -101,7 +125,7 @@ class ReservationService
                 $this->lockSlots($reservation);
             }
 
-            $this->reliability->recalculate($reservation->customer);
+            $this->reliability->recalculate($customer);
             $this->activity->log('reservation_updated', $reservation);
 
             return $reservation->refresh()->load(['footballField', 'customer']);
@@ -133,6 +157,39 @@ class ReservationService
         });
     }
 
+    public function suggestAlternatives(
+        Organization $organization,
+        int $fieldId,
+        string $requestedStart,
+        int $limit = 3,
+    ): array {
+        $field = FootballField::query()->forOrganization($organization->id)->findOrFail($fieldId);
+        $candidate = CarbonImmutable::parse($requestedStart, Timezones::resolve($organization->timezone))
+            ->addHour()
+            ->startOfHour();
+        $suggestions = [];
+
+        for ($attempt = 0; $attempt < 48 && count($suggestions) < $limit; $attempt++) {
+            $candidateEnd = $candidate->addHour();
+            $occupied = ReservationSlot::query()
+                ->where('football_field_id', $field->id)
+                ->where('starts_at', $candidate->utc())
+                ->exists();
+
+            if (! $occupied && $this->schedule->contains($field, $candidate->utc(), $candidateEnd->utc())) {
+                $suggestions[] = [
+                    'starts_at' => $candidate->format('Y-m-d\TH:i'),
+                    'ends_at' => $candidateEnd->format('Y-m-d\TH:i'),
+                    'label' => $candidate->format('D, M j · H:i').'–'.$candidateEnd->format('H:i'),
+                ];
+            }
+
+            $candidate = $candidate->addHour();
+        }
+
+        return $suggestions;
+    }
+
     private function lockSlots(Reservation $reservation): void
     {
         $slot = CarbonImmutable::parse($reservation->starts_at)->startOfHour();
@@ -162,7 +219,12 @@ class ReservationService
 
     private function ensureValidRange(CarbonImmutable $startsAt, CarbonImmutable $endsAt): void
     {
-        if ($endsAt->lessThanOrEqualTo($startsAt) || $startsAt->minute !== 0 || $endsAt->minute !== 0) {
+        if (
+            $endsAt->lessThanOrEqualTo($startsAt)
+            || $startsAt->minute !== 0
+            || $endsAt->minute !== 0
+            || $startsAt->diffInMinutes($endsAt) % 60 !== 0
+        ) {
             throw new ReservationConflictException(__('messages.invalid_reservation_range'));
         }
     }
@@ -171,6 +233,34 @@ class ReservationService
     {
         if ($field->status !== FieldStatus::Active) {
             throw new ReservationConflictException(__('messages.field_unavailable'));
+        }
+    }
+
+    private function ensureStatusTransition(ReservationStatus $current, ReservationStatus $next): void
+    {
+        if ($current === $next) {
+            return;
+        }
+
+        $allowed = match ($current) {
+            ReservationStatus::Pending => [ReservationStatus::Confirmed],
+            ReservationStatus::Confirmed => [ReservationStatus::Completed, ReservationStatus::NoShow],
+            default => [],
+        };
+
+        if (! in_array($next, $allowed, true)) {
+            throw new ReservationConflictException(__('messages.invalid_reservation_status'));
+        }
+    }
+
+    private function ensureWithinOperatingHours(
+        FootballField $field,
+        CarbonImmutable $startsAt,
+        CarbonImmutable $endsAt,
+    ): void {
+        $field->loadMissing(['organization', 'operatingHours']);
+        if (! $this->schedule->contains($field, $startsAt, $endsAt)) {
+            throw new ReservationConflictException(__('messages.outside_operating_hours'));
         }
     }
 }

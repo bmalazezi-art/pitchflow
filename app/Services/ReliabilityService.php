@@ -21,9 +21,10 @@ class ReliabilityService
         $noShows = (int) ($counts[ReservationStatus::NoShow->value] ?? 0);
         $total = (int) $counts->sum();
 
+        $score = max(0, min(100, 100 - ($noShows * 30) - ($late * 20) - ($cancelled * 5)));
         $status = match (true) {
-            $noShows >= 2 || $late >= 3 => ReliabilityStatus::HighRisk,
-            $noShows >= 1 || $late >= 1 || ($total >= 3 && (($cancelled + $late) / $total) >= 0.3) => ReliabilityStatus::NeedsAttention,
+            $score < 50 => ReliabilityStatus::HighRisk,
+            $score < 80 => ReliabilityStatus::NeedsAttention,
             default => ReliabilityStatus::Reliable,
         };
 
@@ -34,6 +35,7 @@ class ReliabilityService
             'late_cancellations' => $late,
             'no_shows' => $noShows,
             'reliability_status' => $status,
+            'reliability_score' => $score,
             'last_visit_at' => $customer->reservations()
                 ->where('status', ReservationStatus::Completed->value)
                 ->max('ends_at'),

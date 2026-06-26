@@ -19,7 +19,7 @@ class ReservationRequest extends FormRequest
             'football_field_id' => ['required', 'integer'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date'],
-            'status' => ['sometimes', 'in:pending,confirmed,completed,cancelled,late_cancelled,no_show'],
+            'status' => ['sometimes', 'in:pending,confirmed,completed,no_show'],
             'payment_status' => ['required', 'in:unpaid,partial,paid'],
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'is_walk_in' => ['sometimes', 'boolean'],

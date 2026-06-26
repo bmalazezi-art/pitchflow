@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Customer;
 use App\Models\FootballField;
+use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\User;
 use Illuminate\Http\JsonResponse;
@@ -15,7 +16,22 @@ class SearchController extends Controller
     {
         $request->validate(['q' => ['required', 'string', 'min:2', 'max:80']]);
         $q = $request->string('q')->toString();
-        $organizationId = $request->user()->organization_id;
+        $user = $request->user();
+
+        if ($user->isSuperAdmin()) {
+            return response()->json([
+                'organizations' => Organization::query()
+                    ->where(function ($query) use ($q) {
+                        $query->where('name', 'like', "%{$q}%")
+                            ->orWhere('email', 'like', "%{$q}%")
+                            ->orWhere('phone', 'like', "%{$q}%");
+                    })
+                    ->limit(8)
+                    ->get(['id', 'name', 'email', 'phone', 'status']),
+            ]);
+        }
+
+        $organizationId = $user->organization_id;
 
         return response()->json([
             'customers' => Customer::query()->forOrganization($organizationId)
@@ -26,7 +42,7 @@ class SearchController extends Controller
                 ->limit(5)->get(['id', 'customer_name', 'customer_phone', 'starts_at']),
             'fields' => FootballField::query()->forOrganization($organizationId)->where('name', 'like', "%{$q}%")
                 ->limit(5)->get(['id', 'name']),
-            'employees' => $request->user()->isOwner()
+            'employees' => $user->isOwner()
                 ? User::query()->where('organization_id', $organizationId)->where('role', 'employee')->where('name', 'like', "%{$q}%")->limit(5)->get(['id', 'name', 'email'])
                 : [],
         ]);

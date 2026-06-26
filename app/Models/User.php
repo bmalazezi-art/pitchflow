@@ -3,8 +3,10 @@
 namespace App\Models;
 
 use App\Enums\UserRole;
+use App\Notifications\QueuedVerifyEmail;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
+use Illuminate\Contracts\Translation\HasLocalePreference;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -12,7 +14,14 @@ use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-class User extends Authenticatable implements MustVerifyEmail
+/**
+ * @property int $id
+ * @property int|null $organization_id
+ * @property UserRole $role
+ * @property string $preferred_language
+ * @property-read Organization|null $organization
+ */
+class User extends Authenticatable implements HasLocalePreference, MustVerifyEmail
 {
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable, SoftDeletes;
@@ -57,5 +66,15 @@ class User extends Authenticatable implements MustVerifyEmail
     public function isOwner(): bool
     {
         return $this->role === UserRole::Owner;
+    }
+
+    public function preferredLocale(): string
+    {
+        return $this->preferred_language;
+    }
+
+    public function sendEmailVerificationNotification(): void
+    {
+        $this->notify(new QueuedVerifyEmail);
     }
 }

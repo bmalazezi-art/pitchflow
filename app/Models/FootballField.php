@@ -11,6 +11,15 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
+/**
+ * @property int $id
+ * @property int $organization_id
+ * @property FieldStatus $status
+ * @property string $opening_time
+ * @property string $closing_time
+ * @property string $price_per_hour
+ * @property-read Organization $organization
+ */
 class FootballField extends Model
 {
     use BelongsToOrganization, HasFactory, SoftDeletes;
@@ -35,13 +44,21 @@ class FootballField extends Model
         return $this->belongsToMany(User::class, 'employee_field_assignments')->withTimestamps();
     }
 
+    /** @return HasMany<Reservation, $this> */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
     }
 
+    /** @return HasMany<OperatingHour, $this> */
     public function operatingHours(): HasMany
     {
         return $this->hasMany(OperatingHour::class);
+    }
+
+    /** @return HasMany<OperatingHourOverride, $this> */
+    public function operatingHourOverrides(): HasMany
+    {
+        return $this->hasMany(OperatingHourOverride::class);
     }
 }

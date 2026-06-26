@@ -20,7 +20,11 @@ export interface Organization {
 export interface SharedProps {
     auth: { user: AuthUser | null; organization: Organization | null };
     locale: 'en' | 'sq';
-    flash: { success?: string; error?: string };
+    flash: {
+        success?: string;
+        error?: string;
+        slot_suggestions?: Array<{ starts_at: string; ends_at: string; label: string }>;
+    };
     [key: string]: unknown;
 }
 

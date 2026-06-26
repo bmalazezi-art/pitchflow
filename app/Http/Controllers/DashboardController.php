@@ -3,17 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Services\ReportService;
+use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class DashboardController extends Controller
 {
-    public function __invoke(ReportService $reports): Response
+    public function __invoke(ReportService $reports): Response|RedirectResponse
     {
-        $organization = request()->user()->organization;
+        $user = request()->user();
+        if ($user->isSuperAdmin()) {
+            return redirect()->route('admin.organizations');
+        }
 
         return Inertia::render('Dashboard', [
-            'metrics' => $reports->dashboard($organization),
+            'metrics' => $reports->dashboard($user->organization),
         ]);
     }
 }

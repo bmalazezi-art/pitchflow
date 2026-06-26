@@ -3,6 +3,8 @@
 return [
     'reservation_conflict' => 'Ky orar nuk është më i lirë. Zgjidhni një orar tjetër.',
     'invalid_reservation_range' => 'Rezervimet duhet të përdorin intervale të vlefshme njëorëshe.',
+    'outside_operating_hours' => 'Ky rezervim është jashtë orarit të punës së fushës.',
+    'invalid_reservation_status' => 'Ky ndryshim i statusit të rezervimit nuk lejohet.',
     'field_unavailable' => 'Ky fushë futbolli nuk është në dispozicion për rezervime.',
     'reset_link_sent' => 'Nëse llogaria ekziston, lidhja për rivendosjen e fjalëkalimit është dërguar.',
     'verification_sent' => 'Një lidhje e re verifikimi është dërguar.',
@@ -10,6 +12,11 @@ return [
     'field_updated' => 'Fusha e futbollit u përditësua.',
     'field_deleted' => 'Fusha e futbollit u hoq.',
     'employee_created' => 'Punonjësi u krijua.',
+    'employee_invitation_subject' => 'Jeni ftuar në PitchFlow',
+    'employee_invitation_greeting' => 'Përshëndetje :name,',
+    'employee_invitation_intro' => ':organization ju ftoi për të menaxhuar rezervimet e fushave.',
+    'employee_invitation_action' => 'Vendos fjalëkalimin',
+    'employee_invitation_expiry' => 'Kjo ftesë e sigurt skadon pas 60 minutash.',
     'employee_updated' => 'Punonjësi u përditësua.',
     'employee_deleted' => 'Punonjësi u hoq.',
     'invalid_field_assignment' => 'Një ose më shumë caktime të fushave janë të pavlefshme.',
@@ -20,6 +27,7 @@ return [
     'note_created' => 'Shënimi privat u shtua.',
     'settings_updated' => 'Cilësimet e organizatës u përditësuan.',
     'organization_updated' => 'Statusi i organizatës u përditësua.',
+    'subscription_updated' => 'Abonimi u përditësua.',
     'city_created' => 'Qyteti u krijua.',
     'city_updated' => 'Qyteti u përditësua.',
 ];

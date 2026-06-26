@@ -13,6 +13,7 @@
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",
+        "larastan/larastan": "^3.0",
         "laravel/pail": "^1.2.5",
         "laravel/pint": "^1.27",
         "mockery/mockery": "^1.6",
@@ -47,6 +48,11 @@
         ],
         "test": [
             "@php artisan config:clear --ansi @no_additional_args",
+            "@php artisan test"
+        ],
+        "quality": [
+            "@php vendor/bin/pint --test",
+            "@php vendor/bin/phpstan analyse --memory-limit=512M --debug --no-progress",
             "@php artisan test"
         ],
         "post-autoload-dump": [

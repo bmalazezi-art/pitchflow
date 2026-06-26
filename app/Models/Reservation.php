@@ -10,7 +10,20 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Carbon;
 
+/**
+ * @property int $id
+ * @property int $organization_id
+ * @property int $football_field_id
+ * @property Carbon $starts_at
+ * @property Carbon $ends_at
+ * @property Carbon|null $cancelled_at
+ * @property ReservationStatus $status
+ * @property PaymentStatus $payment_status
+ * @property-read Customer $customer
+ * @property-read FootballField $footballField
+ */
 class Reservation extends Model
 {
     use BelongsToOrganization, HasFactory, SoftDeletes;

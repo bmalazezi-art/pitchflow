@@ -19,6 +19,7 @@ class FootballFieldController extends Controller
     {
         $user = request()->user();
         $fields = FootballField::query()->forOrganization($user->organization_id)
+            ->with('operatingHours')
             ->withCount(['reservations', 'employees'])->orderBy('name')->paginate(15);
 
         return Inertia::render('Fields/Index', [

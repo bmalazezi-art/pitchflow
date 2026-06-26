@@ -69,7 +69,13 @@ class ReservationController extends Controller
         try {
             $service->create($request->user()->organization, $request->validated(), $request->user()->id);
         } catch (ReservationConflictException $exception) {
-            return back()->withErrors(['starts_at' => $exception->getMessage()]);
+            return back()
+                ->withErrors(['starts_at' => $exception->getMessage()])
+                ->with('slot_suggestions', $service->suggestAlternatives(
+                    $request->user()->organization,
+                    (int) $request->validated('football_field_id'),
+                    $request->validated('starts_at'),
+                ));
         }
 
         return back()->with('success', __('messages.reservation_created'));
@@ -83,7 +89,13 @@ class ReservationController extends Controller
         try {
             $service->update($reservation, $request->user()->organization, $request->validated(), $request->user()->id);
         } catch (ReservationConflictException $exception) {
-            return back()->withErrors(['starts_at' => $exception->getMessage()]);
+            return back()
+                ->withErrors(['starts_at' => $exception->getMessage()])
+                ->with('slot_suggestions', $service->suggestAlternatives(
+                    $request->user()->organization,
+                    (int) $request->validated('football_field_id'),
+                    $request->validated('starts_at'),
+                ));
         }
 
         return back()->with('success', __('messages.reservation_updated'));

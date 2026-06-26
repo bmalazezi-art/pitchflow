@@ -35,7 +35,13 @@ class PublicAvailabilityController extends Controller
             'fields' => FootballField::query()
                 ->where('status', FieldStatus::Active)
                 ->whereHas('organization', fn ($query) => $query->where('status', OrganizationStatus::Approved))
-                ->when($request->filled('city'), fn ($query) => $query->where('city_id', $request->integer('city')))
+                ->when($request->filled('city'), fn ($query) => $query->where(function ($cityQuery) use ($request) {
+                    $cityQuery->where('city_id', $request->integer('city'))
+                        ->orWhere(function ($organizationCityQuery) use ($request) {
+                            $organizationCityQuery->whereNull('city_id')
+                                ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
+                        });
+                }))
                 ->with('organization:id,name')
                 ->orderBy('name')->get(['id', 'organization_id', 'city_id', 'name', 'address']),
             'selectedField' => $field,

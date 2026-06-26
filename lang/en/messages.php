@@ -3,6 +3,8 @@
 return [
     'reservation_conflict' => 'This time is no longer available. Choose another slot.',
     'invalid_reservation_range' => 'Reservations must use valid one-hour boundaries.',
+    'outside_operating_hours' => 'This reservation is outside the field’s operating hours.',
+    'invalid_reservation_status' => 'This reservation status change is not allowed.',
     'field_unavailable' => 'This football field is not available for reservations.',
     'reset_link_sent' => 'If the account exists, a password reset link has been sent.',
     'verification_sent' => 'A new verification link has been sent.',
@@ -10,6 +12,11 @@ return [
     'field_updated' => 'Football field updated.',
     'field_deleted' => 'Football field removed.',
     'employee_created' => 'Employee created.',
+    'employee_invitation_subject' => 'You have been invited to PitchFlow',
+    'employee_invitation_greeting' => 'Hello :name,',
+    'employee_invitation_intro' => ':organization invited you to manage football field reservations.',
+    'employee_invitation_action' => 'Set your password',
+    'employee_invitation_expiry' => 'This secure invitation expires in 60 minutes.',
     'employee_updated' => 'Employee updated.',
     'employee_deleted' => 'Employee removed.',
     'invalid_field_assignment' => 'One or more field assignments are invalid.',
@@ -20,6 +27,7 @@ return [
     'note_created' => 'Private note added.',
     'settings_updated' => 'Organization settings updated.',
     'organization_updated' => 'Organization status updated.',
+    'subscription_updated' => 'Subscription updated.',
     'city_created' => 'City created.',
     'city_updated' => 'City updated.',
 ];

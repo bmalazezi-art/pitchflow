@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/search', SearchController::class)->name('search')->middleware('throttle:60,1');
         Route::get('/admin/organizations', [AdminOrganizationController::class, 'index'])->name('admin.organizations');
         Route::patch('/admin/organizations/{organization}', [AdminOrganizationController::class, 'update'])->name('admin.organizations.update');
+        Route::put('/admin/organizations/{organization}/subscription', [AdminOrganizationController::class, 'updateSubscription'])->name('admin.organizations.subscription');
         Route::get('/admin/cities', [AdminCityController::class, 'index'])->name('admin.cities');
         Route::post('/admin/cities', [AdminCityController::class, 'store'])->name('admin.cities.store');
         Route::put('/admin/cities/{city}', [AdminCityController::class, 'update'])->name('admin.cities.update');

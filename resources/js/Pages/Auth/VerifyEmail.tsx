@@ -1,10 +1,12 @@
 import { Head, router } from '@inertiajs/react';
 import AuthLayout from '../../Layouts/AuthLayout';
 import { Button } from '../../Components/UI';
+import { useTranslation } from '../../lib/i18n';
 
 export default function VerifyEmail() {
-    return <AuthLayout><Head title="Verify email" /><h1>Verify your email</h1><p>Open the verification link sent to your inbox before accessing the workspace.</p>
-        <Button onClick={() => router.post('/email/verification-notification')}>Resend verification email</Button>
-        <Button variant="secondary" onClick={() => router.post('/logout')}>Log out</Button>
+    const t = useTranslation();
+    return <AuthLayout><Head title={t('verifyEmail')} /><h1>{t('verifyEmail')}</h1><p>{t('verifyEmailIntro')}</p>
+        <Button onClick={() => router.post('/email/verification-notification')}>{t('resendVerification')}</Button>
+        <Button variant="secondary" onClick={() => router.post('/logout')}>{t('logout')}</Button>
     </AuthLayout>;
 }

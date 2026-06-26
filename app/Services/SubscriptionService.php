@@ -9,7 +9,10 @@ class SubscriptionService
 {
     public function syncForOrganization(Organization $organization): Subscription
     {
-        $fieldCount = max($organization->number_of_fields, $organization->footballFields()->count(), 1);
+        $currentFieldCount = $organization->footballFields()->count();
+        $fieldCount = $currentFieldCount > 0
+            ? $currentFieldCount
+            : max($organization->number_of_fields, 1);
         $tier = collect(config('plans.tiers'))->first(
             fn (array $plan) => $fieldCount >= $plan['min_fields']
                 && ($plan['max_fields'] === null || $fieldCount <= $plan['max_fields'])

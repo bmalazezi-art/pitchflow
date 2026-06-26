@@ -23,6 +23,12 @@ class ActivityLog extends Model
         return ['properties' => 'array'];
     }
 
+    protected static function booted(): void
+    {
+        static::updating(fn () => throw new \LogicException('Activity logs are immutable.'));
+        static::deleting(fn () => throw new \LogicException('Activity logs are immutable.'));
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

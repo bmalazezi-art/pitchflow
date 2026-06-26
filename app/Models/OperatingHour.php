@@ -6,6 +6,11 @@ use App\Models\Concerns\BelongsToOrganization;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
+/**
+ * @property bool $is_closed
+ * @property string $opening_time
+ * @property string $closing_time
+ */
 class OperatingHour extends Model
 {
     use BelongsToOrganization;

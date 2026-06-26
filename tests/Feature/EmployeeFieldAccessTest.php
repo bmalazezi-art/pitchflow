@@ -22,7 +22,7 @@ class EmployeeFieldAccessTest extends TestCase
         $other = FootballField::factory()->for($organization)->create();
         $employee->assignedFields()->attach($assigned, ['organization_id' => $organization->id]);
 
-        $start = now(Timezones::resolve($organization->timezone))->addDay()->startOfHour();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
         $payload = [
             'customer_name' => 'Customer',
             'customer_phone' => '+38344123456',

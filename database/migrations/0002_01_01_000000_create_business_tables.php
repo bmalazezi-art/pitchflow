@@ -69,6 +69,7 @@ return new class extends Migration
             $table->string('phone', 32);
             $table->string('phone_normalized', 32);
             $table->string('reliability_status', 24)->default('reliable')->index();
+            $table->unsignedTinyInteger('reliability_score')->default(100);
             $table->unsignedInteger('total_reservations')->default(0);
             $table->unsignedInteger('completed_reservations')->default(0);
             $table->unsignedInteger('cancelled_reservations')->default(0);

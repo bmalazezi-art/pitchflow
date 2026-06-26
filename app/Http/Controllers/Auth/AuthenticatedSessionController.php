@@ -29,13 +29,19 @@ class AuthenticatedSessionController extends Controller
         $request->user()->forceFill(['last_login_at' => now()])->save();
         $activity->log('login');
 
-        return redirect()->intended(route('dashboard'));
+        $destination = match (true) {
+            $request->user()->isSuperAdmin() => route('admin.organizations'),
+            $request->user()->isOwner() => route('dashboard'),
+            default => route('calendar'),
+        };
+
+        return redirect()->intended($destination);
     }
 
     public function destroy(Request $request, ActivityLogger $activity): RedirectResponse
     {
         $activity->log('logout');
-        Auth::guard('web')->logout();
+        Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 

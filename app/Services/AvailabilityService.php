@@ -3,7 +3,6 @@
 namespace App\Services;
 
 use App\Models\FootballField;
-use App\Models\OperatingHourOverride;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 
@@ -14,15 +13,23 @@ class AvailabilityService
         $organization = $field->organization;
         $timezone = Timezones::resolve($organization->timezone);
         $localDate = CarbonImmutable::parse($date, $timezone)->startOfDay();
-        $override = $field->hasOne(OperatingHourOverride::class)->whereDate('date', $localDate)->first();
+        $override = $field->operatingHourOverrides()->whereDate('date', $localDate)->first();
         $hours = $field->operatingHours()->where('day_of_week', $localDate->dayOfWeek)->first();
 
         if ($override?->is_closed || (! $override && $hours?->is_closed)) {
             return [];
         }
 
-        $opening = $override?->opening_time ?? $hours?->opening_time ?? $field->opening_time;
-        $closing = $override?->closing_time ?? $hours?->closing_time ?? $field->closing_time;
+        $opening = $field->opening_time;
+        $closing = $field->closing_time;
+        if ($hours !== null) {
+            $opening = $hours->opening_time;
+            $closing = $hours->closing_time;
+        }
+        if ($override !== null) {
+            $opening = $override->opening_time ?? $opening;
+            $closing = $override->closing_time ?? $closing;
+        }
         $cursor = CarbonImmutable::parse($localDate->format('Y-m-d').' '.$opening, $timezone);
         $end = CarbonImmutable::parse($localDate->format('Y-m-d').' '.$closing, $timezone);
         if ($end->lessThanOrEqualTo($cursor)) {
