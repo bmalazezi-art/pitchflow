@@ -3,7 +3,6 @@
 namespace Database\Seeders;
 
 use App\Enums\UserRole;
-use App\Models\City;
 use App\Models\User;
 use Illuminate\Database\Console\Seeds\WithoutModelEvents;
 use Illuminate\Database\Seeder;
@@ -17,9 +16,7 @@ class DatabaseSeeder extends Seeder
      */
     public function run(): void
     {
-        foreach (['Prishtinë', 'Prizren', 'Pejë', 'Mitrovicë', 'Ferizaj', 'Gjilan', 'Gjakovë'] as $name) {
-            City::query()->firstOrCreate(['name' => $name, 'country' => 'XK'], ['is_active' => true]);
-        }
+        $this->call(CitySeeder::class);
 
         if ($email = env('SUPER_ADMIN_EMAIL')) {
             User::query()->updateOrCreate(
@@ -31,6 +28,10 @@ class DatabaseSeeder extends Seeder
                     'email_verified_at' => now(),
                 ],
             );
+        }
+
+        if (app()->environment(['local', 'testing'])) {
+            $this->call(LocalTestingSeeder::class);
         }
     }
 }
