@@ -147,6 +147,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .public-input { min-height: 54px; padding: 0 13px; display: flex; align-items: center; gap: 10px; color: #64748b; border: 1px solid #e2e8f0; border-radius: 8px; background: #f8fafc; }
 .public-input:focus-within { border-color: #60a5fa; box-shadow: 0 0 0 4px rgb(96 165 250 / .18); }
 .public-input select, .public-input input { width: 100%; min-width: 0; border: 0; outline: 0; color: #0f172a; background: transparent; font-weight: 700; }
+.public-input select:disabled { color: #94a3b8; cursor: not-allowed; }
 .availability-submit { min-height: 54px; border-radius: 8px; white-space: nowrap; }
 .field-discovery, .availability-results { width: min(1120px, calc(100% - 32px)); margin: 0 auto; }
 .field-discovery { padding: 54px 0 0; }
@@ -168,7 +169,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 .venue-card-body a:hover, .venue-details a:hover { color: #2563eb; }
 .amenity-list { display: flex; flex-wrap: wrap; gap: 7px; }
 .amenity-list span { min-height: 28px; padding: 0 10px; display: inline-flex; align-items: center; gap: 6px; color: #166534; border-radius: 999px; background: #dcfce7; font-size: 12px; font-weight: 800; }
-.card-cta { margin-top: 4px; display: inline-flex; align-items: center; gap: 5px; color: #2563eb; font-weight: 800; }
+.card-cta { margin-top: 4px; width: 100%; min-height: 44px; border-radius: 8px; display: inline-flex; align-items: center; gap: 5px; color: #fff; background: #0f172a; font-weight: 800; }
+.card-cta:hover { background: #1e293b; }
 .public-empty { min-height: 190px; display: grid; place-content: center; justify-items: center; gap: 12px; color: #64748b; border: 1px dashed #cbd5e1; border-radius: 8px; background: white; }
 .availability-results { padding: 34px 0 72px; }
 .results-top { display: grid; gap: 14px; }

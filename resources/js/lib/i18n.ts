@@ -86,6 +86,7 @@ const messages = {
         parking: 'Parking', cafe: 'Café', showers: 'Showers',
         backToSearch: 'Back to search', resultsIntro: 'Real-time one-hour availability for your selected field.',
         selectedFootballField: 'Selected football field', availableTimeSlots: 'Available time slots',
+        viewAvailability: 'View Availability',
     },
     sq: {
         dashboard: 'Paneli', calendar: 'Kalendari', reservations: 'Rezervimet', customers: 'Klientët',
@@ -171,6 +172,7 @@ const messages = {
         parking: 'Parking', cafe: 'Kafene', showers: 'Dushe',
         backToSearch: 'Kthehu te kërkimi', resultsIntro: 'Disponueshmëri njëorëshe në kohë reale për fushën e zgjedhur.',
         selectedFootballField: 'Fusha e zgjedhur', availableTimeSlots: 'Oraret e lira',
+        viewAvailability: 'Shiko oraret',
     },
 } as const;
 

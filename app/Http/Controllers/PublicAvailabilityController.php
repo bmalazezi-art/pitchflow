@@ -18,11 +18,18 @@ class PublicAvailabilityController extends Controller
         $field = null;
         $slots = [];
 
-        if ($request->filled('field')) {
+        if ($request->filled(['city', 'field'])) {
             $field = FootballField::query()
                 ->whereKey($request->integer('field'))
                 ->where('status', FieldStatus::Active)
                 ->whereHas('organization', fn ($query) => $query->where('status', OrganizationStatus::Approved))
+                ->where(function ($cityQuery) use ($request) {
+                    $cityQuery->where('city_id', $request->integer('city'))
+                        ->orWhere(function ($organizationCityQuery) use ($request) {
+                            $organizationCityQuery->whereNull('city_id')
+                                ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
+                        });
+                })
                 ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields,timezone', 'organization.city:id,name'])
                 ->first();
             if ($field) {
@@ -41,7 +48,7 @@ class PublicAvailabilityController extends Controller
                             $organizationCityQuery->whereNull('city_id')
                                 ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
                         });
-                }))
+                }), fn ($query) => $query->whereRaw('1 = 0'))
                 ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields', 'organization.city:id,name'])
                 ->orderBy('name')->get(['id', 'organization_id', 'city_id', 'name', 'address']),
             'selectedField' => $field,

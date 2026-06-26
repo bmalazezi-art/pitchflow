@@ -54,6 +54,7 @@ export default function Availability({ cities, fields, selectedField, slots, fil
     const [draftDate, setDraftDate] = useState(filters.date);
     const selectedCity = cities.find(city => city.id === Number(filters.city));
     const hasResults = Boolean(selectedField);
+    const hasCity = Boolean(filters.city);
     const searchFilters = { ...filters, field: draftField, date: draftDate };
 
     const setLocale = (nextLocale: 'en' | 'sq') => router.post('/locale', { locale: nextLocale }, { preserveScroll: true });
@@ -70,29 +71,28 @@ export default function Availability({ cities, fields, selectedField, slots, fil
         setDraftDate(String(value || filters.date));
     };
     const checkAvailability = () => {
-        if (!draftField && fields.length === 1) {
-            router.get('/', { ...filters, date: draftDate, field: fields[0].id }, { preserveState: true });
-            return;
-        }
         router.get('/', { ...filters, date: draftDate, field: draftField || undefined }, { preserveState: true });
+    };
+    const viewAvailability = (fieldId: number) => {
+        setDraftField(fieldId);
+        router.get('/', { ...filters, date: draftDate, field: fieldId }, { preserveState: true });
     };
 
     return <div className="public-page">
         <Head title={t('checkAvailabilityTitle')} />
         <PublicNav locale={locale} setLocale={setLocale} />
-        {hasResults && selectedField
-            ? <ResultsView selectedField={selectedField} slots={slots} filters={searchFilters} cities={cities} fields={fields} updateFilter={updateFilter} />
-            : <main className="public-home">
-                <section className="public-hero">
-                    <div className="hero-visual" aria-hidden="true"><div className="field-lines" /></div>
-                    <div className="hero-content">
-                        <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
-                        <h1>{t('checkAvailabilityTitle')}</h1>
-                        <p>{t('availabilityHeroDescription')}</p>
-                        <SearchCard cities={cities} fields={fields} filters={searchFilters} updateFilter={updateFilter} onSubmit={checkAvailability} />
-                    </div>
-                </section>
-                <section className="field-discovery" aria-labelledby="discover-fields">
+        <main className="public-home">
+            <section className="public-hero">
+                <div className="hero-visual" aria-hidden="true"><div className="field-lines" /></div>
+                <div className="hero-content">
+                    <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
+                    <h1>{t('checkAvailabilityTitle')}</h1>
+                    <p>{t('availabilityHeroDescription')}</p>
+                    <SearchCard cities={cities} fields={fields} filters={searchFilters} updateFilter={updateFilter} onSubmit={checkAvailability} />
+                </div>
+            </section>
+            {hasCity
+                ? <section className="field-discovery" aria-labelledby="discover-fields">
                     <div className="section-heading">
                         <div>
                             <span>{selectedCity ? selectedCity.name : t('chooseCity')}</span>
@@ -101,11 +101,13 @@ export default function Availability({ cities, fields, selectedField, slots, fil
                         <p>{t('discoverFootballFieldsIntro')}</p>
                     </div>
                     <div className="field-card-grid">
-                        {fields.map((field, index) => <FieldCard key={field.id} field={field} index={index} selected={draftField === field.id} onSelect={() => updateFilter('field', field.id)} />)}
+                        {fields.map((field, index) => <FieldCard key={field.id} field={field} index={index} selected={draftField === field.id} onView={() => viewAvailability(field.id)} />)}
                     </div>
                     {fields.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('selectCityToDiscover')}</p></div>}
                 </section>
-            </main>}
+                : null}
+            {hasResults && selectedField && <AvailabilitySection selectedField={selectedField} slots={slots} filters={searchFilters} />}
+        </main>
     </div>;
 }
 
@@ -138,7 +140,7 @@ function SearchCard({ cities, fields, filters, updateFilter, onSubmit }: {
             <option value="">{t('selectCity')}</option>
             {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
         </IconSelect>
-        <IconSelect icon={<Building2 size={18} />} label={t('selectField')} value={filters.field ?? ''} onChange={value => updateFilter('field', value)}>
+        <IconSelect icon={<Building2 size={18} />} label={t('selectField')} value={filters.field ?? ''} onChange={value => updateFilter('field', value)} disabled={!filters.city}>
             <option value="">{t('selectField')}</option>
             {fields.map(field => <option key={field.id} value={field.id}>{field.organization.name}</option>)}
         </IconSelect>
@@ -147,16 +149,17 @@ function SearchCard({ cities, fields, filters, updateFilter, onSubmit }: {
     </div>;
 }
 
-function IconSelect({ icon, label, value, onChange, children }: {
+function IconSelect({ icon, label, value, onChange, children, disabled }: {
     icon: ReactNode;
     label: string;
     value: string | number;
     onChange: (value: string) => void;
     children: ReactNode;
+    disabled?: boolean;
 }) {
     return <label className="public-input">
         <span>{icon}</span>
-        <select aria-label={label} value={value} onChange={event => onChange(event.target.value)}>{children}</select>
+        <select aria-label={label} value={value} onChange={event => onChange(event.target.value)} disabled={disabled}>{children}</select>
     </label>;
 }
 
@@ -173,21 +176,10 @@ function IconInput({ icon, label, type, value, onChange }: {
     </label>;
 }
 
-function FieldCard({ field, index, selected, onSelect }: { field: PublicField; index: number; selected: boolean; onSelect: () => void }) {
+function FieldCard({ field, index, selected, onView }: { field: PublicField; index: number; selected: boolean; onView: () => void }) {
     const t = useTranslation();
     const amenities = demoAmenities[field.organization.name] ?? ['parking'];
-    return <article
-        className={`field-discovery-card ${selected ? 'selected' : ''}`}
-        role="button"
-        tabIndex={0}
-        onClick={onSelect}
-        onKeyDown={event => {
-            if (event.key === 'Enter' || event.key === ' ') {
-                event.preventDefault();
-                onSelect();
-            }
-        }}
-    >
+    return <article className={`field-discovery-card ${selected ? 'selected' : ''}`}>
         <div className="venue-cover" style={{ background: venueImages[index % venueImages.length] }}>
             <div className="venue-cover-lines" />
         </div>
@@ -200,28 +192,24 @@ function FieldCard({ field, index, selected, onSelect }: { field: PublicField; i
             {field.organization.phone && <a href={`tel:${field.organization.phone.replaceAll(' ', '')}`} onClick={event => event.stopPropagation()}><Phone size={15} /> {field.organization.phone}</a>}
             <p><Trophy size={15} /> {pitchLabel(t, field.organization.number_of_fields ?? 1)}</p>
             <AmenityList amenities={amenities} />
-            <span className="card-cta">{t('selectField')} <ChevronRight size={15} /></span>
+            <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
         </div>
     </article>;
 }
 
-function ResultsView({ selectedField, slots, filters, cities, fields, updateFilter }: {
+function AvailabilitySection({ selectedField, slots, filters }: {
     selectedField: PublicField;
     slots: Props['slots'];
     filters: Props['filters'];
-    cities: Props['cities'];
-    fields: PublicField[];
-    updateFilter: (key: 'city' | 'field' | 'date', value: string | number | null) => void;
 }) {
     const t = useTranslation();
     const amenities = demoAmenities[selectedField.organization.name] ?? ['parking'];
-    return <main className="availability-results">
-        <section className="results-top">
-            <button className="back-link" onClick={() => router.get('/', { city: filters.city, date: filters.date }, { preserveState: true })}>{t('backToSearch')}</button>
-            <h1>{selectedField.organization.name}</h1>
+    return <section className="availability-results" aria-labelledby="availability-results-heading">
+        <div className="results-top">
+            <span>{t('selectedFootballField')}</span>
+            <h2 id="availability-results-heading">{selectedField.organization.name}</h2>
             <p>{t('resultsIntro')}</p>
-            <SearchCard cities={cities} fields={fields} filters={filters} updateFilter={updateFilter} onSubmit={() => router.get('/', filters, { preserveState: true })} />
-        </section>
+        </div>
         <section className="selected-venue-card">
             <div className="venue-cover results-cover"><div className="venue-cover-lines" /></div>
             <div className="selected-venue-content">
@@ -247,7 +235,7 @@ function ResultsView({ selectedField, slots, filters, cities, fields, updateFilt
                 {slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} />)}
             </div>
         </section>
-    </main>;
+    </section>;
 }
 
 function TimeSlotCard({ slot }: { slot: Props['slots'][number] }) {
