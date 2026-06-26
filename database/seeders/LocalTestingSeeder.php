@@ -181,22 +181,36 @@ class LocalTestingSeeder extends Seeder
                 ],
             );
 
-            $field = FootballField::query()->updateOrCreate(
-                ['organization_id' => $organization->id, 'slug' => $venue['slug'].'-main'],
-                [
-                    'city_id' => $city->id,
-                    'name' => $venue['name'],
-                    'address' => $venue['address'],
-                    'status' => FieldStatus::Active,
-                    'price_per_hour' => $venue['price'],
-                    'opening_time' => '12:00',
-                    'closing_time' => '01:00',
-                ],
-            );
+            $slugs = collect(range(1, $venue['pitches']))
+                ->map(fn (int $pitch) => $venue['slug'].'-pitch-'.$pitch);
 
-            if (in_array($venue['name'], ['Arena Sport', 'Rilindja Football Center'], true)) {
-                $hour = $venue['name'] === 'Arena Sport' ? 17 : 19;
-                $this->seedDemoVenueReservation($organization, $field, $hour);
+            $organization->footballFields()
+                ->whereNotIn('slug', $slugs)
+                ->delete();
+
+            foreach ($slugs as $index => $slug) {
+                $pitchNumber = $index + 1;
+                $field = FootballField::withTrashed()->updateOrCreate(
+                    ['organization_id' => $organization->id, 'slug' => $slug],
+                    [
+                        'city_id' => $city->id,
+                        'name' => 'Fusha '.$pitchNumber,
+                        'address' => $venue['address'],
+                        'status' => FieldStatus::Active,
+                        'price_per_hour' => $venue['price'],
+                        'opening_time' => '12:00',
+                        'closing_time' => '01:00',
+                    ],
+                );
+                $field->restore();
+
+                if ($venue['name'] === 'Arena Sport') {
+                    $this->seedDemoVenueReservation($organization, $field, $pitchNumber === 1 ? 17 : 16);
+                }
+
+                if ($venue['name'] === 'Rilindja Football Center' && $pitchNumber <= 2) {
+                    $this->seedDemoVenueReservation($organization, $field, $pitchNumber === 1 ? 19 : 20);
+                }
             }
         }
     }

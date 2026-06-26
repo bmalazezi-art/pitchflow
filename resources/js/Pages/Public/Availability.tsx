@@ -1,7 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { Building2, CalendarDays, CheckCircle2, ChevronRight, Coffee, Languages, MapPin, ParkingCircle, Phone, Search, ShowerHead, Trophy } from 'lucide-react';
-import { useState } from 'react';
-import type { ReactNode } from 'react';
+import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, ParkingCircle, Phone, Search, ShowerHead, Trophy } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { SharedProps } from '../../types';
@@ -11,30 +9,30 @@ interface PublicField {
     name: string;
     address?: string | null;
     city?: { id: number; name: string } | null;
-    organization: {
-        name: string;
-        phone?: string | null;
-        number_of_fields?: number | null;
-        city?: { id: number; name: string } | null;
-    };
+}
+
+interface PublicBusiness {
+    id: number;
+    name: string;
+    phone?: string | null;
+    address?: string | null;
+    number_of_fields?: number | null;
+    city?: { id: number; name: string } | null;
+    football_fields?: PublicField[];
 }
 
 interface Props {
     cities: Array<{ id: number; name: string }>;
-    fields: PublicField[];
-    selectedField?: PublicField | null;
-    slots: Array<{ starts_at: string; ends_at: string; label: string; status: string }>;
-    filters: { city?: number | null; field?: number | null; date: string };
+    businesses: PublicBusiness[];
+    selectedBusiness?: PublicBusiness | null;
+    pitchAvailability: Array<{
+        field: PublicField;
+        slots: Array<{ starts_at: string; ends_at: string; label: string; status: string }>;
+    }>;
+    filters: { city?: number | null; business?: number | null; date: string };
 }
 
 type Amenity = 'parking' | 'cafe' | 'showers';
-
-const venueImages = [
-    'linear-gradient(135deg, #0f766e 0%, #16a34a 48%, #bef264 100%)',
-    'linear-gradient(135deg, #1d4ed8 0%, #0284c7 48%, #67e8f9 100%)',
-    'linear-gradient(135deg, #14532d 0%, #22c55e 50%, #facc15 100%)',
-    'linear-gradient(135deg, #0f172a 0%, #334155 52%, #38bdf8 100%)',
-];
 
 const demoAmenities: Record<string, Amenity[]> = {
     'Getoari Sport Center': ['parking', 'cafe'],
@@ -47,66 +45,59 @@ const demoAmenities: Record<string, Amenity[]> = {
     'Demo Football Center': ['parking', 'cafe', 'showers'],
 };
 
-export default function Availability({ cities, fields, selectedField, slots, filters }: Props) {
+const venueImages = [
+    'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
+    'linear-gradient(135deg, #dbeafe 0%, #ccfbf1 100%)',
+    'linear-gradient(135deg, #f0fdf4 0%, #e0e7ff 100%)',
+    'linear-gradient(135deg, #ecfeff 0%, #f7fee7 100%)',
+];
+
+export default function Availability({ cities, businesses, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
-    const [draftField, setDraftField] = useState<number | null>(filters.field ?? null);
-    const [draftDate, setDraftDate] = useState(filters.date);
     const selectedCity = cities.find(city => city.id === Number(filters.city));
-    const hasResults = Boolean(selectedField);
     const hasCity = Boolean(filters.city);
-    const searchFilters = { ...filters, field: draftField, date: draftDate };
+    const hasBusiness = Boolean(selectedBusiness);
 
     const setLocale = (nextLocale: 'en' | 'sq') => router.post('/locale', { locale: nextLocale }, { preserveScroll: true });
-    const updateFilter = (key: 'city' | 'field' | 'date', value: string | number | null) => {
-        if (key === 'city') {
-            setDraftField(null);
-            router.get('/', { city: value || undefined, date: draftDate }, { preserveState: true, preserveScroll: true, replace: true });
-            return;
-        }
-        if (key === 'field') {
-            setDraftField(value ? Number(value) : null);
-            return;
-        }
-        setDraftDate(String(value || filters.date));
-    };
-    const checkAvailability = () => {
-        router.get('/', { ...filters, date: draftDate, field: draftField || undefined }, { preserveState: true });
-    };
-    const viewAvailability = (fieldId: number) => {
-        setDraftField(fieldId);
-        router.get('/', { ...filters, date: draftDate, field: fieldId }, { preserveState: true });
-    };
+    const navigate = (overrides: Partial<Props['filters']>) => router.get('/', {
+        city: overrides.city ?? filters.city ?? undefined,
+        date: overrides.date ?? filters.date,
+        business: overrides.business ?? filters.business ?? undefined,
+    }, { preserveState: true, preserveScroll: true });
+    const setCity = (value: string) => router.get('/', { city: value || undefined, date: filters.date }, { preserveState: true, preserveScroll: true, replace: true });
+    const setDate = (date: string) => navigate({ date });
+    const shiftDate = (days: number) => setDate(dateOffset(filters.date, days));
+    const viewBusiness = (businessId: number) => navigate({ business: businessId });
 
     return <div className="public-page">
         <Head title={t('checkAvailabilityTitle')} />
         <PublicNav locale={locale} setLocale={setLocale} />
         <main className="public-home">
-            <section className="public-hero">
-                <div className="hero-visual" aria-hidden="true"><div className="field-lines" /></div>
+            <section className="public-hero light">
                 <div className="hero-content">
                     <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
                     <h1>{t('checkAvailabilityTitle')}</h1>
                     <p>{t('availabilityHeroDescription')}</p>
-                    <SearchCard cities={cities} fields={fields} filters={searchFilters} updateFilter={updateFilter} onSubmit={checkAvailability} />
+                    <SearchPanel cities={cities} filters={filters} setCity={setCity} setDate={setDate} shiftDate={shiftDate} />
                 </div>
             </section>
-            {hasCity
-                ? <section className="field-discovery" aria-labelledby="discover-fields">
-                    <div className="section-heading">
-                        <div>
-                            <span>{selectedCity ? selectedCity.name : t('chooseCity')}</span>
-                            <h2 id="discover-fields">{t('discoverFootballFields')}</h2>
-                        </div>
-                        <p>{t('discoverFootballFieldsIntro')}</p>
+
+            {hasCity && !hasBusiness && <section className="field-discovery" aria-labelledby="discover-fields">
+                <div className="section-heading">
+                    <div>
+                        <span>{selectedCity?.name ?? t('chooseCity')}</span>
+                        <h2 id="discover-fields">{t('discoverFootballFields')}</h2>
                     </div>
-                    <div className="field-card-grid">
-                        {fields.map((field, index) => <FieldCard key={field.id} field={field} index={index} selected={draftField === field.id} onView={() => viewAvailability(field.id)} />)}
-                    </div>
-                    {fields.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('selectCityToDiscover')}</p></div>}
-                </section>
-                : null}
-            {hasResults && selectedField && <AvailabilitySection selectedField={selectedField} slots={slots} filters={searchFilters} />}
+                    <p>{t('discoverFootballFieldsIntro')}</p>
+                </div>
+                <div className="field-card-grid">
+                    {businesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewBusiness(business.id)} />)}
+                </div>
+                {businesses.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('selectCityToDiscover')}</p></div>}
+            </section>}
+
+            {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} />}
         </main>
     </div>;
 }
@@ -127,122 +118,86 @@ function PublicNav({ locale, setLocale }: { locale: 'en' | 'sq'; setLocale: (loc
     </nav>;
 }
 
-function SearchCard({ cities, fields, filters, updateFilter, onSubmit }: {
+function SearchPanel({ cities, filters, setCity, setDate, shiftDate }: {
     cities: Props['cities'];
-    fields: PublicField[];
     filters: Props['filters'];
-    updateFilter: (key: 'city' | 'field' | 'date', value: string | number | null) => void;
-    onSubmit: () => void;
+    setCity: (value: string) => void;
+    setDate: (value: string) => void;
+    shiftDate: (days: number) => void;
 }) {
     const t = useTranslation();
-    return <div className="availability-search-card">
-        <IconSelect icon={<MapPin size={18} />} label={t('selectCity')} value={filters.city ?? ''} onChange={value => updateFilter('city', value)}>
-            <option value="">{t('selectCity')}</option>
-            {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
-        </IconSelect>
-        <IconSelect icon={<Building2 size={18} />} label={t('selectField')} value={filters.field ?? ''} onChange={value => updateFilter('field', value)} disabled={!filters.city}>
-            <option value="">{t('selectField')}</option>
-            {fields.map(field => <option key={field.id} value={field.id}>{field.organization.name}</option>)}
-        </IconSelect>
-        <IconInput icon={<CalendarDays size={18} />} label={t('chooseDate')} type="date" value={filters.date} onChange={value => updateFilter('date', value)} />
-        <Button className="availability-submit" onClick={onSubmit}><Search size={18} />{t('checkAvailability')}</Button>
+    return <div className="availability-search-card simple">
+        <label className="public-input">
+            <span><MapPin size={18} /></span>
+            <select aria-label={t('selectCity')} value={filters.city ?? ''} onChange={event => setCity(event.target.value)} required>
+                <option value="">{t('selectCity')}</option>
+                {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
+            </select>
+        </label>
+        <div className="date-navigator">
+            <Button variant="secondary" onClick={() => shiftDate(-1)}><ChevronLeft size={17} />{t('previousDay')}</Button>
+            <div className="date-display">
+                <CalendarDays size={18} />
+                <strong>{formatDate(filters.date)}</strong>
+                <label className="date-picker">
+                    <input aria-label={t('chooseDate')} type="date" value={filters.date} onChange={event => setDate(event.target.value)} required />
+                </label>
+            </div>
+            <Button variant="secondary" onClick={() => setDate(today())}>{t('today')}</Button>
+            <Button variant="secondary" onClick={() => shiftDate(1)}>{t('nextDay')}<ChevronRight size={17} /></Button>
+        </div>
     </div>;
 }
 
-function IconSelect({ icon, label, value, onChange, children, disabled }: {
-    icon: ReactNode;
-    label: string;
-    value: string | number;
-    onChange: (value: string) => void;
-    children: ReactNode;
-    disabled?: boolean;
-}) {
-    return <label className="public-input">
-        <span>{icon}</span>
-        <select aria-label={label} value={value} onChange={event => onChange(event.target.value)} disabled={disabled}>{children}</select>
-    </label>;
-}
-
-function IconInput({ icon, label, type, value, onChange }: {
-    icon: ReactNode;
-    label: string;
-    type: string;
-    value: string;
-    onChange: (value: string) => void;
-}) {
-    return <label className="public-input">
-        <span>{icon}</span>
-        <input aria-label={label} type={type} value={value} onChange={event => onChange(event.target.value)} />
-    </label>;
-}
-
-function FieldCard({ field, index, selected, onView }: { field: PublicField; index: number; selected: boolean; onView: () => void }) {
+function BusinessCard({ business, index, onView }: { business: PublicBusiness; index: number; onView: () => void }) {
     const t = useTranslation();
-    const amenities = demoAmenities[field.organization.name] ?? ['parking'];
-    return <article className={`field-discovery-card ${selected ? 'selected' : ''}`}>
-        <div className="venue-cover" style={{ background: venueImages[index % venueImages.length] }}>
+    const amenities = demoAmenities[business.name] ?? ['parking'];
+    return <article className="field-discovery-card">
+        <div className="venue-cover light-cover" style={{ background: venueImages[index % venueImages.length] }}>
             <div className="venue-cover-lines" />
         </div>
         <div className="venue-card-body">
             <div>
-                <h3>{field.organization.name}</h3>
-                <p><MapPin size={15} /> {cityName(field)}</p>
+                <h3>{business.name}</h3>
+                <p><MapPin size={15} /> {business.city?.name}</p>
             </div>
-            {field.address && <p><MapPin size={15} /> {field.address}</p>}
-            {field.organization.phone && <a href={`tel:${field.organization.phone.replaceAll(' ', '')}`} onClick={event => event.stopPropagation()}><Phone size={15} /> {field.organization.phone}</a>}
-            <p><Trophy size={15} /> {pitchLabel(t, field.organization.number_of_fields ?? 1)}</p>
+            {business.address && <p><MapPin size={15} /> {business.address}</p>}
+            {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={15} /> {business.phone}</a>}
+            <p><Trophy size={15} /> {pitchLabel(t, business.number_of_fields ?? business.football_fields?.length ?? 1)}</p>
             <AmenityList amenities={amenities} />
             <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
         </div>
     </article>;
 }
 
-function AvailabilitySection({ selectedField, slots, filters }: {
-    selectedField: PublicField;
-    slots: Props['slots'];
-    filters: Props['filters'];
+function AvailabilitySection({ business, date, pitchAvailability }: {
+    business: PublicBusiness;
+    date: string;
+    pitchAvailability: Props['pitchAvailability'];
 }) {
     const t = useTranslation();
-    const amenities = demoAmenities[selectedField.organization.name] ?? ['parking'];
-    return <section className="availability-results" aria-labelledby="availability-results-heading">
-        <div className="results-top">
-            <span>{t('selectedFootballField')}</span>
-            <h2 id="availability-results-heading">{selectedField.organization.name}</h2>
-            <p>{t('resultsIntro')}</p>
+    return <section className="availability-results focused" aria-labelledby="availability-results-heading">
+        <div className="availability-header">
+            <div>
+                <h2 id="availability-results-heading">{business.name} — {business.city?.name}</h2>
+                <p>{formatDate(date)}</p>
+            </div>
+            {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={16} /> {business.phone}</a>}
         </div>
-        <section className="selected-venue-card">
-            <div className="venue-cover results-cover"><div className="venue-cover-lines" /></div>
-            <div className="selected-venue-content">
-                <span>{t('selectedFootballField')}</span>
-                <h2>{selectedField.organization.name}</h2>
-                <div className="venue-details">
-                    <p><MapPin size={16} /> {cityName(selectedField)}</p>
-                    {selectedField.organization.phone && <a href={`tel:${selectedField.organization.phone.replaceAll(' ', '')}`}><Phone size={16} /> {selectedField.organization.phone}</a>}
-                    <p><Trophy size={16} /> {pitchLabel(t, selectedField.organization.number_of_fields ?? 1)}</p>
+        <div className="pitch-availability-list">
+            {pitchAvailability.map((pitch, index) => <section className="pitch-slots" key={pitch.field.id}>
+                <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
+                <div className="slot-card-grid compact">
+                    {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} />)}
                 </div>
-                <AmenityList amenities={amenities} />
-            </div>
-        </section>
-        <section className="slot-section" aria-labelledby="slot-heading">
-            <div className="section-heading">
-                <div>
-                    <span>{filters.date}</span>
-                    <h2 id="slot-heading">{t('availableTimeSlots')}</h2>
-                </div>
-                <p>{t('privacyNotice')}</p>
-            </div>
-            <div className="slot-card-grid">
-                {slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} />)}
-            </div>
-        </section>
+            </section>)}
+        </div>
     </section>;
 }
 
-function TimeSlotCard({ slot }: { slot: Props['slots'][number] }) {
+function TimeSlotCard({ slot }: { slot: Props['pitchAvailability'][number]['slots'][number] }) {
     const t = useTranslation();
-    const Icon = slot.status === 'available' ? CheckCircle2 : slot.status === 'occupied' ? Phone : CalendarDays;
-    return <div className={`time-slot-card ${slot.status}`}>
-        <div className="slot-status-icon"><Icon size={22} /></div>
+    return <div className={`time-slot-card compact ${slot.status}`}>
         <strong>{slot.label}</strong>
         <span>{slot.status === 'available' ? t('available') : slot.status === 'occupied' ? t('occupied') : t('past')}</span>
     </div>;
@@ -259,10 +214,25 @@ function AmenityList({ amenities }: { amenities: Amenity[] }) {
     </div>;
 }
 
-function cityName(field: PublicField) {
-    return field.city?.name ?? field.organization.city?.name ?? '';
-}
-
 function pitchLabel(t: ReturnType<typeof useTranslation>, count: number) {
     return `${count} ${count === 1 ? t('footballPitch') : t('footballPitches')}`;
+}
+
+function dateOffset(date: string, days: number) {
+    const next = new Date(`${date}T12:00:00`);
+    next.setDate(next.getDate() + days);
+    return next.toISOString().slice(0, 10);
+}
+
+function today() {
+    return new Date().toISOString().slice(0, 10);
+}
+
+function formatDate(date: string) {
+    return new Intl.DateTimeFormat(undefined, {
+        weekday: 'long',
+        day: '2-digit',
+        month: 'long',
+        year: 'numeric',
+    }).format(new Date(`${date}T12:00:00`));
 }

@@ -87,6 +87,7 @@ const messages = {
         backToSearch: 'Back to search', resultsIntro: 'Real-time one-hour availability for your selected field.',
         selectedFootballField: 'Selected football field', availableTimeSlots: 'Available time slots',
         viewAvailability: 'View Availability',
+        previousDay: 'Previous', today: 'Today', nextDay: 'Next',
     },
     sq: {
         dashboard: 'Paneli', calendar: 'Kalendari', reservations: 'Rezervimet', customers: 'Klientët',
@@ -173,6 +174,7 @@ const messages = {
         backToSearch: 'Kthehu te kërkimi', resultsIntro: 'Disponueshmëri njëorëshe në kohë reale për fushën e zgjedhur.',
         selectedFootballField: 'Fusha e zgjedhur', availableTimeSlots: 'Oraret e lira',
         viewAvailability: 'Shiko oraret',
+        previousDay: 'Mbrapa', today: 'Sot', nextDay: 'Para',
     },
 } as const;
 
