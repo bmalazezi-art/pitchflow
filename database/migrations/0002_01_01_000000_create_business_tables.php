@@ -33,7 +33,7 @@ return new class extends Migration
             $table->foreignId('football_field_id')->constrained()->cascadeOnDelete();
             $table->timestamps();
             $table->unique(['user_id', 'football_field_id']);
-            $table->index(['organization_id', 'football_field_id']);
+            $table->index(['organization_id', 'football_field_id'], 'employee_field_org_field_idx');
         });
 
         Schema::create('operating_hours', function (Blueprint $table) {
@@ -89,8 +89,8 @@ return new class extends Migration
             $table->foreignId('customer_id')->constrained()->restrictOnDelete();
             $table->string('customer_name');
             $table->string('customer_phone', 32);
-            $table->timestamp('starts_at');
-            $table->timestamp('ends_at');
+            $table->dateTime('starts_at');
+            $table->dateTime('ends_at');
             $table->string('status', 24)->default('confirmed')->index();
             $table->string('payment_status', 16)->default('unpaid');
             $table->decimal('price', 10, 2)->default(0);
@@ -115,7 +115,7 @@ return new class extends Migration
             $table->foreignId('organization_id')->constrained()->cascadeOnDelete();
             $table->foreignId('football_field_id')->constrained()->cascadeOnDelete();
             $table->foreignId('reservation_id')->constrained()->cascadeOnDelete();
-            $table->timestamp('starts_at');
+            $table->dateTime('starts_at');
             $table->timestamps();
             $table->unique(['football_field_id', 'starts_at']);
             $table->index(['organization_id', 'starts_at']);
