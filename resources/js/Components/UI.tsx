@@ -1,6 +1,6 @@
 import { Link } from '@inertiajs/react';
-import { AlertCircle, X } from 'lucide-react';
-import type { ReactNode } from 'react';
+import { AlertCircle, Search, X } from 'lucide-react';
+import { useEffect, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from '../lib/i18n';
 
@@ -16,6 +16,10 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return <input className="input" {...props} />;
 }
 
+export function SearchInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
+    return <label className="search-input"><Search size={17} /><input {...props} /></label>;
+}
+
 export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     return <select className="input" {...props} />;
 }
@@ -29,6 +33,29 @@ export function Modal({ open, title, onClose, children }: { open: boolean; title
             {children}
         </section>
     </div>;
+}
+
+export function Drawer({ open, title, subtitle, onClose, children, footer }: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: ReactNode; footer?: ReactNode }) {
+    const t = useTranslation();
+    useEffect(() => {
+        if (!open) return;
+        const closeOnEscape = (event: KeyboardEvent) => event.key === 'Escape' && onClose();
+        document.addEventListener('keydown', closeOnEscape);
+        return () => document.removeEventListener('keydown', closeOnEscape);
+    }, [onClose, open]);
+    if (!open) return null;
+
+    return <div className="drawer-backdrop" role="presentation" onMouseDown={event => event.target === event.currentTarget && onClose()}>
+        <aside className="drawer" role="dialog" aria-modal="true" aria-labelledby="drawer-title">
+            <header className="drawer-header"><div><h2 id="drawer-title">{title}</h2>{subtitle && <p>{subtitle}</p>}</div><button className="icon-btn" onClick={onClose} aria-label={t('close')}><X size={20} /></button></header>
+            <div className="drawer-body">{children}</div>
+            {footer && <footer className="drawer-footer">{footer}</footer>}
+        </aside>
+    </div>;
+}
+
+export function PageHeader({ eyebrow, title, description, actions }: { eyebrow?: string; title: string; description: string; actions?: ReactNode }) {
+    return <header className="owner-page-header"><div>{eyebrow && <span>{eyebrow}</span>}<h1>{title}</h1><p>{description}</p></div>{actions && <div className="owner-page-actions">{actions}</div>}</header>;
 }
 
 export function Badge({ value }: { value: string }) {

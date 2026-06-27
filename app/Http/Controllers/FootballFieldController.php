@@ -7,6 +7,8 @@ use App\Models\City;
 use App\Models\FootballField;
 use App\Services\ActivityLogger;
 use App\Services\SubscriptionService;
+use App\Support\Timezones;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -18,9 +20,15 @@ class FootballFieldController extends Controller
     public function index(): Response
     {
         $user = request()->user();
+        $timezone = Timezones::resolve($user->organization->timezone);
+        $today = CarbonImmutable::now($timezone)->startOfDay();
         $fields = FootballField::query()->forOrganization($user->organization_id)
-            ->with('operatingHours')
-            ->withCount(['reservations', 'employees'])->orderBy('name')->paginate(15);
+            ->with(['operatingHours', 'employees:id,name'])
+            ->withCount([
+                'reservations',
+                'reservations as today_reservations_count' => fn ($query) => $query->whereBetween('starts_at', [$today->utc(), $today->endOfDay()->utc()]),
+                'employees',
+            ])->orderBy('name')->paginate(15);
 
         return Inertia::render('Fields/Index', [
             'fields' => $fields,

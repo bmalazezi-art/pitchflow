@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CustomerRequest;
 use App\Models\Customer;
 use App\Models\FootballField;
+use App\Models\Reservation;
 use App\Services\ActivityLogger;
 use App\Services\PhoneNormalizer;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +19,19 @@ class CustomerController extends Controller
     {
         $search = trim((string) $request->input('search'));
         $customers = Customer::query()->forOrganization($request->user()->organization_id)
+            ->select('customers.*')
+            ->addSelect([
+                'outstanding_balance' => Reservation::query()
+                    ->selectRaw('COALESCE(SUM(price - paid_amount), 0)')
+                    ->whereColumn('customer_id', 'customers.id')
+                    ->whereNull('deleted_at')
+                    ->whereIn('status', ['pending', 'confirmed', 'completed']),
+            ])
+            ->with([
+                'preferredField:id,name',
+                'notes' => fn ($query) => $query->with('user:id,name')->latest()->limit(10),
+                'reservations' => fn ($query) => $query->with('footballField:id,name')->latest('starts_at')->limit(12),
+            ])
             ->when($search, fn ($query) => $query->where(function ($nested) use ($search) {
                 $nested->where('name', 'like', "%{$search}%")
                     ->orWhere('phone', 'like', "%{$search}%")
@@ -25,7 +39,11 @@ class CustomerController extends Controller
             }))
             ->latest('last_visit_at')->paginate(20)->withQueryString();
 
-        return Inertia::render('Customers/Index', ['customers' => $customers, 'filters' => ['search' => $search]]);
+        return Inertia::render('Customers/Index', [
+            'customers' => $customers,
+            'filters' => ['search' => $search],
+            'fields' => FootballField::query()->forOrganization($request->user()->organization_id)->orderBy('name')->get(['id', 'name']),
+        ]);
     }
 
     public function show(Customer $customer): Response

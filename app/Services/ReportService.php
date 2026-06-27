@@ -117,6 +117,9 @@ class ReportService
             'walk_ins' => $reservations->where('is_walk_in', true)->count(),
             'no_shows' => $reservations->where('status', ReservationStatus::NoShow)->count(),
             'late_cancellations' => $reservations->where('status', ReservationStatus::LateCancelled)->count(),
+            'paid_reservations' => $reservations->where('payment_status', PaymentStatus::Paid)->count(),
+            'partial_reservations' => $reservations->where('payment_status', PaymentStatus::Partial)->count(),
+            'unpaid_reservations' => $reservations->where('payment_status', PaymentStatus::Unpaid)->count(),
             'most_booked_field' => $this->mostBookedField($reservations),
             'peak_hours' => $reservations->groupBy(fn (Reservation $reservation) => $reservation->starts_at->setTimezone(Timezones::resolve($organization->timezone))->format('H:00'))
                 ->map->count()->sortDesc()->take(8),

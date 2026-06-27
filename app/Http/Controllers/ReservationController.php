@@ -21,8 +21,9 @@ class ReservationController extends Controller
         $user = $request->user();
         $organization = $user->organization;
         $timezone = Timezones::resolve($organization->timezone);
-        $from = CarbonImmutable::parse($request->input('from', 'today'), $timezone)->startOfDay()->utc();
-        $to = CarbonImmutable::parse($request->input('to', $from->addDays(7)), $timezone)->endOfDay()->utc();
+        $localNow = CarbonImmutable::now($timezone);
+        $from = CarbonImmutable::parse($request->input('from', $localNow->startOfMonth()->subWeek()), $timezone)->startOfDay()->utc();
+        $to = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->endOfDay()->utc();
         $fieldIds = $this->accessibleFieldIds($request);
 
         $reservations = Reservation::query()
@@ -36,15 +37,19 @@ class ReservationController extends Controller
 
         return Inertia::render('Reservations/Calendar', [
             'reservations' => $reservations,
-            'fields' => FootballField::query()->whereIn('id', $fieldIds)->orderBy('name')->get(),
+            'fields' => FootballField::query()->whereIn('id', $fieldIds)->orderBy('name')->get(['id', 'name', 'status']),
             'timezone' => $organization->timezone,
+            'selectedField' => $request->integer('field') ?: null,
         ]);
     }
 
     public function list(Request $request): Response
     {
         $query = trim((string) $request->input('search'));
+        $filter = (string) $request->input('filter');
         $fieldIds = $this->accessibleFieldIds($request);
+        $timezone = Timezones::resolve($request->user()->organization->timezone);
+        $today = CarbonImmutable::now($timezone)->startOfDay();
 
         $reservations = Reservation::query()
             ->forOrganization($request->user()->organization_id)
@@ -54,11 +59,21 @@ class ReservationController extends Controller
                 $nested->where('customer_name', 'like', "%{$query}%")
                     ->orWhere('customer_phone', 'like', "%{$query}%");
             }))
+            ->when($filter === 'today', fn ($builder) => $builder->whereBetween('starts_at', [$today->utc(), $today->endOfDay()->utc()]))
+            ->when($filter === 'tomorrow', fn ($builder) => $builder->whereBetween('starts_at', [$today->addDay()->utc(), $today->addDay()->endOfDay()->utc()]))
+            ->when($filter === 'week', fn ($builder) => $builder->whereBetween('starts_at', [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()]))
+            ->when(in_array($filter, ['paid', 'unpaid'], true), fn ($builder) => $builder->where('payment_status', $filter))
+            ->when(in_array($filter, ['confirmed', 'pending'], true), fn ($builder) => $builder->where('status', $filter))
+            ->when($filter === 'cancelled', fn ($builder) => $builder->whereIn('status', ['cancelled', 'late_cancelled']))
             ->latest('starts_at')
             ->paginate(20)
             ->withQueryString();
 
-        return Inertia::render('Reservations/Index', ['reservations' => $reservations, 'filters' => ['search' => $query]]);
+        return Inertia::render('Reservations/Index', [
+            'reservations' => $reservations,
+            'filters' => ['search' => $query, 'filter' => $filter],
+            'timezone' => $timezone,
+        ]);
     }
 
     public function store(ReservationRequest $request, ReservationService $service): RedirectResponse

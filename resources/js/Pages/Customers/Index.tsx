@@ -1,15 +1,36 @@
-import { Head, Link, router } from '@inertiajs/react';
-import { ChevronRight } from 'lucide-react';
+import { Head, router, useForm } from '@inertiajs/react';
+import { ChevronRight, Phone, UserRound } from 'lucide-react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
-import { Badge, EmptyState, Input, Pagination } from '../../Components/UI';
+import { Badge, Button, Drawer, EmptyState, Field, Input, PageHeader, Pagination, SearchInput, Select } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { Paginated } from '../../types';
 
-export default function Customers({ customers, filters }: { customers: Paginated<any>; filters: { search?: string } }) {
-    const t = useTranslation(); const [search, setSearch] = useState(filters.search ?? '');
-    return <AppLayout title={t('customers')}><Head title={t('customers')} /><div className="page-header"><div><h1>{t('customers')}</h1><p>{t('customersIntro')}</p></div></div>
-        <form className="filter-bar" onSubmit={e => { e.preventDefault(); router.get('/customers', { search }, { preserveState: true }); }}><Input placeholder={`${t('search')} name or phone…`} value={search} onChange={e => setSearch(e.target.value)} /></form>
-        {customers.data.length === 0 ? <div className="panel"><EmptyState title={t('noResults')} /></div> : <><div className="table-wrap"><table><thead><tr><th>{t('name')}</th><th>{t('status')}</th><th>{t('reliabilityScore')}</th><th>{t('total')}</th><th>{t('completed')}</th><th>{t('noShows')}</th><th>{t('lateCancellations')}</th><th /></tr></thead><tbody>{customers.data.map(c => <tr key={c.id}><td><strong>{c.name}</strong><br /><small>{c.phone}</small></td><td><Badge value={c.reliability_status} /></td><td>{c.reliability_score}/100</td><td>{c.total_reservations}</td><td>{c.completed_reservations}</td><td>{c.no_shows}</td><td>{c.late_cancellations}</td><td><Link className="icon-btn" href={`/customers/${c.id}`} aria-label={t('profile')}><ChevronRight size={18} /></Link></td></tr>)}</tbody></table></div><Pagination links={customers.links} /></>}
-    </AppLayout>;
+export default function Customers({ customers, filters, fields }: { customers: Paginated<any>; filters: { search?: string }; fields: Array<{ id: number; name: string }> }) {
+    const t = useTranslation();
+    const [search, setSearch] = useState(filters.search ?? '');
+    const [selected, setSelected] = useState<any>(null);
+    const profile = useForm({ name: '', phone: '', preferred_field_id: '' as number | string });
+    const note = useForm({ note: '' });
+    const openCustomer = (customer: any) => { setSelected(customer); profile.setData({ name: customer.name, phone: customer.phone, preferred_field_id: customer.preferred_field_id ?? '' }); };
+    const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat(undefined, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : t('noData');
+
+    return <AppLayout title={t('customers')}><Head title={t('customers')} /><div className="owner-page">
+        <PageHeader eyebrow={t('relationships')} title={t('customers')} description={t('customersIntro')} />
+        <section className="data-toolbar"><form onSubmit={event => { event.preventDefault(); router.get('/customers', { search }, { preserveState: true, replace: true }); }}><SearchInput aria-label={t('search')} placeholder={`${t('searchCustomer')}…`} value={search} onChange={event => setSearch(event.target.value)} /></form></section>
+        {customers.data.length === 0 ? <section className="dashboard-panel"><EmptyState title={t('noResults')} /></section> : <>
+            <div className="table-wrap modern-table"><table><thead><tr><th>{t('customer')}</th><th>{t('phone')}</th><th>{t('reliabilityScore')}</th><th>{t('reservations')}</th><th>{t('lastVisit')}</th><th>{t('outstandingBalance')}</th><th>{t('actions')}</th></tr></thead><tbody>{customers.data.map(customer => <tr key={customer.id} onClick={() => openCustomer(customer)} className="clickable-row">
+                <td data-label={t('customer')}><div className="identity-cell"><span><UserRound size={17} /></span><strong>{customer.name}</strong></div></td><td data-label={t('phone')}><a href={`tel:${customer.phone}`} onClick={event => event.stopPropagation()}>{customer.phone}</a></td><td data-label={t('reliabilityScore')}><div className="score-cell"><strong>{customer.reliability_score}/100</strong><Badge value={customer.reliability_status} /></div></td><td data-label={t('reservations')}>{customer.total_reservations}</td><td data-label={t('lastVisit')}>{formatDate(customer.last_visit_at)}</td><td data-label={t('outstandingBalance')}><strong>€{Number(customer.outstanding_balance).toFixed(2)}</strong></td><td data-label={t('actions')}><button className="icon-btn bordered" onClick={event => { event.stopPropagation(); openCustomer(customer); }} aria-label={t('profile')}><ChevronRight size={18} /></button></td>
+            </tr>)}</tbody></table></div>{customers.last_page > 1 && <Pagination links={customers.links} />}</>}
+
+        <Drawer open={Boolean(selected)} title={selected?.name ?? ''} subtitle={selected?.phone} onClose={() => setSelected(null)} footer={<><Button variant="secondary" onClick={() => setSelected(null)}>{t('close')}</Button><Button disabled={profile.processing} onClick={() => profile.put(`/customers/${selected.id}`)}>{t('saveProfile')}</Button></>}>
+            {selected && <div className="drawer-sections">
+                <section className="drawer-summary"><div><span>{t('reliabilityScore')}</span><strong>{selected.reliability_score}/100</strong><Badge value={selected.reliability_status} /></div><div><span>{t('reservations')}</span><strong>{selected.total_reservations}</strong></div><div><span>{t('noShows')}</span><strong>{selected.no_shows}</strong></div><div><span>{t('outstandingBalance')}</span><strong>€{Number(selected.outstanding_balance).toFixed(2)}</strong></div></section>
+                <section><h3>{t('customerInformation')}</h3><div className="form-grid one-column"><Field label={t('name')} error={profile.errors.name}><Input value={profile.data.name} onChange={event => profile.setData('name', event.target.value)} /></Field><Field label={t('phone')} error={profile.errors.phone}><Input value={profile.data.phone} onChange={event => profile.setData('phone', event.target.value)} /></Field><Field label={t('preferredField')}><Select value={profile.data.preferred_field_id} onChange={event => profile.setData('preferred_field_id', event.target.value)}><option value="">{t('none')}</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</Select></Field></div></section>
+                <section><h3>{t('reservationHistory')}</h3>{selected.reservations.length === 0 ? <p className="drawer-muted">{t('noResults')}</p> : <div className="drawer-list">{selected.reservations.map((reservation: any) => <article key={reservation.id}><div><strong>{reservation.football_field.name}</strong><span>{formatDate(reservation.starts_at)}</span></div><div><Badge value={reservation.payment_status} /><Badge value={reservation.status} /></div></article>)}</div>}</section>
+                <section><h3>{t('privateNotes')}</h3><form className="drawer-note-form" onSubmit={event => { event.preventDefault(); note.post(`/customers/${selected.id}/notes`, { preserveScroll: true, onSuccess: () => note.reset() }); }}><Field label={t('addNote')} error={note.errors.note}><textarea className="input" value={note.data.note} onChange={event => note.setData('note', event.target.value)} /></Field><Button disabled={note.processing}>{t('addNote')}</Button></form><div className="drawer-list notes-list">{selected.notes.map((item: any) => <article key={item.id}><div><strong>{item.note}</strong><span>{item.user?.name ?? t('system')} · {formatDate(item.created_at)}</span></div></article>)}</div></section>
+                <a className="drawer-contact" href={`tel:${selected.phone}`}><Phone size={17} />{t('callCustomer')}</a>
+            </div>}
+        </Drawer>
+    </div></AppLayout>;
 }

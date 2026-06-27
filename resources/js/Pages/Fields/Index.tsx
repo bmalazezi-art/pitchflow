@@ -1,7 +1,7 @@
-import { Head, router, useForm } from '@inertiajs/react';
-import { Pencil, Plus, Trash2 } from 'lucide-react';
+import { Head, Link, router, useForm } from '@inertiajs/react';
+import { CalendarDays, Clock3, MapPin, Pencil, Plus, Trash2, Users, Wrench } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, EmptyState, Field, Input, Modal, Pagination, Select } from '../../Components/UI';
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select } from '../../Components/UI';
 import AppLayout from '../../Layouts/AppLayout';
 import { useTranslation } from '../../lib/i18n';
 import type { Paginated } from '../../types';
@@ -96,27 +96,21 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
 
     return <AppLayout title={t('fields')}>
         <Head title={t('fields')} />
-        <div className="page-header">
-            <div><h1>{t('fields')}</h1><p>{t('fieldsIntro')}</p></div>
-            <Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button>
-        </div>
+        <div className="owner-page">
+        <PageHeader eyebrow={t('venues')} title={t('fields')} description={t('fieldsIntro')} actions={<Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button>} />
 
         {fields.data.length === 0
-            ? <div className="panel"><EmptyState title={t('noFields')} action={<Button onClick={() => show()}>{t('newField')}</Button>} /></div>
+            ? <section className="dashboard-panel"><EmptyState title={t('noFields')} action={<Button onClick={() => show()}>{t('newField')}</Button>} /></section>
             : <>
-                <div className="table-wrap"><table><thead><tr>
-                    <th>{t('name')}</th><th>{t('status')}</th><th>{t('pricePerHour')}</th>
-                    <th>{t('reservations')}</th><th>{t('assignedStaff')}</th><th>{t('actions')}</th>
-                </tr></thead><tbody>{fields.data.map(field => <tr key={field.id}>
-                    <td><strong>{field.name}</strong><br /><small>{field.address}</small></td>
-                    <td><Badge value={field.status} /></td><td>€{field.price_per_hour}</td>
-                    <td>{field.reservations_count}</td><td>{field.employees_count}</td>
-                    <td><div className="actions">
-                        <button className="icon-btn" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button>
-                        <button className="icon-btn" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button>
-                    </div></td>
-                </tr>)}</tbody></table></div>
-                <Pagination links={fields.links} />
+                <div className="field-card-grid owner-field-grid">{fields.data.map(field => <article className="owner-field-card" key={field.id}>
+                    <div className="field-card-visual"><span className="field-initial">{field.name.slice(0, 1).toUpperCase()}</span><Badge value={field.status} /></div>
+                    <div className="field-card-content"><div className="field-card-title"><div><h2>{field.name}</h2><p><MapPin size={14} />{field.address || t('noData')}</p></div><strong>€{Number(field.price_per_hour).toFixed(2)}<small>/{t('hour')}</small></strong></div>
+                        <div className="field-card-stats"><div><CalendarDays size={17} /><span>{t('todayReservations')}</span><strong>{field.today_reservations_count}</strong></div><div><Users size={17} /><span>{t('assignedStaff')}</span><strong>{field.employees_count}</strong></div></div>
+                        <div className="tag-list field-team">{field.employees.length ? field.employees.map((employee: any) => <span key={employee.id}>{employee.name}</span>) : <span>{t('noAssignedEmployees')}</span>}</div>
+                    </div>
+                    <footer className="field-card-actions"><button className="icon-btn bordered" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('workingHours')}><Clock3 size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('maintenance')}><Wrench size={17} /></button><Link className="icon-btn bordered" href={`/calendar?field=${field.id}`} title={t('reservations')}><CalendarDays size={17} /></Link><button className="icon-btn bordered danger" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button></footer>
+                </article>)}</div>
+                {fields.last_page > 1 && <Pagination links={fields.links} />}
             </>}
 
         <Modal open={open} title={editing ? t('editField') : t('newField')} onClose={() => setOpen(false)}>
@@ -145,5 +139,6 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
                 </div>
             </form>
         </Modal>
+        </div>
     </AppLayout>;
 }
