@@ -5,6 +5,7 @@ namespace App\Services;
 use App\Models\FootballField;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
+use LogicException;
 
 class OperatingScheduleService
 {
@@ -19,7 +20,7 @@ class OperatingScheduleService
 
     public function contains(FootballField $field, CarbonImmutable $startsAtUtc, CarbonImmutable $endsAtUtc): bool
     {
-        $timezone = Timezones::resolve($field->organization->timezone);
+        $timezone = $this->timezone($field);
         $localStart = $startsAtUtc->setTimezone($timezone);
         $localEnd = $endsAtUtc->setTimezone($timezone);
 
@@ -40,7 +41,7 @@ class OperatingScheduleService
 
     private function windowForDate(FootballField $field, CarbonImmutable $businessDate): array
     {
-        $timezone = Timezones::resolve($field->organization->timezone);
+        $timezone = $this->timezone($field);
         $override = $field->relationLoaded('operatingHourOverrides')
             ? $field->operatingHourOverrides->first(fn ($item) => $item->date->isSameDay($businessDate))
             : $field->operatingHourOverrides()->whereDate('date', $businessDate)->first();
@@ -69,5 +70,14 @@ class OperatingScheduleService
         }
 
         return [$scheduleStart, $scheduleEnd];
+    }
+
+    private function timezone(FootballField $field): string
+    {
+        if (! $field->relationLoaded('organization') || $field->getRelation('organization') === null) {
+            throw new LogicException('FootballField organization must be eager loaded before calculating its operating schedule.');
+        }
+
+        return Timezones::resolve($field->getRelation('organization')->timezone);
     }
 }

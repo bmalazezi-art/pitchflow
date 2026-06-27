@@ -29,6 +29,7 @@ class ReservationService
         return DB::transaction(function () use ($organization, $data, $actorId) {
             $field = FootballField::query()
                 ->forOrganization($organization->id)
+                ->with(['organization:id,timezone', 'operatingHours'])
                 ->lockForUpdate()
                 ->findOrFail($data['football_field_id']);
 
@@ -83,6 +84,7 @@ class ReservationService
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
             $field = FootballField::query()
                 ->forOrganization($organization->id)
+                ->with(['organization:id,timezone', 'operatingHours'])
                 ->lockForUpdate()
                 ->findOrFail($data['football_field_id'] ?? $reservation->football_field_id);
 
@@ -163,7 +165,10 @@ class ReservationService
         string $requestedStart,
         int $limit = 3,
     ): array {
-        $field = FootballField::query()->forOrganization($organization->id)->findOrFail($fieldId);
+        $field = FootballField::query()
+            ->forOrganization($organization->id)
+            ->with(['organization:id,timezone', 'operatingHours'])
+            ->findOrFail($fieldId);
         $candidate = CarbonImmutable::parse($requestedStart, Timezones::resolve($organization->timezone))
             ->addHour()
             ->startOfHour();
@@ -258,7 +263,6 @@ class ReservationService
         CarbonImmutable $startsAt,
         CarbonImmutable $endsAt,
     ): void {
-        $field->loadMissing(['organization', 'operatingHours']);
         if (! $this->schedule->contains($field, $startsAt, $endsAt)) {
             throw new ReservationConflictException(__('messages.outside_operating_hours'));
         }

@@ -122,6 +122,7 @@ class ReportService
         $fields = $organization->footballFields()
             ->where('status', 'active')
             ->with([
+                'organization:id,timezone',
                 'operatingHours',
                 'operatingHourOverrides' => fn ($query) => $query->whereBetween('date', [$from->toDateString(), $to->toDateString()]),
             ])
