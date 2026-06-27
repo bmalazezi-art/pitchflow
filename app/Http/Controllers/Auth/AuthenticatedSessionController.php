@@ -32,7 +32,7 @@ class AuthenticatedSessionController extends Controller
         $destination = match (true) {
             $request->user()->isSuperAdmin() => route('admin.organizations'),
             $request->user()->isOwner() => route('dashboard'),
-            default => route('calendar'),
+            default => route('dashboard'),
         };
 
         return redirect()->intended($destination);

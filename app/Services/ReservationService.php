@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Enums\FieldStatus;
+use App\Enums\PaymentStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\ReservationConflictException;
 use App\Models\Customer;
@@ -154,6 +155,38 @@ class ReservationService
 
             $this->reliability->recalculate($reservation->customer);
             $this->activity->log('reservation_cancelled', $reservation, properties: ['status' => $status->value]);
+
+            return $reservation->refresh();
+        });
+    }
+
+    public function markPaid(Reservation $reservation, int $actorId): Reservation
+    {
+        return DB::transaction(function () use ($reservation, $actorId) {
+            $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            $reservation->forceFill([
+                'payment_status' => PaymentStatus::Paid,
+                'paid_amount' => $reservation->price,
+                'updated_by' => $actorId,
+            ])->save();
+            $this->activity->log('reservation_marked_paid', $reservation);
+
+            return $reservation->refresh();
+        });
+    }
+
+    public function complete(Reservation $reservation, int $actorId): Reservation
+    {
+        return DB::transaction(function () use ($reservation, $actorId) {
+            $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            $this->ensureStatusTransition($reservation->status, ReservationStatus::Completed);
+            $reservation->slots()->delete();
+            $reservation->forceFill([
+                'status' => ReservationStatus::Completed,
+                'updated_by' => $actorId,
+            ])->save();
+            $this->reliability->recalculate($reservation->customer);
+            $this->activity->log('reservation_completed', $reservation);
 
             return $reservation->refresh();
         });

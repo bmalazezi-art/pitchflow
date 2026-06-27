@@ -38,6 +38,7 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
     const canCreateFields = auth.user?.role === 'super_admin';
     const canEditFields = auth.user?.role === 'owner' || auth.user?.role === 'super_admin';
     const canDeleteFields = auth.user?.role === 'super_admin';
+    const isEmployee = auth.user?.role === 'employee';
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<any>(null);
     const form = useForm<FieldForm>({
@@ -98,17 +99,17 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
         }
     };
 
-    return <AppLayout title={t('fields')}>
-        <Head title={t('fields')} />
-        <div className="owner-page">
-        <PageHeader eyebrow={t('venues')} title={t('fields')} description={t('fieldsIntro')} actions={canCreateFields ? <Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button> : <span className="read-only-indicator">{canEditFields ? t('limitedEditing') : t('readOnly')}</span>} />
+    return <AppLayout title={isEmployee ? t('myAssignedFields') : t('fields')}>
+        <Head title={isEmployee ? t('myAssignedFields') : t('fields')} />
+        <div className={isEmployee ? 'owner-page employee-assigned-page' : 'owner-page'}>
+        <PageHeader eyebrow={isEmployee ? t('employeeWorkspace') : t('venues')} title={isEmployee ? t('myAssignedFields') : t('fields')} description={isEmployee ? t('assignedFieldsIntro') : t('fieldsIntro')} actions={canCreateFields ? <Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button> : <span className="read-only-indicator">{canEditFields ? t('limitedEditing') : t('assignedOnly')}</span>} />
 
         {fields.data.length === 0
             ? <section className="dashboard-panel"><EmptyState title={t('noFields')} action={canCreateFields ? <Button onClick={() => show()}>{t('newField')}</Button> : undefined} /></section>
             : <>
                 <div className="field-card-grid owner-field-grid">{fields.data.map(field => <article className="owner-field-card" key={field.id}>
                     <div className="field-card-visual"><span className="field-initial">{field.name.slice(0, 1).toUpperCase()}</span><Badge value={field.status} /></div>
-                    <div className="field-card-content"><div className="field-card-title"><div><h2>{field.name}</h2><p><MapPin size={14} />{field.address || t('noData')}</p></div><strong>€{Number(field.price_per_hour).toFixed(2)}<small>/{t('hour')}</small></strong></div>
+                    <div className="field-card-content"><div className="field-card-title"><div><h2>{field.name}</h2><p><MapPin size={14} />{field.address || t('noData')}</p></div>{!isEmployee && <strong>€{Number(field.price_per_hour).toFixed(2)}<small>/{t('hour')}</small></strong>}</div>
                         <div className="field-card-stats"><div><CalendarDays size={17} /><span>{t('todayReservations')}</span><strong>{field.today_reservations_count}</strong></div><div><Users size={17} /><span>{t('assignedStaff')}</span><strong>{field.employees_count}</strong></div></div>
                         <div className="tag-list field-team">{field.employees.length ? field.employees.map((employee: any) => <span key={employee.id}>{employee.name}</span>) : <span>{t('noAssignedEmployees')}</span>}</div>
                     </div>

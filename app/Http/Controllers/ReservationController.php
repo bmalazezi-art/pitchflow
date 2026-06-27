@@ -21,10 +21,17 @@ class ReservationController extends Controller
         $user = $request->user();
         $organization = $user->organization;
         $timezone = Timezones::resolve($organization->timezone);
-        $localNow = CarbonImmutable::now($timezone);
+        $fieldIds = $this->accessibleFieldIds($request);
+        $selectedReservation = $request->filled('reservation')
+            ? Reservation::query()->forOrganization($organization->id)
+                ->whereIn('football_field_id', $fieldIds)
+                ->find($request->integer('reservation'))
+            : null;
+        $localNow = $selectedReservation
+            ? CarbonImmutable::parse($selectedReservation->starts_at)->setTimezone($timezone)
+            : CarbonImmutable::now($timezone);
         $from = CarbonImmutable::parse($request->input('from', $localNow->startOfMonth()->subWeek()), $timezone)->startOfDay()->utc();
         $to = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->endOfDay()->utc();
-        $fieldIds = $this->accessibleFieldIds($request);
 
         $reservations = Reservation::query()
             ->forOrganization($organization->id)
@@ -40,6 +47,7 @@ class ReservationController extends Controller
             'fields' => FootballField::query()->whereIn('id', $fieldIds)->orderBy('name')->get(['id', 'name', 'status']),
             'timezone' => $organization->timezone,
             'selectedField' => $request->integer('field') ?: null,
+            'selectedReservation' => $selectedReservation?->id,
         ]);
     }
 
@@ -63,7 +71,7 @@ class ReservationController extends Controller
             ->when($filter === 'tomorrow', fn ($builder) => $builder->whereBetween('starts_at', [$today->addDay()->utc(), $today->addDay()->endOfDay()->utc()]))
             ->when($filter === 'week', fn ($builder) => $builder->whereBetween('starts_at', [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()]))
             ->when(in_array($filter, ['paid', 'unpaid'], true), fn ($builder) => $builder->where('payment_status', $filter))
-            ->when(in_array($filter, ['confirmed', 'pending'], true), fn ($builder) => $builder->where('status', $filter))
+            ->when(in_array($filter, ['confirmed', 'pending', 'completed'], true), fn ($builder) => $builder->where('status', $filter))
             ->when($filter === 'cancelled', fn ($builder) => $builder->whereIn('status', ['cancelled', 'late_cancelled']))
             ->latest('starts_at')
             ->paginate(20)
@@ -123,6 +131,22 @@ class ReservationController extends Controller
         $service->cancel($reservation, $request->user()->organization, $request->user()->id, $request->input('reason'));
 
         return back()->with('success', __('messages.reservation_cancelled'));
+    }
+
+    public function markPaid(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
+    {
+        $this->authorize('update', $reservation);
+        $service->markPaid($reservation, $request->user()->id);
+
+        return back()->with('success', __('messages.reservation_updated'));
+    }
+
+    public function complete(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
+    {
+        $this->authorize('update', $reservation);
+        $service->complete($reservation, $request->user()->id);
+
+        return back()->with('success', __('messages.reservation_updated'));
     }
 
     private function accessibleFieldIds(Request $request): array

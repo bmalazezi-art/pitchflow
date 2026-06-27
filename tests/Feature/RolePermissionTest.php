@@ -10,6 +10,7 @@ use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class RolePermissionTest extends TestCase
@@ -33,6 +34,8 @@ class RolePermissionTest extends TestCase
 
         $this->actingAs($owner)->put("/reservations/{$reservation->id}", $payload)->assertForbidden();
         $this->actingAs($owner)->delete("/reservations/{$reservation->id}")->assertForbidden();
+        $this->actingAs($owner)->patch("/reservations/{$reservation->id}/paid")->assertForbidden();
+        $this->actingAs($owner)->patch("/reservations/{$reservation->id}/complete")->assertForbidden();
         $this->actingAs($owner)->post('/fields', [
             'name' => 'Extra Field',
             'status' => 'active',
@@ -83,7 +86,14 @@ class RolePermissionTest extends TestCase
         $organization = Organization::factory()->create();
         $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
 
-        $this->actingAs($employee)->get('/dashboard')->assertRedirect(route('calendar'));
+        $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+
+        $this->actingAs($employee)->get('/dashboard')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Employee/Dashboard')
+                ->where('metrics.active_field_count', 1)
+                ->has('metrics.upcoming'));
         $this->actingAs($employee)->get('/reports')->assertForbidden();
         $this->actingAs($employee)->get('/settings/organization')->assertForbidden();
         $this->actingAs($employee)->get('/employees')->assertForbidden();
@@ -105,6 +115,45 @@ class RolePermissionTest extends TestCase
         ])->assertForbidden();
 
         $this->assertNotSame('Changed Field', $field->refresh()->name);
+    }
+
+    public function test_employee_can_complete_and_mark_assigned_reservation_paid(): void
+    {
+        $organization = Organization::factory()->create();
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+
+        $this->actingAs($employee)->post('/reservations', $this->reservationPayload($field, $start))->assertRedirect();
+        $reservation = Reservation::query()->firstOrFail();
+
+        $this->actingAs($employee)->patch("/reservations/{$reservation->id}/paid")->assertRedirect();
+        $this->assertDatabaseHas('reservations', [
+            'id' => $reservation->id,
+            'payment_status' => 'paid',
+            'paid_amount' => '40.00',
+        ]);
+
+        $this->actingAs($employee)->patch("/reservations/{$reservation->id}/complete")->assertRedirect();
+        $this->assertDatabaseHas('reservations', ['id' => $reservation->id, 'status' => 'completed']);
+        $this->assertDatabaseCount('reservation_slots', 0);
+    }
+
+    public function test_employee_can_update_own_profile_but_owner_cannot_open_employee_profile(): void
+    {
+        $organization = Organization::factory()->create();
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+
+        $this->actingAs($employee)->put('/profile', [
+            'name' => 'Reception User',
+            'phone' => '+38344111111',
+            'preferred_language' => 'sq',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('users', ['id' => $employee->id, 'name' => 'Reception User']);
+
+        $this->actingAs($owner)->get('/profile')->assertForbidden();
     }
 
     private function reservationPayload(FootballField $field, $start): array

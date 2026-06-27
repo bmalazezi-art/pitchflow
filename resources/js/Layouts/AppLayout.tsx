@@ -25,8 +25,17 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             { label: t('organizations'), href: '/admin/organizations', icon: Building2 },
             { label: 'Cities', href: '/admin/cities', icon: Settings },
         ]
+        : auth.user?.role === 'employee'
+            ? [
+                { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+                { label: t('calendar'), href: '/calendar', icon: CalendarDays },
+                { label: t('reservations'), href: '/reservations', icon: BarChart3 },
+                { label: t('customers'), href: '/customers', icon: CircleUserRound },
+                { label: t('myAssignedFields'), href: '/fields', icon: Building2 },
+                { label: t('myProfile'), href: '/profile', icon: CircleUserRound },
+            ]
         : [
-            ...(auth.user?.role === 'owner' ? [{ label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard }] : []),
+            { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
             { label: t('calendar'), href: '/calendar', icon: CalendarDays },
             { label: t('reservations'), href: '/reservations', icon: BarChart3 },
             { label: t('customers'), href: '/customers', icon: CircleUserRound },
@@ -38,7 +47,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             ] : []),
         ];
 
-    return <div className={clsx('app-shell', collapsed && 'sidebar-collapsed')}>
+    return <div className={clsx('app-shell', collapsed && 'sidebar-collapsed', auth.user?.role === 'employee' && 'employee-shell')}>
         <aside className={clsx('sidebar', open && 'open')}>
             <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong><button className="icon-btn mobile-only" onClick={() => setOpen(false)} aria-label={t('close')}><X size={20} /></button></div>
             <nav>{nav.map(({ label, href, icon: Icon }) => <Link key={href} href={href} className={location.pathname.startsWith(href) ? 'active' : ''} onClick={() => setOpen(false)} title={label}><Icon size={19} /><span>{label}</span></Link>)}</nav>

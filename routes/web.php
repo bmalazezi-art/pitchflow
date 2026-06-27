@@ -14,6 +14,7 @@ use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\FootballFieldController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrganizationSettingsController;
+use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\PublicAvailabilityController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
@@ -53,6 +54,8 @@ Route::middleware('auth')->group(function () {
         Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');
         Route::put('/reservations/{reservation}', [ReservationController::class, 'update'])->name('reservations.update');
         Route::delete('/reservations/{reservation}', [ReservationController::class, 'destroy'])->name('reservations.destroy');
+        Route::patch('/reservations/{reservation}/paid', [ReservationController::class, 'markPaid'])->name('reservations.paid');
+        Route::patch('/reservations/{reservation}/complete', [ReservationController::class, 'complete'])->name('reservations.complete');
         Route::get('/customers', [CustomerController::class, 'index'])->name('customers.index');
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
@@ -60,6 +63,8 @@ Route::middleware('auth')->group(function () {
         Route::get('/reports', ReportController::class)->name('reports');
         Route::get('/settings/organization', [OrganizationSettingsController::class, 'edit'])->name('settings.organization');
         Route::put('/settings/organization', [OrganizationSettingsController::class, 'update'])->name('settings.organization.update');
+        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+        Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::get('/search', SearchController::class)->name('search')->middleware('throttle:60,1');
         Route::get('/admin/organizations', [AdminOrganizationController::class, 'index'])->name('admin.organizations');
         Route::patch('/admin/organizations/{organization}', [AdminOrganizationController::class, 'update'])->name('admin.organizations.update');
