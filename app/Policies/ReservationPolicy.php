@@ -18,16 +18,16 @@ class ReservationPolicy
 
     public function create(User $user): bool
     {
-        return $user->organization_id !== null;
+        return $user->isEmployee() && $user->organization_id !== null;
     }
 
     public function update(User $user, Reservation $reservation): bool
     {
-        return $this->view($user, $reservation);
+        return $user->isEmployee() && $this->view($user, $reservation);
     }
 
     public function delete(User $user, Reservation $reservation): bool
     {
-        return $this->view($user, $reservation);
+        return $user->isEmployee() && $this->view($user, $reservation);
     }
 }

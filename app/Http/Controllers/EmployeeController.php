@@ -19,6 +19,7 @@ class EmployeeController extends Controller
 {
     public function index(): Response
     {
+        abort_unless(request()->user()->isOwner() || request()->user()->isSuperAdmin(), 403);
         $organizationId = request()->user()->organization_id;
 
         return Inertia::render('Employees/Index', [

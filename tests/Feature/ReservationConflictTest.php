@@ -17,8 +17,9 @@ class ReservationConflictTest extends TestCase
     public function test_database_backed_slots_prevent_double_booking(): void
     {
         $organization = Organization::factory()->create();
-        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
         $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
         $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
         $payload = [
             'customer_name' => 'First Customer',
@@ -29,10 +30,10 @@ class ReservationConflictTest extends TestCase
             'payment_status' => 'unpaid',
         ];
 
-        $this->actingAs($owner)->post('/reservations', $payload)->assertRedirect();
+        $this->actingAs($employee)->post('/reservations', $payload)->assertRedirect();
         $payload['customer_name'] = 'Second Customer';
         $payload['customer_phone'] = '+38344222222';
-        $this->actingAs($owner)->post('/reservations', $payload)
+        $this->actingAs($employee)->post('/reservations', $payload)
             ->assertSessionHasErrors('starts_at')
             ->assertSessionHas('slot_suggestions');
 

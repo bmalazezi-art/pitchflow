@@ -68,6 +68,11 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return $this->role === UserRole::Owner;
     }
 
+    public function isEmployee(): bool
+    {
+        return $this->role === UserRole::Employee;
+    }
+
     public function preferredLocale(): string
     {
         return $this->preferred_language;

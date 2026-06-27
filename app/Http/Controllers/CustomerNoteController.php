@@ -11,7 +11,7 @@ class CustomerNoteController extends Controller
 {
     public function store(CustomerNoteRequest $request, Customer $customer, ActivityLogger $activity): RedirectResponse
     {
-        $this->authorize('update', $customer);
+        $this->authorize('addNote', $customer);
         $note = $customer->notes()->create([
             'organization_id' => $customer->organization_id,
             'user_id' => $request->user()->id,

@@ -22,7 +22,11 @@ class FootballFieldController extends Controller
         $user = request()->user();
         $timezone = Timezones::resolve($user->organization->timezone);
         $today = CarbonImmutable::now($timezone)->startOfDay();
+        $assignedFieldIds = $user->isEmployee()
+            ? $user->assignedFields()->pluck('football_fields.id')
+            : null;
         $fields = FootballField::query()->forOrganization($user->organization_id)
+            ->when($assignedFieldIds !== null, fn ($query) => $query->whereIn('id', $assignedFieldIds))
             ->with(['operatingHours', 'employees:id,name'])
             ->withCount([
                 'reservations',
@@ -61,28 +65,34 @@ class FootballFieldController extends Controller
         return back()->with('success', __('messages.field_created'));
     }
 
-    public function update(FootballFieldRequest $request, FootballField $footballField, ActivityLogger $activity): RedirectResponse
+    public function update(FootballFieldRequest $request, FootballField $field, ActivityLogger $activity): RedirectResponse
     {
-        $this->authorize('update', $footballField);
+        $this->authorize('update', $field);
         $data = $request->validated();
 
-        DB::transaction(function () use ($footballField, $data) {
-            $footballField->update($data);
-            $this->syncHours($footballField, $data['operating_hours'] ?? []);
+        if ($request->user()->isOwner()) {
+            $data = collect($data)->only([
+                'name', 'status', 'price_per_hour', 'opening_time', 'closing_time', 'operating_hours',
+            ])->all();
+        }
+
+        DB::transaction(function () use ($field, $data) {
+            $field->update($data);
+            $this->syncHours($field, $data['operating_hours'] ?? []);
         });
-        $activity->log('field_updated', $footballField);
+        $activity->log('field_updated', $field);
 
         return back()->with('success', __('messages.field_updated'));
     }
 
     public function destroy(
-        FootballField $footballField,
+        FootballField $field,
         ActivityLogger $activity,
         SubscriptionService $subscriptions,
     ): RedirectResponse {
-        $this->authorize('delete', $footballField);
-        $footballField->delete();
-        $activity->log('field_deleted', $footballField);
+        $this->authorize('delete', $field);
+        $field->delete();
+        $activity->log('field_deleted', $field);
         $subscriptions->syncForOrganization(request()->user()->organization);
 
         return back()->with('success', __('messages.field_deleted'));

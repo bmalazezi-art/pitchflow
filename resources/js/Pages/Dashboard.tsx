@@ -4,7 +4,7 @@ import {
     ArrowUpRight,
     Banknote,
     CalendarCheck,
-    CalendarPlus,
+    CalendarDays,
     CircleDollarSign,
     Clock3,
     Gauge,
@@ -129,7 +129,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                     <h1>{greeting}, {firstName} <span aria-hidden="true">👋</span></h1>
                     <p>{t('dashboardTodayAt')} <strong>{organizationName}</strong>.</p>
                 </div>
-                <Link className="btn btn-primary dashboard-primary-action" href="/calendar"><CalendarPlus size={18} />{t('newReservation')}</Link>
+                <Link className="btn btn-primary dashboard-primary-action" href="/calendar"><CalendarDays size={18} />{t('viewCalendar')}</Link>
             </header>
 
             <section className="dashboard-kpi-grid" aria-label={t('todayOverview')}>
@@ -148,7 +148,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                         <Link href="/calendar">{t('openCalendar')}<ArrowUpRight size={15} /></Link>
                     </div>
                     {metrics.today_timeline.length === 0
-                        ? <div className="dashboard-empty"><span><CalendarCheck size={22} /></span><h3>{t('noReservationsToday')}</h3><p>{t('createFirstReservation')}</p><Link className="btn btn-primary" href="/calendar"><CalendarPlus size={17} />{t('newReservation')}</Link></div>
+                        ? <div className="dashboard-empty"><span><CalendarCheck size={22} /></span><h3>{t('noReservationsToday')}</h3><p>{t('ownerReadOnlyHint')}</p><Link className="btn btn-primary" href="/calendar"><CalendarDays size={17} />{t('viewCalendar')}</Link></div>
                         : <div className="dashboard-timeline">{metrics.today_timeline.map((reservation) => <article className="timeline-row" key={reservation.id}>
                             <time>{formatTime(reservation.starts_at)}</time>
                             <span className="timeline-marker" aria-hidden="true" />

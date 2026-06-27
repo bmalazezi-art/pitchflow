@@ -18,7 +18,7 @@ class FootballFieldPolicy
 
     public function create(User $user): bool
     {
-        return $user->isOwner();
+        return $user->isSuperAdmin();
     }
 
     public function update(User $user, FootballField $field): bool
@@ -28,6 +28,6 @@ class FootballFieldPolicy
 
     public function delete(User $user, FootballField $field): bool
     {
-        return $this->update($user, $field);
+        return $user->isSuperAdmin() && $this->sameOrganization($user, $field);
     }
 }

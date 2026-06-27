@@ -26,7 +26,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             { label: 'Cities', href: '/admin/cities', icon: Settings },
         ]
         : [
-            { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
+            ...(auth.user?.role === 'owner' ? [{ label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard }] : []),
             { label: t('calendar'), href: '/calendar', icon: CalendarDays },
             { label: t('reservations'), href: '/reservations', icon: BarChart3 },
             { label: t('customers'), href: '/customers', icon: CircleUserRound },

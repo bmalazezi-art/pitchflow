@@ -18,10 +18,10 @@ class ReservationRulesTest extends TestCase
 
     public function test_reservations_outside_operating_hours_are_rejected(): void
     {
-        [$organization, $owner, $field] = $this->context();
+        [$organization, $employee, $field] = $this->context();
         $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(8, 0);
 
-        $this->actingAs($owner)->post('/reservations', $this->payload($field, $start))
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start))
             ->assertSessionHasErrors('starts_at');
 
         $this->assertDatabaseCount('reservations', 0);
@@ -29,13 +29,13 @@ class ReservationRulesTest extends TestCase
 
     public function test_cancelling_inside_the_window_marks_a_late_cancellation_and_releases_slot(): void
     {
-        [$organization, $owner, $field] = $this->context();
+        [$organization, $employee, $field] = $this->context();
         $start = now(Timezones::resolve($organization->timezone))->addHour()->startOfHour();
         $field->update(['opening_time' => '00:00', 'closing_time' => '00:00']);
 
-        $this->actingAs($owner)->post('/reservations', $this->payload($field, $start));
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
         $reservationId = (int) \DB::table('reservations')->value('id');
-        $this->actingAs($owner)->delete("/reservations/{$reservationId}", ['reason' => 'Customer cancelled'])
+        $this->actingAs($employee)->delete("/reservations/{$reservationId}", ['reason' => 'Customer cancelled'])
             ->assertRedirect();
 
         $this->assertDatabaseHas('reservations', ['id' => $reservationId, 'status' => ReservationStatus::LateCancelled->value]);
@@ -44,17 +44,17 @@ class ReservationRulesTest extends TestCase
 
     public function test_terminal_reservation_status_cannot_be_reopened(): void
     {
-        [$organization, $owner, $field] = $this->context();
+        [$organization, $employee, $field] = $this->context();
         $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
-        $this->actingAs($owner)->post('/reservations', $this->payload($field, $start));
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
         $reservation = Reservation::query()->firstOrFail();
 
         $completed = [...$this->payload($field, $start), 'status' => 'completed'];
-        $this->actingAs($owner)->put("/reservations/{$reservation->id}", $completed)->assertRedirect();
+        $this->actingAs($employee)->put("/reservations/{$reservation->id}", $completed)->assertRedirect();
         $this->assertSame(ReservationStatus::Completed, $reservation->refresh()->status);
 
         $reopened = [...$this->payload($field, $start), 'status' => 'confirmed'];
-        $this->actingAs($owner)->put("/reservations/{$reservation->id}", $reopened)
+        $this->actingAs($employee)->put("/reservations/{$reservation->id}", $reopened)
             ->assertSessionHasErrors('starts_at');
         $this->assertSame(ReservationStatus::Completed, $reservation->refresh()->status);
     }
@@ -62,10 +62,11 @@ class ReservationRulesTest extends TestCase
     private function context(): array
     {
         $organization = Organization::factory()->create();
-        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
         $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
 
-        return [$organization, $owner, $field];
+        return [$organization, $employee, $field];
     }
 
     private function payload(FootballField $field, $start): array

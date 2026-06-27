@@ -1,10 +1,10 @@
-import { Head, Link, router, useForm } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { CalendarDays, Clock3, MapPin, Pencil, Plus, Trash2, Users, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select } from '../../Components/UI';
 import AppLayout from '../../Layouts/AppLayout';
 import { useTranslation } from '../../lib/i18n';
-import type { Paginated } from '../../types';
+import type { Paginated, SharedProps } from '../../types';
 
 interface OperatingHour {
     day_of_week: number;
@@ -34,6 +34,10 @@ const defaultHours = (): OperatingHour[] => dayNames.map((_, day) => ({
 
 export default function Fields({ fields, cities }: { fields: Paginated<any>; cities: Array<{ id: number; name: string }> }) {
     const t = useTranslation();
+    const { auth } = usePage<SharedProps>().props;
+    const canCreateFields = auth.user?.role === 'super_admin';
+    const canEditFields = auth.user?.role === 'owner' || auth.user?.role === 'super_admin';
+    const canDeleteFields = auth.user?.role === 'super_admin';
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<any>(null);
     const form = useForm<FieldForm>({
@@ -97,10 +101,10 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
     return <AppLayout title={t('fields')}>
         <Head title={t('fields')} />
         <div className="owner-page">
-        <PageHeader eyebrow={t('venues')} title={t('fields')} description={t('fieldsIntro')} actions={<Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button>} />
+        <PageHeader eyebrow={t('venues')} title={t('fields')} description={t('fieldsIntro')} actions={canCreateFields ? <Button onClick={() => show()}><Plus size={18} />{t('newField')}</Button> : <span className="read-only-indicator">{canEditFields ? t('limitedEditing') : t('readOnly')}</span>} />
 
         {fields.data.length === 0
-            ? <section className="dashboard-panel"><EmptyState title={t('noFields')} action={<Button onClick={() => show()}>{t('newField')}</Button>} /></section>
+            ? <section className="dashboard-panel"><EmptyState title={t('noFields')} action={canCreateFields ? <Button onClick={() => show()}>{t('newField')}</Button> : undefined} /></section>
             : <>
                 <div className="field-card-grid owner-field-grid">{fields.data.map(field => <article className="owner-field-card" key={field.id}>
                     <div className="field-card-visual"><span className="field-initial">{field.name.slice(0, 1).toUpperCase()}</span><Badge value={field.status} /></div>
@@ -108,17 +112,17 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
                         <div className="field-card-stats"><div><CalendarDays size={17} /><span>{t('todayReservations')}</span><strong>{field.today_reservations_count}</strong></div><div><Users size={17} /><span>{t('assignedStaff')}</span><strong>{field.employees_count}</strong></div></div>
                         <div className="tag-list field-team">{field.employees.length ? field.employees.map((employee: any) => <span key={employee.id}>{employee.name}</span>) : <span>{t('noAssignedEmployees')}</span>}</div>
                     </div>
-                    <footer className="field-card-actions"><button className="icon-btn bordered" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('workingHours')}><Clock3 size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('maintenance')}><Wrench size={17} /></button><Link className="icon-btn bordered" href={`/calendar?field=${field.id}`} title={t('reservations')}><CalendarDays size={17} /></Link><button className="icon-btn bordered danger" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button></footer>
+                    <footer className="field-card-actions">{canEditFields && <><button className="icon-btn bordered" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('workingHours')}><Clock3 size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('maintenance')}><Wrench size={17} /></button></>}<Link className="icon-btn bordered" href={`/calendar?field=${field.id}`} title={t('reservations')}><CalendarDays size={17} /></Link>{canDeleteFields && <button className="icon-btn bordered danger" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button>}</footer>
                 </article>)}</div>
                 {fields.last_page > 1 && <Pagination links={fields.links} />}
             </>}
 
-        <Modal open={open} title={editing ? t('editField') : t('newField')} onClose={() => setOpen(false)}>
+        <Modal open={open && canEditFields} title={editing ? t('editField') : t('newField')} onClose={() => setOpen(false)}>
             <form onSubmit={submit}>
                 <div className="form-grid">
                     <Field label={t('name')} error={form.errors.name} required><Input value={form.data.name} onChange={event => form.setData('name', event.target.value)} /></Field>
-                    <Field label={t('selectCity')} error={form.errors.city_id}><Select value={form.data.city_id} onChange={event => form.setData('city_id', event.target.value)}><option value="">{t('organizationCity')}</option>{cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}</Select></Field>
-                    <Field label={t('address')} error={form.errors.address}><Input value={form.data.address} onChange={event => form.setData('address', event.target.value)} /></Field>
+                    {!editing && <Field label={t('selectCity')} error={form.errors.city_id}><Select value={form.data.city_id} onChange={event => form.setData('city_id', event.target.value)}><option value="">{t('organizationCity')}</option>{cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}</Select></Field>}
+                    {!editing && <Field label={t('address')} error={form.errors.address}><Input value={form.data.address} onChange={event => form.setData('address', event.target.value)} /></Field>}
                     <Field label={t('status')} error={form.errors.status}><Select value={form.data.status} onChange={event => form.setData('status', event.target.value)}><option value="active">{t('active')}</option><option value="maintenance">{t('maintenance')}</option><option value="closed">{t('closed')}</option></Select></Field>
                     <Field label={t('pricePerHour')} error={form.errors.price_per_hour}><Input type="number" min="0" step="0.01" value={form.data.price_per_hour} onChange={event => form.setData('price_per_hour', Number(event.target.value))} /></Field>
                 </div>

@@ -15,6 +15,9 @@ class DashboardController extends Controller
         if ($user->isSuperAdmin()) {
             return redirect()->route('admin.organizations');
         }
+        if ($user->isEmployee()) {
+            return redirect()->route('calendar');
+        }
 
         return Inertia::render('Dashboard', [
             'metrics' => $reports->dashboard($user->organization),

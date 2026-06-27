@@ -1,0 +1,121 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Enums\UserRole;
+use App\Models\Customer;
+use App\Models\FootballField;
+use App\Models\Organization;
+use App\Models\Reservation;
+use App\Models\User;
+use App\Support\Timezones;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Tests\TestCase;
+
+class RolePermissionTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_owner_cannot_mutate_reservations_or_field_inventory(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+        $payload = $this->reservationPayload($field, $start);
+
+        $this->actingAs($owner)->post('/reservations', $payload)->assertForbidden();
+
+        $this->actingAs($employee)->post('/reservations', $payload)->assertRedirect();
+        $reservation = Reservation::query()->firstOrFail();
+
+        $this->actingAs($owner)->put("/reservations/{$reservation->id}", $payload)->assertForbidden();
+        $this->actingAs($owner)->delete("/reservations/{$reservation->id}")->assertForbidden();
+        $this->actingAs($owner)->post('/fields', [
+            'name' => 'Extra Field',
+            'status' => 'active',
+            'price_per_hour' => 40,
+            'opening_time' => '12:00',
+            'closing_time' => '01:00',
+        ])->assertForbidden();
+        $this->actingAs($owner)->delete("/fields/{$field->id}")->assertForbidden();
+    }
+
+    public function test_only_assigned_employee_can_add_customer_notes(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $otherEmployee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        $customer = Customer::factory()->for($organization)->create();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0)->utc();
+        Reservation::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'starts_at' => $start,
+            'ends_at' => $start->addHour(),
+            'status' => 'confirmed',
+            'payment_status' => 'unpaid',
+            'price' => 40,
+            'currency' => 'EUR',
+        ]);
+
+        $this->actingAs($owner)->post("/customers/{$customer->id}/notes", ['note' => 'Owner note'])->assertForbidden();
+        $this->actingAs($otherEmployee)->post("/customers/{$customer->id}/notes", ['note' => 'Unassigned note'])->assertForbidden();
+        $this->actingAs($employee)->post("/customers/{$customer->id}/notes", ['note' => 'Reliable customer'])->assertRedirect();
+
+        $this->assertDatabaseHas('customer_notes', [
+            'customer_id' => $customer->id,
+            'user_id' => $employee->id,
+            'note' => 'Reliable customer',
+        ]);
+    }
+
+    public function test_employee_cannot_access_owner_business_controls(): void
+    {
+        $organization = Organization::factory()->create();
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+
+        $this->actingAs($employee)->get('/dashboard')->assertRedirect(route('calendar'));
+        $this->actingAs($employee)->get('/reports')->assertForbidden();
+        $this->actingAs($employee)->get('/settings/organization')->assertForbidden();
+        $this->actingAs($employee)->get('/employees')->assertForbidden();
+    }
+
+    public function test_employee_cannot_change_field_configuration(): void
+    {
+        $organization = Organization::factory()->create();
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create();
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+
+        $this->actingAs($employee)->put("/fields/{$field->id}", [
+            'name' => 'Changed Field',
+            'status' => 'maintenance',
+            'price_per_hour' => 80,
+            'opening_time' => '12:00',
+            'closing_time' => '01:00',
+        ])->assertForbidden();
+
+        $this->assertNotSame('Changed Field', $field->refresh()->name);
+    }
+
+    private function reservationPayload(FootballField $field, $start): array
+    {
+        return [
+            'customer_name' => 'Customer',
+            'customer_phone' => '+38344123456',
+            'football_field_id' => $field->id,
+            'starts_at' => $start->format('Y-m-d\TH:i'),
+            'ends_at' => $start->copy()->addHour()->format('Y-m-d\TH:i'),
+            'payment_status' => 'unpaid',
+        ];
+    }
+}

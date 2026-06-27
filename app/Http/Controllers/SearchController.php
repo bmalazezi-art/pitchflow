@@ -32,15 +32,22 @@ class SearchController extends Controller
         }
 
         $organizationId = $user->organization_id;
+        $fieldIds = $user->isEmployee()
+            ? $user->assignedFields()->pluck('football_fields.id')->all()
+            : null;
 
         return response()->json([
             'customers' => Customer::query()->forOrganization($organizationId)
+                ->when($fieldIds !== null, fn ($query) => $query->whereHas('reservations', fn ($reservationQuery) => $reservationQuery->whereIn('football_field_id', $fieldIds)))
                 ->where(fn ($query) => $query->where('name', 'like', "%{$q}%")->orWhere('phone', 'like', "%{$q}%"))
                 ->limit(5)->get(['id', 'name', 'phone', 'reliability_status']),
             'reservations' => Reservation::query()->forOrganization($organizationId)
+                ->when($fieldIds !== null, fn ($query) => $query->whereIn('football_field_id', $fieldIds))
                 ->where(fn ($query) => $query->where('customer_name', 'like', "%{$q}%")->orWhere('customer_phone', 'like', "%{$q}%"))
                 ->limit(5)->get(['id', 'customer_name', 'customer_phone', 'starts_at']),
-            'fields' => FootballField::query()->forOrganization($organizationId)->where('name', 'like', "%{$q}%")
+            'fields' => FootballField::query()->forOrganization($organizationId)
+                ->when($fieldIds !== null, fn ($query) => $query->whereIn('id', $fieldIds))
+                ->where('name', 'like', "%{$q}%")
                 ->limit(5)->get(['id', 'name']),
             'employees' => $user->isOwner()
                 ? User::query()->where('organization_id', $organizationId)->where('role', 'employee')->where('name', 'like', "%{$q}%")->limit(5)->get(['id', 'name', 'email'])

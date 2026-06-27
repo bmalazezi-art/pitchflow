@@ -157,6 +157,7 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .owner-page-header p { max-width: 680px; margin: 0; color: var(--muted); line-height: 1.55; }
 .owner-page-actions { display: flex; align-items: center; gap: 9px; }
 .owner-page-actions .btn-primary { min-height: 44px; padding: 0 18px; box-shadow: 0 8px 22px rgb(37 99 235 / .18); text-decoration: none; }
+.read-only-indicator { min-height: 36px; padding: 0 11px; display: inline-flex; align-items: center; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); background: var(--surface); font-size: 12px; font-weight: 700; }
 .data-toolbar { width: 100%; min-width: 0; min-height: 66px; padding: 12px; display: flex; align-items: center; gap: 12px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); box-shadow: 0 4px 16px rgb(15 23 42 / .03); }
 .data-toolbar form { flex: 0 1 330px; }
 .search-input { min-height: 42px; padding: 0 12px; display: flex; align-items: center; gap: 9px; border: 1px solid var(--border); border-radius: 7px; color: var(--muted); background: var(--surface-2); }
@@ -212,6 +213,10 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .drawer-note-form .btn { justify-self: end; }
 .notes-list article > div { max-width: 100%; }
 .drawer-contact { min-height: 42px; margin-top: 16px; padding: 0 13px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; color: var(--text); text-decoration: none; }
+.detail-list { margin: 0; display: grid; }
+.detail-list > div { min-height: 48px; display: flex; align-items: center; justify-content: space-between; gap: 16px; border-top: 1px solid var(--border); }
+.detail-list dt { color: var(--muted); font-size: 12px; }
+.detail-list dd { margin: 0; font-size: 13px; font-weight: 700; text-align: right; }
 .assignment-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
 .assignment-grid label { min-height: 44px; padding: 0 11px; display: flex; align-items: center; gap: 8px; border: 1px solid var(--border); border-radius: 7px; cursor: pointer; }
 .assignment-grid label.selected { color: var(--blue); border-color: #93c5fd; background: #eff6ff; }
@@ -236,6 +241,7 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .calendar-shell .fc .fc-timegrid-slot { height: 54px; }
 .calendar-shell .fc .fc-timegrid-axis-cushion, .calendar-shell .fc .fc-timegrid-slot-label-cushion { color: var(--muted); font-size: 11px; }
 .calendar-shell .fc .fc-event { padding: 4px 6px; border: 0; border-radius: 7px; box-shadow: 0 3px 10px rgb(15 23 42 / .12); cursor: pointer; font-size: 11px; }
+.calendar-shell.read-only .fc .fc-event { cursor: default; }
 .calendar-shell .fc .fc-daygrid-day-number { color: var(--text); text-decoration: none; }
 .calendar-shell .fc .fc-day-today { background: #eff6ff !important; }
 .dark .calendar-shell .fc .fc-day-today { background: #172554 !important; }
@@ -318,6 +324,10 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .setting-toggles label > span { display: grid; gap: 4px; }
 .setting-toggles small { color: var(--muted); }
 .setting-toggles input { width: 38px; height: 20px; }
+.settings-readonly-grid { margin-bottom: 18px; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.settings-readonly-grid > div { min-height: 82px; padding: 13px; display: flex; flex-direction: column; justify-content: space-between; gap: 8px; border: 1px solid var(--border); border-radius: 8px; background: var(--surface-2); }
+.settings-readonly-grid span { color: var(--muted); font-size: 11px; }
+.settings-readonly-grid strong { font-size: 15px; }
 
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; background: var(--surface); }
 table { width: 100%; border-collapse: collapse; }
@@ -607,6 +617,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .drawer-footer { flex-wrap: wrap; }
     .drawer-footer .btn { flex: 1; }
     .assignment-grid { grid-template-columns: 1fr; }
+    .settings-readonly-grid { grid-template-columns: 1fr; }
     .report-kpi-grid { grid-template-columns: 1fr; }
     .behavior-grid { grid-template-columns: 1fr; }
     .metrics-grid, .form-grid { grid-template-columns: 1fr; }

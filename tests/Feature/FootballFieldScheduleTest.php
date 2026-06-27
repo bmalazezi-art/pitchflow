@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\City;
+use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -18,6 +19,8 @@ class FootballFieldScheduleTest extends TestCase
         $organization = Organization::factory()->create();
         $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
         $city = City::factory()->create();
+        $field = FootballField::factory()->for($organization)->create(['city_id' => $city->id]);
+        $originalAddress = $field->address;
         $hours = collect(range(0, 6))->map(fn (int $day) => [
             'day_of_week' => $day,
             'opening_time' => '14:00',
@@ -25,8 +28,8 @@ class FootballFieldScheduleTest extends TestCase
             'is_closed' => $day === 0,
         ])->all();
 
-        $this->actingAs($owner)->post('/fields', [
-            'name' => 'Weekly Field',
+        $this->actingAs($owner)->put("/fields/{$field->id}", [
+            'name' => $field->name,
             'city_id' => $city->id,
             'address' => 'Sports Center',
             'status' => 'active',
@@ -36,6 +39,9 @@ class FootballFieldScheduleTest extends TestCase
             'operating_hours' => $hours,
         ])->assertRedirect();
 
+        $this->assertDatabaseCount('football_fields', 1);
+        $this->assertSame($originalAddress, $field->refresh()->address);
+        $this->assertSame('50.00', $field->price_per_hour);
         $this->assertDatabaseCount('operating_hours', 7);
         $this->assertDatabaseHas('operating_hours', [
             'day_of_week' => 0,
