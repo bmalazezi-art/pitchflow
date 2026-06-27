@@ -28,26 +28,55 @@ class ReportService
         $today = (clone $base)->whereBetween('starts_at', [$todayStart, $todayEnd]);
         $month = (clone $base)->whereBetween('starts_at', [$monthStart, $monthEnd]);
         $monthReservations = (clone $month)->with('footballField:id,name')->get();
+        $todayReservations = (clone $today)
+            ->with('footballField:id,name')
+            ->orderBy('starts_at')
+            ->get([
+                'id', 'organization_id', 'football_field_id', 'customer_name', 'starts_at', 'ends_at',
+                'status', 'payment_status', 'price', 'paid_amount', 'currency',
+            ]);
 
-        $occupiedHours = (clone $today)
-            ->whereIn('status', [
-                ReservationStatus::Pending->value,
-                ReservationStatus::Confirmed->value,
-                ReservationStatus::Completed->value,
-                ReservationStatus::NoShow->value,
-            ])
-            ->get(['starts_at', 'ends_at'])
+        $activeToday = $todayReservations->filter(fn (Reservation $reservation) => in_array($reservation->status, [
+            ReservationStatus::Pending,
+            ReservationStatus::Confirmed,
+            ReservationStatus::Completed,
+        ], true));
+
+        $occupiedHours = $todayReservations
+            ->filter(fn (Reservation $reservation) => in_array($reservation->status, [
+                ReservationStatus::Pending,
+                ReservationStatus::Confirmed,
+                ReservationStatus::Completed,
+                ReservationStatus::NoShow,
+            ], true))
             ->sum(fn (Reservation $reservation) => $reservation->starts_at->diffInMinutes($reservation->ends_at) / 60);
         $availableHours = $this->capacityHours($organization, $now->startOfDay(), $now->startOfDay());
 
         return [
-            'today_reservations' => (clone $today)->count(),
-            'today_revenue' => (float) (clone $today)->whereIn('payment_status', [PaymentStatus::Paid->value, PaymentStatus::Partial->value])->sum('paid_amount'),
+            'timezone' => $timezone,
+            'currency' => $organization->currency,
+            'today_date' => $now->toDateString(),
+            'today_reservations' => $todayReservations->count(),
+            'expected_revenue_today' => (float) $activeToday->sum('price'),
+            'today_revenue' => (float) $todayReservations
+                ->whereIn('payment_status', [PaymentStatus::Paid, PaymentStatus::Partial])
+                ->sum('paid_amount'),
+            'unpaid_reservations' => $activeToday
+                ->whereIn('payment_status', [PaymentStatus::Unpaid, PaymentStatus::Partial])
+                ->count(),
+            'cancellations_and_no_shows' => $todayReservations
+                ->whereIn('status', [ReservationStatus::Cancelled, ReservationStatus::LateCancelled, ReservationStatus::NoShow])
+                ->count(),
             'monthly_revenue' => (float) (clone $month)->whereIn('payment_status', [PaymentStatus::Paid->value, PaymentStatus::Partial->value])->sum('paid_amount'),
             'occupancy_rate' => round(min(100, ($occupiedHours / max(1, $availableHours)) * 100), 1),
+            'today_timeline' => $todayReservations,
+            'busiest_field_today' => $this->mostBookedField($todayReservations),
             'upcoming' => (clone $base)->with('footballField:id,name')->where('starts_at', '>=', now())
                 ->whereIn('status', [ReservationStatus::Pending->value, ReservationStatus::Confirmed->value])
-                ->orderBy('starts_at')->limit(6)->get(),
+                ->orderBy('starts_at')->limit(6)->get([
+                    'id', 'organization_id', 'football_field_id', 'customer_name', 'starts_at', 'ends_at',
+                    'status', 'payment_status',
+                ]),
             'weekly' => $this->weeklyCounts($organization, $now),
             'active_employees' => $organization->users()->where('role', 'employee')->count(),
             'peak_hours' => $monthReservations

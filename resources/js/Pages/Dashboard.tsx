@@ -1,13 +1,109 @@
-import { Head, Link } from '@inertiajs/react';
-import { CalendarPlus, Users } from 'lucide-react';
+import { Head, Link, usePage } from '@inertiajs/react';
+import {
+    Activity,
+    ArrowUpRight,
+    Banknote,
+    CalendarCheck,
+    CalendarPlus,
+    CircleDollarSign,
+    Clock3,
+    Gauge,
+    Trophy,
+    TriangleAlert,
+    UserRound,
+    WalletCards,
+    type LucideIcon,
+} from 'lucide-react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../Layouts/AppLayout';
-import { Badge, EmptyState } from '../Components/UI';
+import { Badge } from '../Components/UI';
 import { useTranslation } from '../lib/i18n';
+import type { SharedProps } from '../types';
 
-export default function Dashboard({ metrics }: { metrics: any }) {
+interface DashboardReservation {
+    id: number;
+    customer_name: string;
+    starts_at: string;
+    ends_at: string;
+    status: string;
+    payment_status: string;
+    football_field: { id: number; name: string };
+}
+
+interface DashboardActivity {
+    id: number;
+    action: string;
+    created_at: string;
+    user?: { id: number; name: string } | null;
+}
+
+interface DashboardMetrics {
+    timezone: string;
+    currency: string;
+    today_date: string;
+    today_reservations: number;
+    expected_revenue_today: number;
+    today_revenue: number;
+    occupancy_rate: number;
+    unpaid_reservations: number;
+    cancellations_and_no_shows: number;
+    busiest_field_today: string | null;
+    today_timeline: DashboardReservation[];
+    upcoming: DashboardReservation[];
+    weekly: Array<{ date: string; count: number }>;
+    peak_hours: Record<string, number>;
+    recent_activity: DashboardActivity[];
+}
+
+interface KpiCardProps {
+    label: string;
+    value: string | number;
+    detail: string;
+    icon: LucideIcon;
+    tone: 'blue' | 'green' | 'yellow' | 'red';
+}
+
+function KpiCard({ label, value, detail, icon: Icon, tone }: KpiCardProps) {
+    return <article className={`dashboard-kpi tone-${tone}`}>
+        <div className="dashboard-kpi-top"><span>{label}</span><span className="dashboard-kpi-icon"><Icon size={17} /></span></div>
+        <strong>{value}</strong>
+        <small>{detail}</small>
+    </article>;
+}
+
+export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     const t = useTranslation();
-    const currency = new Intl.NumberFormat(undefined, { style: 'currency', currency: 'EUR' });
+    const { auth, locale } = usePage<SharedProps>().props;
+    const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
+    const firstName = auth.user?.name.split(' ')[0] ?? '';
+    const organizationName = auth.organization?.name ?? 'PitchFlow';
+    const currency = new Intl.NumberFormat(localeCode, { style: 'currency', currency: metrics.currency });
+    const localHour = Number(new Intl.DateTimeFormat('en-GB', {
+        hour: '2-digit', hour12: false, timeZone: metrics.timezone,
+    }).format(new Date()));
+    const greeting = localHour < 12 ? t('goodMorning') : localHour < 18 ? t('goodAfternoon') : t('goodEvening');
+    const todayLabel = new Intl.DateTimeFormat(localeCode, {
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
+    }).format(new Date(`${metrics.today_date}T12:00:00Z`));
+    const peakEntries = Object.entries(metrics.peak_hours);
+    const peakMaximum = Math.max(...peakEntries.map(([, count]) => count), 1);
+
+    const formatTime = (date: string) => new Intl.DateTimeFormat(localeCode, {
+        hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone,
+    }).format(new Date(date));
+    const formatReservationDate = (date: string) => new Intl.DateTimeFormat(localeCode, {
+        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone,
+    }).format(new Date(date));
+    const relativeTime = (date: string) => {
+        const seconds = Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 1000));
+        if (seconds < 60) return t('justNow');
+        const minutes = Math.round(seconds / 60);
+        if (minutes < 60) return minutes === 1 ? t('oneMinuteAgo') : `${minutes} ${t('minutesAgo')}`;
+        const hours = Math.round(minutes / 60);
+        if (hours < 24) return hours === 1 ? t('oneHourAgo') : `${hours} ${t('hoursAgo')}`;
+        const days = Math.round(hours / 24);
+        return days === 1 ? t('yesterday') : `${days} ${t('daysAgo')}`;
+    };
     const activityLabel = (action: string) => {
         const key = ({
             login: 'activityLogin', logout: 'activityLogout',
@@ -20,37 +116,90 @@ export default function Dashboard({ metrics }: { metrics: any }) {
             organization_registered: 'activityOrganizationRegistered', organization_approved: 'activityOrganizationApproved',
             organization_rejected: 'activityOrganizationRejected', organization_suspended: 'activityOrganizationSuspended',
             city_created: 'activityCityCreated', city_updated: 'activityCityUpdated',
-        } as Record<string, any>)[action];
+        } as Record<string, Parameters<typeof t>[0]>)[action];
 
         return key ? t(key) : action.replaceAll('_', ' ');
     };
+
     return <AppLayout title={t('dashboard')}><Head title={t('dashboard')} />
-        <div className="page-header"><div><h1>{t('dashboard')}</h1><p>{t('dashboardIntro')}</p></div><Link className="btn btn-primary" href="/calendar"><CalendarPlus size={18} />{t('newReservation')}</Link></div>
-        <section className="metrics-grid">
-            <div className="metric"><span>{t('todayReservations')}</span><strong>{metrics.today_reservations}</strong></div>
-            <div className="metric"><span>{t('todayRevenue')}</span><strong>{currency.format(metrics.today_revenue)}</strong></div>
-            <div className="metric"><span>{t('monthlyRevenue')}</span><strong>{currency.format(metrics.monthly_revenue)}</strong></div>
-            <div className="metric"><span>{t('occupancy')}</span><strong>{metrics.occupancy_rate}%</strong></div>
-        </section>
-        <div className="content-grid">
-            <section className="panel"><h2>{t('weeklyReservations')}</h2><div style={{ height: 260 }}><ResponsiveContainer width="100%" height="100%"><BarChart data={metrics.weekly}><CartesianGrid strokeDasharray="3 3" vertical={false} /><XAxis dataKey="date" tickFormatter={(v) => v.slice(5)} /><YAxis allowDecimals={false} /><Tooltip /><Bar dataKey="count" fill="#2563eb" radius={[4, 4, 0, 0]} /></BarChart></ResponsiveContainer></div></section>
-            <section className="panel"><div className="page-header"><div><h2>{t('upcoming')}</h2></div><span className="badge badge-active"><Users size={13} /> {metrics.active_employees}</span></div>
-                {metrics.upcoming.length === 0 ? <EmptyState title={t('noUpcoming')} /> : metrics.upcoming.map((r: any) => <div key={r.id} style={{ padding: '11px 0', borderTop: '1px solid var(--border)' }}><strong>{r.customer_name}</strong><div style={{ color: 'var(--muted)', fontSize: 13 }}>{r.football_field.name} · {new Date(r.starts_at).toLocaleString()}</div><Badge value={r.status} /></div>)}
+        <div className="dashboard-page">
+            <header className="dashboard-welcome">
+                <div>
+                    <p className="dashboard-date">{todayLabel}</p>
+                    <h1>{greeting}, {firstName} <span aria-hidden="true">👋</span></h1>
+                    <p>{t('dashboardTodayAt')} <strong>{organizationName}</strong>.</p>
+                </div>
+                <Link className="btn btn-primary dashboard-primary-action" href="/calendar"><CalendarPlus size={18} />{t('newReservation')}</Link>
+            </header>
+
+            <section className="dashboard-kpi-grid" aria-label={t('todayOverview')}>
+                <KpiCard label={t('todayReservations')} value={metrics.today_reservations} detail={metrics.busiest_field_today ? `${t('busiestToday')}: ${metrics.busiest_field_today}` : t('noData')} icon={CalendarCheck} tone="blue" />
+                <KpiCard label={t('expectedRevenueToday')} value={currency.format(metrics.expected_revenue_today)} detail={t('fromActiveBookings')} icon={Banknote} tone="green" />
+                <KpiCard label={t('paidToday')} value={currency.format(metrics.today_revenue)} detail={t('collectedSoFar')} icon={CircleDollarSign} tone="green" />
+                <KpiCard label={t('occupancy')} value={`${metrics.occupancy_rate}%`} detail={t('todayCapacity')} icon={Gauge} tone="blue" />
+                <KpiCard label={t('unpaidBookings')} value={metrics.unpaid_reservations} detail={t('needsPayment')} icon={WalletCards} tone="yellow" />
+                <KpiCard label={t('cancellationsNoShowsToday')} value={metrics.cancellations_and_no_shows} detail={t('needsAttention')} icon={TriangleAlert} tone="red" />
             </section>
-        </div>
-        <div className="content-grid" style={{ marginTop: 18 }}>
-            <section className="panel">
-                <h2>{t('peakHours')}</h2>
-                {Object.keys(metrics.peak_hours).length === 0
-                    ? <EmptyState title={t('noData')} />
-                    : Object.entries(metrics.peak_hours).map(([hour, count]) => <div key={hour} style={{ display: 'flex', justifyContent: 'space-between', padding: '10px 0', borderTop: '1px solid var(--border)' }}><strong>{hour}</strong><span>{String(count)} {t('reservations').toLowerCase()}</span></div>)}
-                <p><strong>{t('mostBookedField')}:</strong> {metrics.most_booked_field ?? t('noData')}</p>
-            </section>
-            <section className="panel">
-                <h2>{t('recentActivity')}</h2>
+
+            <div className="dashboard-primary-grid">
+                <section className="dashboard-panel dashboard-today-panel">
+                    <div className="dashboard-section-heading">
+                        <div><span className="dashboard-eyebrow">{t('today')}</span><h2>{t('todayTimeline')}</h2></div>
+                        <Link href="/calendar">{t('openCalendar')}<ArrowUpRight size={15} /></Link>
+                    </div>
+                    {metrics.today_timeline.length === 0
+                        ? <div className="dashboard-empty"><span><CalendarCheck size={22} /></span><h3>{t('noReservationsToday')}</h3><p>{t('createFirstReservation')}</p><Link className="btn btn-primary" href="/calendar"><CalendarPlus size={17} />{t('newReservation')}</Link></div>
+                        : <div className="dashboard-timeline">{metrics.today_timeline.map((reservation) => <article className="timeline-row" key={reservation.id}>
+                            <time>{formatTime(reservation.starts_at)}</time>
+                            <span className="timeline-marker" aria-hidden="true" />
+                            <div className="timeline-booking"><strong>{reservation.customer_name}</strong><span>{reservation.football_field.name} · {formatTime(reservation.starts_at)}–{formatTime(reservation.ends_at)}</span></div>
+                            <div className="timeline-badges"><Badge value={reservation.payment_status} /><Badge value={reservation.status} /></div>
+                        </article>)}</div>}
+                </section>
+
+                <section className="dashboard-panel dashboard-upcoming-panel">
+                    <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('nextUp')}</span><h2>{t('upcoming')}</h2></div></div>
+                    {metrics.upcoming.length === 0
+                        ? <div className="dashboard-empty compact"><span><Clock3 size={21} /></span><h3>{t('noUpcoming')}</h3></div>
+                        : <div className="upcoming-list">{metrics.upcoming.map((reservation) => <article className="upcoming-item" key={reservation.id}>
+                            <div className="upcoming-avatar"><UserRound size={17} /></div>
+                            <div><strong>{reservation.customer_name}</strong><span>{reservation.football_field.name}</span><time>{formatReservationDate(reservation.starts_at)}</time></div>
+                            <div className="upcoming-badges"><Badge value={reservation.status} /><Badge value={reservation.payment_status} /></div>
+                        </article>)}</div>}
+                </section>
+            </div>
+
+            <div className="dashboard-insights-grid">
+                <section className="dashboard-panel dashboard-chart-panel">
+                    <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('thisWeek')}</span><h2>{t('weeklyReservations')}</h2></div></div>
+                    <div className="dashboard-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={metrics.weekly} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
+                        <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} tickFormatter={(value) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))} />
+                        <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} />
+                        <Tooltip cursor={{ fill: 'var(--surface-2)' }} contentStyle={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }} />
+                        <Bar dataKey="count" name={t('reservations')} fill="#2563eb" radius={[5, 5, 0, 0]} maxBarSize={44} />
+                    </BarChart></ResponsiveContainer></div>
+                </section>
+
+                <section className="dashboard-panel dashboard-peaks-panel">
+                    <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('demand')}</span><h2>{t('peakHours')}</h2></div></div>
+                    {peakEntries.length === 0
+                        ? <div className="dashboard-empty compact"><span><Trophy size={21} /></span><h3>{t('noData')}</h3></div>
+                        : <><div className="peak-highlight"><Trophy size={17} /><span>{t('mostActiveHour')}</span><strong>{peakEntries[0][0]}</strong></div>
+                            <div className="peak-list">{peakEntries.map(([hour, count]) => <div className="peak-row" key={hour}>
+                                <span>{hour}</span><div><i style={{ width: `${(count / peakMaximum) * 100}%` }} /></div><strong>{count}</strong>
+                            </div>)}</div></>}
+                </section>
+            </div>
+
+            <section className="dashboard-panel dashboard-activity-panel">
+                <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('workspace')}</span><h2>{t('recentActivity')}</h2></div></div>
                 {metrics.recent_activity.length === 0
-                    ? <EmptyState title={t('noData')} />
-                    : metrics.recent_activity.map((activity: any) => <div key={activity.id} style={{ padding: '10px 0', borderTop: '1px solid var(--border)' }}><strong>{activityLabel(activity.action)}</strong><small style={{ display: 'block', color: 'var(--muted)' }}>{activity.user?.name ?? t('system')} · {new Date(activity.created_at).toLocaleString()}</small></div>)}
+                    ? <div className="dashboard-empty compact"><span><Activity size={21} /></span><h3>{t('noData')}</h3></div>
+                    : <div className="activity-list">{metrics.recent_activity.map((item) => <article className="activity-item" key={item.id}>
+                        <span className="activity-icon"><Activity size={16} /></span>
+                        <div><strong>{activityLabel(item.action)}</strong><span>{item.user?.name ?? t('system')} · {relativeTime(item.created_at)}</span></div>
+                    </article>)}</div>}
             </section>
         </div>
     </AppLayout>;
