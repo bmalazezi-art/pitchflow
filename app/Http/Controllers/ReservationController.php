@@ -44,7 +44,12 @@ class ReservationController extends Controller
 
         return Inertia::render('Reservations/Calendar', [
             'reservations' => $reservations,
-            'fields' => FootballField::query()->whereIn('id', $fieldIds)->orderBy('name')->get(['id', 'name', 'status']),
+            'fields' => FootballField::query()
+                ->whereIn('id', $fieldIds)
+                ->with(['operatingHours', 'operatingHourOverrides' => fn ($query) => $query
+                    ->whereBetween('date', [$from->setTimezone($timezone)->toDateString(), $to->setTimezone($timezone)->toDateString()])])
+                ->orderBy('name')
+                ->get(['id', 'name', 'status', 'opening_time', 'closing_time']),
             'timezone' => $organization->timezone,
             'selectedField' => $request->integer('field') ?: null,
             'selectedReservation' => $selectedReservation?->id,

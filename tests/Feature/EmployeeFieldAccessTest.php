@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\FootballField;
+use App\Models\OperatingHour;
 use App\Models\Organization;
 use App\Models\User;
 use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class EmployeeFieldAccessTest extends TestCase
@@ -36,5 +38,31 @@ class EmployeeFieldAccessTest extends TestCase
         $payload['football_field_id'] = $assigned->id;
         $this->actingAs($employee)->post('/reservations', $payload)->assertRedirect();
         $this->assertDatabaseCount('reservations', 1);
+    }
+
+    public function test_employee_booking_board_only_receives_assigned_fields_with_schedules(): void
+    {
+        $organization = Organization::factory()->create();
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $assigned = FootballField::factory()->for($organization)->create(['name' => 'Main Pitch']);
+        FootballField::factory()->for($organization)->create(['name' => 'Private Pitch']);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $assigned->id,
+            'day_of_week' => 1,
+            'opening_time' => '15:00',
+            'closing_time' => '23:00',
+            'is_closed' => false,
+        ]);
+        $employee->assignedFields()->attach($assigned, ['organization_id' => $organization->id]);
+
+        $this->actingAs($employee)->get('/calendar')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->has('fields', 1)
+            ->where('fields.0.id', $assigned->id)
+            ->where('fields.0.name', 'Main Pitch')
+            ->has('fields.0.operating_hours', 1)
+            ->where('fields.0.operating_hours.0.opening_time', '15:00')
+        );
     }
 }
