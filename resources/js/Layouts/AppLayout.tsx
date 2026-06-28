@@ -28,7 +28,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         : auth.user?.role === 'employee'
             ? [
                 { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
-                { label: t('calendar'), href: '/calendar', icon: CalendarDays },
+                { label: t('bookingBoard'), href: '/calendar', icon: CalendarDays },
                 { label: t('reservations'), href: '/reservations', icon: BarChart3 },
                 { label: t('customers'), href: '/customers', icon: CircleUserRound },
                 { label: t('myAssignedFields'), href: '/fields', icon: Building2 },
