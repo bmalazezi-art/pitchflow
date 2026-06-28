@@ -63,6 +63,7 @@ class EmployeeFieldAccessTest extends TestCase
             ->where('fields.0.name', 'Main Pitch')
             ->has('fields.0.operating_hours', 1)
             ->where('fields.0.operating_hours.0.opening_time', '15:00')
+            ->where('timezone', 'Europe/Belgrade')
         );
     }
 }

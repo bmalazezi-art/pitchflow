@@ -50,7 +50,7 @@ class ReservationController extends Controller
                     ->whereBetween('date', [$from->setTimezone($timezone)->toDateString(), $to->setTimezone($timezone)->toDateString()])])
                 ->orderBy('name')
                 ->get(['id', 'name', 'status', 'opening_time', 'closing_time']),
-            'timezone' => $organization->timezone,
+            'timezone' => $timezone,
             'selectedField' => $request->integer('field') ?: null,
             'selectedReservation' => $selectedReservation?->id,
         ]);
