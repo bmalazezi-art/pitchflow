@@ -18,33 +18,38 @@ class PublicAvailabilityController extends Controller
     {
         $business = null;
         $pitchAvailability = [];
+        $cityId = $request->integer('city');
+        $activeFields = fn ($query) => $query
+            ->where('status', FieldStatus::Active)
+            ->where(fn ($cityQuery) => $cityQuery
+                ->where('city_id', $cityId)
+                ->orWhereNull('city_id'));
 
         $businesses = Organization::query()
-            ->where('status', OrganizationStatus::Approved)
             ->when($request->filled('city'), fn ($query) => $query
-                ->where('city_id', $request->integer('city'))
-                ->whereHas('footballFields', fn ($fieldQuery) => $fieldQuery->where('status', FieldStatus::Active)), fn ($query) => $query->whereRaw('1 = 0'))
+                ->publiclyDiscoverable($cityId), fn ($query) => $query->whereRaw('1 = 0'))
             ->with([
                 'city:id,name',
-                'footballFields' => fn ($query) => $query
-                    ->where('status', FieldStatus::Active)
+                'footballFields' => fn ($query) => $activeFields($query)
                     ->orderBy('name')
                     ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour']),
                 'footballFields.city:id,name',
             ])
-            ->orderBy('name')
-            ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields', 'currency']);
+            ->inPublicDirectoryOrder()
+            ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields', 'currency', 'amenities', 'approved_at'])
+            ->each(function (Organization $organization) {
+                $organization->setAttribute('is_new', $organization->isNewlyApproved());
+                $organization->setAttribute('is_verified', true);
+                $organization->makeHidden('approved_at');
+            });
 
         if ($request->filled(['city', 'business'])) {
             $business = Organization::query()
                 ->whereKey($request->integer('business'))
-                ->where('status', OrganizationStatus::Approved)
-                ->where('city_id', $request->integer('city'))
-                ->whereHas('footballFields', fn ($query) => $query->where('status', FieldStatus::Active))
+                ->publiclyDiscoverable($cityId)
                 ->with([
                     'city:id,name',
-                    'footballFields' => fn ($query) => $query
-                        ->where('status', FieldStatus::Active)
+                    'footballFields' => fn ($query) => $activeFields($query)
                         ->orderBy('name')
                         ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
                     'footballFields.city:id,name',
@@ -69,6 +74,9 @@ class PublicAvailabilityController extends Controller
                                 ->whereHas('organization', fn ($organizationQuery) => $organizationQuery->where('city_id', $request->integer('city')));
                         });
                 })
+                ->whereHas('organization', fn ($organizationQuery) => $organizationQuery
+                    ->where('status', OrganizationStatus::Approved)
+                    ->where('city_id', $cityId))
                 ->with(['city:id,name', 'organization:id,city_id,name,phone,number_of_fields,currency,timezone', 'organization.city:id,name'])
                 ->first();
             if ($field) {

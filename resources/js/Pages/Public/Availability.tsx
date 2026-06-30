@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, Moon, ParkingCircle, Phone, Search, ShowerHead, Sun, Trophy } from 'lucide-react';
+import { BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, Moon, ParkingCircle, Phone, Search, ShowerHead, Sparkles, Sun, Trophy } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { SharedProps } from '../../types';
@@ -22,6 +22,9 @@ interface PublicBusiness {
     currency?: string | null;
     city?: { id: number; name: string } | null;
     football_fields?: PublicField[];
+    amenities?: Amenity[] | null;
+    is_new?: boolean;
+    is_verified?: boolean;
 }
 
 interface Props {
@@ -36,17 +39,7 @@ interface Props {
 }
 
 type Amenity = 'parking' | 'cafe' | 'showers';
-
-const demoAmenities: Record<string, Amenity[]> = {
-    'Getoari Sport Center': ['parking', 'cafe'],
-    'Arena Sport': ['parking', 'showers'],
-    'Andrra Sport Center': ['cafe', 'showers'],
-    'Rilindja Football Center': ['parking', 'cafe', 'showers'],
-    'Princi Football Arena': ['parking'],
-    'Green Sport Arena': ['parking', 'cafe'],
-    'Arena 7': ['cafe', 'showers'],
-    'Demo Football Center': ['parking', 'cafe', 'showers'],
-};
+const supportedAmenities: Amenity[] = ['parking', 'cafe', 'showers'];
 
 const venueImages = [
     'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
@@ -212,10 +205,15 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
 
 function BusinessCard({ business, index, onView }: { business: PublicBusiness; index: number; onView: () => void }) {
     const t = useTranslation();
-    const amenities = demoAmenities[business.name] ?? ['parking'];
-    const price = priceSummary(business.football_fields ?? [], business.currency ?? 'EUR');
+    const amenities = (business.amenities ?? []).filter(amenity => supportedAmenities.includes(amenity));
+    const price = startingPrice(business.football_fields ?? [], business.currency ?? 'EUR');
+    const pitchCount = business.football_fields?.length || business.number_of_fields || 1;
     return <article className="field-discovery-card">
         <div className="venue-cover light-cover" style={{ background: venueImages[index % venueImages.length] }}>
+            <div className="venue-badges">
+                {business.is_verified && <span className="verified"><BadgeCheck size={14} />{t('verified')}</span>}
+                {business.is_new && <span className="new"><Sparkles size={13} />{t('newBusiness')}</span>}
+            </div>
             <div className="venue-cover-lines" />
         </div>
         <div className="venue-card-body">
@@ -225,9 +223,9 @@ function BusinessCard({ business, index, onView }: { business: PublicBusiness; i
             </div>
             {business.address && <p><MapPin size={15} /> {business.address}</p>}
             {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={15} /> {business.phone}</a>}
-            <p><Trophy size={15} /> {pitchLabel(t, business.number_of_fields ?? business.football_fields?.length ?? 1)}</p>
-            {price && <p className="venue-price"><span>{t('pricePerHour')}</span><strong>{price}</strong></p>}
-            <AmenityList amenities={amenities} />
+            <p><Trophy size={15} /> {pitchLabel(t, pitchCount)}</p>
+            {price && <p className="venue-price"><span>{t('startingAt')}</span><strong>{price}</strong></p>}
+            {amenities.length > 0 && <AmenityList amenities={amenities} />}
             <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
         </div>
     </article>;
@@ -284,7 +282,7 @@ function pitchLabel(t: ReturnType<typeof useTranslation>, count: number) {
     return `${count} ${count === 1 ? t('footballPitch') : t('footballPitches')}`;
 }
 
-function priceSummary(fields: PublicField[], currency: string) {
+function startingPrice(fields: PublicField[], currency: string) {
     const prices = fields
         .map(field => Number(field.price_per_hour))
         .filter(price => Number.isFinite(price));
@@ -293,14 +291,7 @@ function priceSummary(fields: PublicField[], currency: string) {
         return null;
     }
 
-    const min = Math.min(...prices);
-    const max = Math.max(...prices);
-
-    if (min === max) {
-        return `${formatMoney(min, currency)} / h`;
-    }
-
-    return `${formatMoney(min, currency)}–${formatMoney(max, currency)} / h`;
+    return `${formatMoney(Math.min(...prices), currency)} / h`;
 }
 
 function formatMoney(value: string | number, currency: string) {

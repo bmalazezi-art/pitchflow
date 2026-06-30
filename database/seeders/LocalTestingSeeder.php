@@ -37,6 +37,7 @@ class LocalTestingSeeder extends Seeder
                     'email' => 'organization@example.test',
                     'phone' => '+38344100000',
                     'address' => 'Demo Street 1',
+                    'amenities' => ['parking', 'cafe', 'showers'],
                     'status' => OrganizationStatus::Approved,
                     'subscription_plan' => '3–5 Fields',
                     'number_of_fields' => 3,
@@ -149,13 +150,13 @@ class LocalTestingSeeder extends Seeder
     private function seedDemoVenues(): void
     {
         $venues = [
-            ['city' => 'Prizren', 'name' => 'Getoari Sport Center', 'slug' => 'getoari-sport-center', 'phone' => '+383 44 210 111', 'pitches' => 2, 'address' => 'Rruga Tirana, Prizren', 'price' => 35],
-            ['city' => 'Prizren', 'name' => 'Arena Sport', 'slug' => 'arena-sport', 'phone' => '+383 44 320 222', 'pitches' => 2, 'address' => 'Rruga William Walker, Prizren', 'price' => 40],
-            ['city' => 'Prizren', 'name' => 'Andrra Sport Center', 'slug' => 'andrra-sport-center', 'phone' => '+383 45 410 333', 'pitches' => 1, 'address' => 'Rruga Janina, Prizren', 'price' => 32],
-            ['city' => 'Prishtinë', 'name' => 'Rilindja Football Center', 'slug' => 'rilindja-football-center', 'phone' => '+383 44 510 444', 'pitches' => 3, 'address' => 'Rruga B, Prishtinë', 'price' => 45],
-            ['city' => 'Prishtinë', 'name' => 'Princi Football Arena', 'slug' => 'princi-football-arena', 'phone' => '+383 44 620 555', 'pitches' => 2, 'address' => 'Veternik, Prishtinë', 'price' => 42],
-            ['city' => 'Prishtinë', 'name' => 'Green Sport Arena', 'slug' => 'green-sport-arena', 'phone' => '+383 45 730 666', 'pitches' => 2, 'address' => 'Mati 1, Prishtinë', 'price' => 38],
-            ['city' => 'Prishtinë', 'name' => 'Arena 7', 'slug' => 'arena-7', 'phone' => '+383 49 840 777', 'pitches' => 1, 'address' => 'Bregu i Diellit, Prishtinë', 'price' => 35],
+            ['city' => 'Prizren', 'name' => 'Getoari Sport Center', 'slug' => 'getoari-sport-center', 'phone' => '+383 44 210 111', 'pitches' => 2, 'address' => 'Rruga Tirana, Prizren', 'price' => 35, 'amenities' => ['parking', 'cafe']],
+            ['city' => 'Prizren', 'name' => 'Arena Sport', 'slug' => 'arena-sport', 'phone' => '+383 44 320 222', 'pitches' => 2, 'address' => 'Rruga William Walker, Prizren', 'price' => 40, 'amenities' => ['parking', 'showers']],
+            ['city' => 'Prizren', 'name' => 'Andrra Sport Center', 'slug' => 'andrra-sport-center', 'phone' => '+383 45 410 333', 'pitches' => 1, 'address' => 'Rruga Janina, Prizren', 'price' => 32, 'amenities' => ['cafe', 'showers']],
+            ['city' => 'Prishtinë', 'name' => 'Rilindja Football Center', 'slug' => 'rilindja-football-center', 'phone' => '+383 44 510 444', 'pitches' => 3, 'address' => 'Rruga B, Prishtinë', 'price' => 45, 'amenities' => ['parking', 'cafe', 'showers']],
+            ['city' => 'Prishtinë', 'name' => 'Princi Football Arena', 'slug' => 'princi-football-arena', 'phone' => '+383 44 620 555', 'pitches' => 2, 'address' => 'Veternik, Prishtinë', 'price' => 42, 'amenities' => ['parking']],
+            ['city' => 'Prishtinë', 'name' => 'Green Sport Arena', 'slug' => 'green-sport-arena', 'phone' => '+383 45 730 666', 'pitches' => 2, 'address' => 'Mati 1, Prishtinë', 'price' => 38, 'amenities' => ['parking', 'cafe']],
+            ['city' => 'Prishtinë', 'name' => 'Arena 7', 'slug' => 'arena-7', 'phone' => '+383 49 840 777', 'pitches' => 1, 'address' => 'Bregu i Diellit, Prishtinë', 'price' => 35, 'amenities' => ['cafe', 'showers']],
         ];
 
         foreach ($venues as $venue) {
@@ -168,6 +169,7 @@ class LocalTestingSeeder extends Seeder
                     'email' => $venue['slug'].'@example.test',
                     'phone' => $venue['phone'],
                     'address' => $venue['address'],
+                    'amenities' => $venue['amenities'],
                     'status' => OrganizationStatus::Approved,
                     'subscription_plan' => $venue['pitches'] > 2 ? '3–5 Fields' : '1–2 Fields',
                     'number_of_fields' => $venue['pitches'],

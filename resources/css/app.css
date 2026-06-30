@@ -630,6 +630,12 @@ textarea.input { min-height: 90px; resize: vertical; }
 .public-dark .field-discovery-card:hover, .public-dark .field-discovery-card:focus-visible { box-shadow: 0 22px 60px rgb(0 0 0 / .34); }
 .field-discovery-card.selected { border-color: #22c55e; box-shadow: 0 0 0 4px rgb(34 197 94 / .12), 0 22px 60px rgb(17 24 39 / .1); }
 .venue-cover { min-height: 145px; position: relative; overflow: hidden; }
+.venue-badges { position: absolute; top: 12px; left: 12px; z-index: 2; display: flex; flex-wrap: wrap; gap: 6px; }
+.venue-badges span { min-height: 28px; padding: 0 9px; display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; font-size: 11px; font-weight: 850; box-shadow: 0 5px 15px rgb(15 23 42 / .1); }
+.venue-badges .verified { color: #166534; border: 1px solid #86efac; background: rgb(240 253 244 / .94); }
+.venue-badges .new { color: #1e3a8a; border: 1px solid #93c5fd; background: rgb(239 246 255 / .96); text-transform: uppercase; }
+.public-dark .venue-badges .verified { color: #bbf7d0; border-color: #166534; background: rgb(5 46 22 / .94); }
+.public-dark .venue-badges .new { color: #bfdbfe; border-color: #1d4ed8; background: rgb(23 37 84 / .94); }
 .light-cover .venue-cover-lines { border-color: rgb(15 23 42 / .12); }
 .light-cover .venue-cover-lines::before, .light-cover .venue-cover-lines::after { border-color: rgb(15 23 42 / .12); }
 .venue-cover-lines { position: absolute; inset: 18px; border: 2px solid rgb(255 255 255 / .36); border-radius: 14px; }

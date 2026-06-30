@@ -41,7 +41,7 @@ class OrganizationController extends Controller
         $data = $request->validate(['status' => ['required', 'in:approved,rejected,suspended']]);
         $status = OrganizationStatus::from($data['status']);
         $timestamps = [
-            'approved_at' => $status === OrganizationStatus::Approved ? now() : $organization->approved_at,
+            'approved_at' => $status === OrganizationStatus::Approved ? ($organization->approved_at ?? now()) : $organization->approved_at,
             'rejected_at' => $status === OrganizationStatus::Rejected ? now() : null,
             'suspended_at' => $status === OrganizationStatus::Suspended ? now() : null,
         ];

@@ -22,6 +22,7 @@ class OrganizationFactory extends Factory
             'email' => fake()->companyEmail(),
             'phone' => fake()->phoneNumber(),
             'address' => fake()->streetAddress(),
+            'amenities' => [],
             'status' => OrganizationStatus::Approved,
             'number_of_fields' => 1,
             'timezone' => 'Europe/Pristina',
