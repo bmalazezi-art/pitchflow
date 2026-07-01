@@ -8,14 +8,20 @@ use App\Models\City;
 use App\Models\FootballField;
 use App\Models\Organization;
 use App\Services\AvailabilityService;
+use App\Services\OperatingScheduleService;
+use Carbon\CarbonImmutable;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class PublicAvailabilityController extends Controller
 {
-    public function __invoke(Request $request, AvailabilityService $availability): Response
-    {
+    public function __invoke(
+        Request $request,
+        AvailabilityService $availability,
+        OperatingScheduleService $operatingSchedule,
+    ): Response {
         $business = null;
         $pitchAvailability = [];
         $cityId = $request->integer('city');
@@ -32,8 +38,12 @@ class PublicAvailabilityController extends Controller
                 'city:id,name',
                 'footballFields' => fn ($query) => $activeFields($query)
                     ->orderBy('name')
-                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour']),
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
                 'footballFields.city:id,name',
+                'footballFields.organization:id,timezone',
+                'footballFields.operatingHours',
+                'footballFields.operatingHourOverrides' => fn ($query) => $query
+                    ->whereBetween('date', [now()->subDay()->toDateString(), now()->addDays(8)->toDateString()]),
             ])
             ->inPublicDirectoryOrder()
             ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields', 'currency', 'amenities', 'approved_at'])
@@ -42,6 +52,61 @@ class PublicAvailabilityController extends Controller
                 $organization->setAttribute('is_verified', true);
                 $organization->makeHidden('approved_at');
             });
+        $this->addOperatingStatus($businesses, $operatingSchedule);
+
+        $recentBusinesses = Organization::query()
+            ->eligibleForPublicDirectory()
+            ->with([
+                'city:id,name',
+                'footballFields' => fn ($query) => $query
+                    ->where('status', FieldStatus::Active)
+                    ->orderBy('name')
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
+                'footballFields.organization:id,timezone',
+                'footballFields.operatingHours',
+                'footballFields.operatingHourOverrides' => fn ($query) => $query
+                    ->whereBetween('date', [now()->subDay()->toDateString(), now()->addDays(8)->toDateString()]),
+            ])
+            ->latest('approved_at')
+            ->limit(6)
+            ->get(['id', 'city_id', 'name', 'phone', 'address', 'number_of_fields', 'currency', 'amenities', 'approved_at'])
+            ->each(function (Organization $organization) {
+                $organization->setAttribute('is_new', $organization->isNewlyApproved());
+                $organization->setAttribute('is_verified', true);
+                $organization->makeHidden('approved_at');
+            });
+        $this->addOperatingStatus($recentBusinesses, $operatingSchedule);
+
+        $popularCities = City::query()
+            ->select(['cities.id', 'cities.name'])
+            ->join('organizations', 'organizations.city_id', '=', 'cities.id')
+            ->join('football_fields', 'football_fields.organization_id', '=', 'organizations.id')
+            ->where('cities.is_active', true)
+            ->where('organizations.status', OrganizationStatus::Approved)
+            ->whereNull('organizations.deleted_at')
+            ->where('football_fields.status', FieldStatus::Active)
+            ->whereNull('football_fields.deleted_at')
+            ->selectRaw('COUNT(football_fields.id) as football_fields_count')
+            ->groupBy('cities.id', 'cities.name')
+            ->orderByDesc('football_fields_count')
+            ->orderBy('cities.name')
+            ->limit(6)
+            ->get();
+
+        $activePublicFields = FootballField::query()
+            ->where('status', FieldStatus::Active)
+            ->whereHas('organization', fn ($query) => $query->where('status', OrganizationStatus::Approved));
+        $statistics = [
+            'football_fields' => (clone $activePublicFields)->count(),
+            'cities' => City::query()
+                ->where('is_active', true)
+                ->whereHas('organizations', fn ($query) => $query
+                    ->where('status', OrganizationStatus::Approved)
+                    ->whereHas('footballFields', fn ($fieldQuery) => $fieldQuery->where('status', FieldStatus::Active)))
+                ->count(),
+            'registered_businesses' => Organization::query()->count(),
+            'verified_businesses' => Organization::query()->where('status', OrganizationStatus::Approved)->count(),
+        ];
 
         if ($request->filled(['city', 'business'])) {
             $business = Organization::query()
@@ -91,6 +156,9 @@ class PublicAvailabilityController extends Controller
         return Inertia::render('Public/Availability', [
             'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
             'businesses' => $businesses,
+            'recentBusinesses' => $recentBusinesses,
+            'popularCities' => $popularCities,
+            'statistics' => $statistics,
             'selectedBusiness' => $business,
             'pitchAvailability' => $pitchAvailability,
             'filters' => [
@@ -99,5 +167,23 @@ class PublicAvailabilityController extends Controller
                 'date' => $request->input('date', now()->toDateString()),
             ],
         ]);
+    }
+
+    /** @param Collection<int, Organization> $businesses */
+    private function addOperatingStatus(Collection $businesses, OperatingScheduleService $schedule): void
+    {
+        $now = CarbonImmutable::now('UTC');
+
+        foreach ($businesses as $business) {
+            $statuses = $business->footballFields->map(fn (FootballField $field) => $schedule->statusAt($field, $now));
+            $nextOpening = $statuses->pluck('opens_at')->filter()->sort()->first();
+            $business->setAttribute('operating_status', [
+                'is_open' => $statuses->contains('is_open', true),
+                'opens_at' => $nextOpening?->format('H:i'),
+            ]);
+            $business->footballFields->each->makeHidden([
+                'organization', 'operating_hours', 'operating_hour_overrides',
+            ]);
+        }
     }
 }

@@ -9,6 +9,29 @@ use LogicException;
 
 class OperatingScheduleService
 {
+    /** @return array{is_open: bool, opens_at: CarbonImmutable|null} */
+    public function statusAt(FootballField $field, ?CarbonImmutable $atUtc = null): array
+    {
+        $timezone = $this->timezone($field);
+        $localNow = ($atUtc ?? CarbonImmutable::now('UTC'))->setTimezone($timezone);
+
+        foreach ([$localNow->startOfDay(), $localNow->subDay()->startOfDay()] as $businessDate) {
+            [$scheduleStart, $scheduleEnd] = $this->windowForDate($field, $businessDate);
+            if ($scheduleStart && $scheduleEnd && $localNow->greaterThanOrEqualTo($scheduleStart) && $localNow->lessThan($scheduleEnd)) {
+                return ['is_open' => true, 'opens_at' => null];
+            }
+        }
+
+        for ($day = 0; $day <= 7; $day++) {
+            [$scheduleStart, $scheduleEnd] = $this->windowForDate($field, $localNow->startOfDay()->addDays($day));
+            if ($scheduleStart && $scheduleEnd && $scheduleEnd->greaterThan($localNow) && $scheduleStart->greaterThan($localNow)) {
+                return ['is_open' => false, 'opens_at' => $scheduleStart];
+            }
+        }
+
+        return ['is_open' => false, 'opens_at' => null];
+    }
+
     public function hoursForDate(FootballField $field, CarbonImmutable $businessDate): float
     {
         [$scheduleStart, $scheduleEnd] = $this->windowForDate($field, $businessDate);

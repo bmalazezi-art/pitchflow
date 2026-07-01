@@ -53,14 +53,20 @@ class Organization extends Model
 
     public function scopePubliclyDiscoverable(Builder $query, int $cityId): Builder
     {
-        return $query
-            ->where('status', OrganizationStatus::Approved)
+        return $this->scopeEligibleForPublicDirectory($query)
             ->where('city_id', $cityId)
             ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
-                ->where('status', FieldStatus::Active)
                 ->where(fn (Builder $cityQuery) => $cityQuery
                     ->where('city_id', $cityId)
                     ->orWhereNull('city_id')));
+    }
+
+    public function scopeEligibleForPublicDirectory(Builder $query): Builder
+    {
+        return $query
+            ->where('status', OrganizationStatus::Approved)
+            ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
+                ->where('status', FieldStatus::Active));
     }
 
     public function scopeInPublicDirectoryOrder(Builder $query, ?CarbonImmutable $at = null): Builder

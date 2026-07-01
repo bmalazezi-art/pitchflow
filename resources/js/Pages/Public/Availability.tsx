@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, CalendarDays, ChevronLeft, ChevronRight, Coffee, Languages, MapPin, Moon, ParkingCircle, Phone, Search, ShowerHead, Sparkles, Sun, Trophy } from 'lucide-react';
+import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, Trophy, Zap } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { SharedProps } from '../../types';
@@ -25,11 +25,15 @@ interface PublicBusiness {
     amenities?: Amenity[] | null;
     is_new?: boolean;
     is_verified?: boolean;
+    operating_status?: { is_open: boolean; opens_at?: string | null };
 }
 
 interface Props {
     cities: Array<{ id: number; name: string }>;
     businesses: PublicBusiness[];
+    recentBusinesses: PublicBusiness[];
+    popularCities: Array<{ id: number; name: string; football_fields_count: number | string }>;
+    statistics: { football_fields: number; cities: number; registered_businesses: number; verified_businesses: number };
     selectedBusiness?: PublicBusiness | null;
     pitchAvailability: Array<{
         field: PublicField;
@@ -48,7 +52,7 @@ const venueImages = [
     'linear-gradient(135deg, #ecfeff 0%, #f7fee7 100%)',
 ];
 
-export default function Availability({ cities, businesses, selectedBusiness, pitchAvailability, filters }: Props) {
+export default function Availability({ cities, businesses, recentBusinesses, popularCities, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
     const selectedCity = cities.find(city => city.id === Number(filters.city));
@@ -69,6 +73,12 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
     const setCity = (value: string) => router.get('/', { city: value || undefined, date: filters.date }, { preserveState: true, preserveScroll: true, replace: true });
     const setDate = (date: string) => navigate({ date });
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
+    const selectPopularCity = (cityId: number) => router.get('/', { city: cityId, date: filters.date }, {
+        preserveState: true,
+        replace: true,
+        onSuccess: () => requestAnimationFrame(() => document.getElementById('discover-fields')?.scrollIntoView({ behavior: 'smooth', block: 'start' })),
+    });
+    const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: filters.date });
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('checkAvailabilityTitle')} />
@@ -80,8 +90,20 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
                     <h1>{t('checkAvailabilityTitle')}</h1>
                     <p>{t('availabilityHeroDescription')}</p>
                     <SearchPanel cities={cities} filters={filters} setCity={setCity} setDate={setDate} />
+                    <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
                 </div>
             </section>
+
+            {!hasBusiness && <>
+                <PlatformStatistics statistics={statistics} />
+                <PopularCities cities={popularCities} onSelect={selectPopularCity} />
+                <section className="public-content-section recent-fields" aria-labelledby="recently-added-heading">
+                    <PublicSectionHeading eyebrow={t('latestOnPitchFlow')} title={t('recentlyAdded')} description={t('recentlyAddedIntro')} id="recently-added-heading" />
+                    <div className="field-card-grid">
+                        {recentBusinesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewRecentBusiness(business)} />)}
+                    </div>
+                </section>
+            </>}
 
             {hasCity && !hasBusiness && <section className="field-discovery" aria-labelledby="discover-fields">
                 <div className="section-heading">
@@ -98,11 +120,78 @@ export default function Availability({ cities, businesses, selectedBusiness, pit
             </section>}
 
             {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} />}
+
+            {!hasBusiness && <>
+                <WhyPitchFlow />
+                <PartnerCallout />
+                <FrequentlyAskedQuestions />
+            </>}
         </main>
+        {!hasBusiness && <PublicFooter />}
     </div>;
 }
 
-function PublicNav({ locale, dark, setLocale, setDark }: {
+function PlatformStatistics({ statistics }: { statistics: Props['statistics'] }) {
+    const t = useTranslation();
+    const cards = [
+        { label: t('footballFieldsStat'), value: statistics.football_fields, icon: Trophy, tone: 'green' },
+        { label: t('citiesStat'), value: statistics.cities, icon: MapPinned, tone: 'blue' },
+        { label: t('registeredBusinesses'), value: statistics.registered_businesses, icon: Building2, tone: 'orange' },
+        { label: t('verifiedBusinessesStat'), value: statistics.verified_businesses, icon: BadgeCheck, tone: 'teal' },
+    ];
+    return <section className="public-stat-band" aria-label={t('platformStatistics')}><div>{cards.map(card => { const Icon = card.icon; return <article key={card.label}><span className={card.tone}><Icon size={21} /></span><div><strong>{card.value.toLocaleString()}</strong><small>{card.label}</small></div></article>; })}</div></section>;
+}
+
+function PopularCities({ cities, onSelect }: { cities: Props['popularCities']; onSelect: (cityId: number) => void }) {
+    const t = useTranslation();
+    return <section className="public-content-section popular-cities" aria-labelledby="popular-cities-heading">
+        <PublicSectionHeading eyebrow={t('exploreByLocation')} title={t('popularCities')} description={t('popularCitiesIntro')} id="popular-cities-heading" />
+        <div className="popular-city-grid">{cities.map(city => <button key={city.id} onClick={() => onSelect(city.id)}><span><Trophy size={19} /></span><div><strong>{city.name}</strong><small>{city.football_fields_count} {Number(city.football_fields_count) === 1 ? t('footballPitch') : t('footballPitches')}</small></div><ChevronRight size={18} /></button>)}</div>
+    </section>;
+}
+
+function PublicSectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description: string; id: string }) {
+    return <div className="section-heading"><div><span>{eyebrow}</span><h2 id={id}>{title}</h2></div><p>{description}</p></div>;
+}
+
+function WhyPitchFlow() {
+    const t = useTranslation();
+    const features = [
+        { icon: Clock3, title: t('realTimeAvailability'), text: t('realTimeAvailabilityText') },
+        { icon: BadgeCheck, title: t('verifiedBusinessesFeature'), text: t('verifiedBusinessesFeatureText') },
+        { icon: Zap, title: t('fastAndEasy'), text: t('fastAndEasyText') },
+    ];
+    return <section className="public-content-section why-pitchflow" id="why-pitchflow" aria-labelledby="why-pitchflow-heading">
+        <PublicSectionHeading eyebrow="PitchFlow" title={t('whyPitchFlow')} description={t('whyPitchFlowIntro')} id="why-pitchflow-heading" />
+        <div className="public-feature-grid">{features.map(feature => { const Icon = feature.icon; return <article key={feature.title}><span><Icon size={22} /></span><h3>{feature.title}</h3><p>{feature.text}</p></article>; })}</div>
+    </section>;
+}
+
+function PartnerCallout() {
+    const t = useTranslation();
+    return <section className="partner-callout" id="partner"><div><span>{t('forFootballBusinesses')}</span><h2>{t('ownFootballField')}</h2><p>{t('partnerCalloutText')}</p></div><Link href="/register" className="btn partner-button">{t('registerBusiness')}<ChevronRight size={17} /></Link></section>;
+}
+
+function FrequentlyAskedQuestions() {
+    const t = useTranslation();
+    const questions = [
+        [t('faqHow'), t('faqHowAnswer')],
+        [t('faqFree'), t('faqFreeAnswer')],
+        [t('faqReserve'), t('faqReserveAnswer')],
+        [t('faqRegister'), t('faqRegisterAnswer')],
+    ];
+    return <section className="public-content-section public-faq" id="faq" aria-labelledby="faq-heading">
+        <PublicSectionHeading eyebrow={t('helpCenter')} title={t('frequentlyAskedQuestions')} description={t('faqIntro')} id="faq-heading" />
+        <div className="faq-list">{questions.map(([question, answer]) => <details key={question}><summary>{question}<ChevronRight size={18} /></summary><p>{answer}</p></details>)}</div>
+    </section>;
+}
+
+function PublicFooter() {
+    const t = useTranslation();
+    return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:hello@pitchflow.app">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://facebook.com" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a><a href="https://instagram.com" target="_blank" rel="noreferrer"><Instagram size={16} />Instagram</a><a href="https://linkedin.com" target="_blank" rel="noreferrer"><Linkedin size={16} />LinkedIn</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
+}
+
+export function PublicNav({ locale, dark, setLocale, setDark }: {
     locale: 'en' | 'sq';
     dark: boolean;
     setLocale: (locale: 'en' | 'sq') => void;
@@ -217,9 +306,11 @@ function BusinessCard({ business, index, onView }: { business: PublicBusiness; i
             <div className="venue-cover-lines" />
         </div>
         <div className="venue-card-body">
-            <div>
-                <h3>{business.name}</h3>
+            <div className="venue-title-row">
+                <div><h3>{business.name}</h3>
                 <p><MapPin size={15} /> {business.city?.name}</p>
+                </div>
+                {business.operating_status && <span className={`operating-badge ${business.operating_status.is_open ? 'open' : 'closed'}`}><i />{business.operating_status.is_open ? t('openNow') : business.operating_status.opens_at ? `${t('closed')} · ${t('opensAt')} ${business.operating_status.opens_at}` : t('closed')}</span>}
             </div>
             {business.address && <p><MapPin size={15} /> {business.address}</p>}
             {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={15} /> {business.phone}</a>}

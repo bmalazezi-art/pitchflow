@@ -23,6 +23,8 @@ use Illuminate\Support\Facades\Route;
 use Inertia\Inertia;
 
 Route::get('/', PublicAvailabilityController::class)->name('availability')->middleware('throttle:120,1');
+Route::get('/privacy', fn () => Inertia::render('Public/Legal', ['document' => 'privacy']))->name('privacy');
+Route::get('/terms', fn () => Inertia::render('Public/Legal', ['document' => 'terms']))->name('terms');
 Route::post('/locale', LocaleController::class)->name('locale.update')->middleware('throttle:20,1');
 
 Route::middleware('guest')->group(function () {

@@ -18,6 +18,12 @@ class PublicAvailabilityPrivacyTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function tearDown(): void
+    {
+        Carbon::setTestNow();
+        parent::tearDown();
+    }
+
     public function test_public_page_does_not_expose_private_customer_fields(): void
     {
         $organization = Organization::factory()->create();
@@ -63,6 +69,13 @@ class PublicAvailabilityPrivacyTest extends TestCase
             ->where('businesses.0.amenities', ['parking', 'showers'])
             ->has('businesses.0.football_fields', 1)
             ->where('businesses.0.football_fields.0.name', 'Visible Pitch')
+            ->where('businesses.0.operating_status.is_open', true)
+            ->has('recentBusinesses', 2)
+            ->has('popularCities', 2)
+            ->where('statistics.football_fields', 2)
+            ->where('statistics.cities', 2)
+            ->where('statistics.registered_businesses', 5)
+            ->where('statistics.verified_businesses', 4)
         );
     }
 
@@ -108,5 +121,15 @@ class PublicAvailabilityPrivacyTest extends TestCase
 
         $this->assertNotNull($business->refresh()->approved_at);
         $this->get('/?city='.$city->id)->assertSee('Fresh Football Center');
+    }
+
+    public function test_public_legal_pages_are_available(): void
+    {
+        $this->get('/privacy')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Legal')
+            ->where('document', 'privacy'));
+        $this->get('/terms')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Legal')
+            ->where('document', 'terms'));
     }
 }
