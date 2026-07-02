@@ -20,6 +20,7 @@ return [
     'employee_updated' => 'Employee updated.',
     'employee_deleted' => 'Employee removed.',
     'invalid_field_assignment' => 'One or more field assignments are invalid.',
+    'account_disabled' => 'This employee account is disabled. Contact your business owner.',
     'reservation_created' => 'Reservation created.',
     'reservation_updated' => 'Reservation updated.',
     'reservation_cancelled' => 'Reservation cancelled.',

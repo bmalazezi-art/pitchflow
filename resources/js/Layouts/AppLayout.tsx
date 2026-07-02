@@ -14,6 +14,8 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
     const [searchOpen, setSearchOpen] = useState(false);
     const [notificationsOpen, setNotificationsOpen] = useState(false);
+    const employeePermissions = auth.user?.permissions ?? ['create_reservations', 'edit_reservations', 'cancel_reservations', 'view_customers', 'add_customer_notes', 'view_calendar', 'view_assigned_fields'];
+    const can = (permission: string) => employeePermissions.includes(permission);
 
     useEffect(() => {
         document.documentElement.classList.toggle('dark', dark);
@@ -28,10 +30,10 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         : auth.user?.role === 'employee'
             ? [
                 { label: t('dashboard'), href: '/dashboard', icon: LayoutDashboard },
-                { label: t('bookingBoard'), href: '/calendar', icon: CalendarDays },
+                ...(can('view_calendar') ? [{ label: t('bookingBoard'), href: '/calendar', icon: CalendarDays }] : []),
                 { label: t('reservations'), href: '/reservations', icon: BarChart3 },
-                { label: t('customers'), href: '/customers', icon: CircleUserRound },
-                { label: t('myAssignedFields'), href: '/fields', icon: Building2 },
+                ...(can('view_customers') ? [{ label: t('customers'), href: '/customers', icon: CircleUserRound }] : []),
+                ...(can('view_assigned_fields') ? [{ label: t('myAssignedFields'), href: '/fields', icon: Building2 }] : []),
                 { label: t('myProfile'), href: '/profile', icon: CircleUserRound },
             ]
         : [

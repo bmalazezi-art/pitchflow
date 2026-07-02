@@ -22,10 +22,15 @@ class OrganizationRegistrationTest extends TestCase
             'password' => 'StrongPassword123!',
             'password_confirmation' => 'StrongPassword123!',
             'business_name' => 'Prishtina Arena',
-            'phone' => '+38344111222',
+            'owner_phone' => '+38344111222',
+            'business_phone' => '+38344222333',
             'city_id' => $city->id,
             'business_address' => 'Main Street 1',
             'number_of_fields' => 2,
+            'starting_price_per_hour' => 35,
+            'opening_time' => '12:00',
+            'closing_time' => '01:00',
+            'amenities' => ['parking', 'lighting'],
             'preferred_language' => 'en',
         ]);
 
@@ -37,5 +42,8 @@ class OrganizationRegistrationTest extends TestCase
             'currency' => 'EUR',
         ]);
         $this->assertDatabaseHas('users', ['email' => 'owner@example.com', 'role' => UserRole::Owner->value]);
+        $this->assertDatabaseCount('football_fields', 2);
+        $this->assertDatabaseCount('operating_hours', 14);
+        $this->assertDatabaseHas('football_fields', ['price_per_hour' => 35, 'opening_time' => '12:00']);
     }
 }

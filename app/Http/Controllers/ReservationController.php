@@ -7,6 +7,7 @@ use App\Http\Requests\ReservationRequest;
 use App\Models\FootballField;
 use App\Models\Reservation;
 use App\Services\ReservationService;
+use App\Support\EmployeePermissions;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -18,6 +19,7 @@ class ReservationController extends Controller
 {
     public function index(Request $request): Response
     {
+        abort_if($request->user()->isEmployee() && ! $request->user()->hasEmployeePermission(EmployeePermissions::VIEW_CALENDAR), 403);
         $user = $request->user();
         $organization = $user->organization;
         $timezone = Timezones::resolve($organization->timezone);

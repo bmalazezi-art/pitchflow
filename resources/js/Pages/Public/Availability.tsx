@@ -1,6 +1,6 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
 import { useEffect, useMemo, useState } from 'react';
-import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, Trophy, Zap } from 'lucide-react';
+import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Lightbulb, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 import type { SharedProps } from '../../types';
@@ -42,8 +42,8 @@ interface Props {
     filters: { city?: number | null; business?: number | null; date: string };
 }
 
-type Amenity = 'parking' | 'cafe' | 'showers';
-const supportedAmenities: Amenity[] = ['parking', 'cafe', 'showers'];
+type Amenity = 'parking' | 'cafe' | 'showers' | 'indoor' | 'outdoor' | 'lighting';
+const supportedAmenities: Amenity[] = ['parking', 'cafe', 'showers', 'indoor', 'outdoor', 'lighting'];
 
 const venueImages = [
     'linear-gradient(135deg, #e0f2fe 0%, #dcfce7 100%)',
@@ -360,7 +360,7 @@ function TimeSlotCard({ slot }: { slot: Props['pitchAvailability'][number]['slot
 
 function AmenityList({ amenities }: { amenities: Amenity[] }) {
     const t = useTranslation();
-    const icons = { parking: ParkingCircle, cafe: Coffee, showers: ShowerHead };
+    const icons = { parking: ParkingCircle, cafe: Coffee, showers: ShowerHead, indoor: Warehouse, outdoor: TreePine, lighting: Lightbulb };
     return <div className="amenity-list">
         {amenities.map(amenity => {
             const Icon = icons[amenity];

@@ -5,6 +5,7 @@ namespace App\Policies;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Policies\Concerns\ChecksTenant;
+use App\Support\EmployeePermissions;
 
 class ReservationPolicy
 {
@@ -18,16 +19,16 @@ class ReservationPolicy
 
     public function create(User $user): bool
     {
-        return $user->isEmployee() && $user->organization_id !== null;
+        return $user->organization_id !== null && $user->hasEmployeePermission(EmployeePermissions::CREATE_RESERVATIONS);
     }
 
     public function update(User $user, Reservation $reservation): bool
     {
-        return $user->isEmployee() && $this->view($user, $reservation);
+        return $user->hasEmployeePermission(EmployeePermissions::EDIT_RESERVATIONS) && $this->view($user, $reservation);
     }
 
     public function delete(User $user, Reservation $reservation): bool
     {
-        return $user->isEmployee() && $this->view($user, $reservation);
+        return $user->hasEmployeePermission(EmployeePermissions::CANCEL_RESERVATIONS) && $this->view($user, $reservation);
     }
 }

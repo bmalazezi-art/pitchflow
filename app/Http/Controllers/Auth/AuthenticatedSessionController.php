@@ -26,6 +26,12 @@ class AuthenticatedSessionController extends Controller
         }
 
         $request->session()->regenerate();
+        if ($request->user()->isEmployee() && ! $request->user()->isActive()) {
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+            throw ValidationException::withMessages(['email' => __('messages.account_disabled')]);
+        }
         $request->user()->forceFill(['last_login_at' => now()])->save();
         $activity->log('login');
 

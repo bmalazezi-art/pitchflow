@@ -6,6 +6,8 @@ export interface AuthUser {
     email: string;
     role: Role;
     preferred_language: 'en' | 'sq';
+    status: 'invited' | 'active' | 'disabled';
+    permissions: string[] | null;
 }
 
 export interface Organization {

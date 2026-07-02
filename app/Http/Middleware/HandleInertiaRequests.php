@@ -16,7 +16,7 @@ class HandleInertiaRequests extends Middleware
         return [
             ...parent::share($request),
             'auth' => [
-                'user' => $user?->only(['id', 'name', 'email', 'role', 'preferred_language']),
+                'user' => $user?->only(['id', 'name', 'email', 'role', 'preferred_language', 'status', 'permissions']),
                 'organization' => $user?->organization?->only(['id', 'name', 'slug', 'status', 'timezone', 'currency']),
             ],
             'locale' => app()->getLocale(),

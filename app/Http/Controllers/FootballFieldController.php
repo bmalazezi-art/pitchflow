@@ -7,6 +7,7 @@ use App\Models\City;
 use App\Models\FootballField;
 use App\Services\ActivityLogger;
 use App\Services\SubscriptionService;
+use App\Support\EmployeePermissions;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\RedirectResponse;
@@ -20,6 +21,7 @@ class FootballFieldController extends Controller
     public function index(): Response
     {
         $user = request()->user();
+        abort_if($user->isEmployee() && ! $user->hasEmployeePermission(EmployeePermissions::VIEW_ASSIGNED_FIELDS), 403);
         $timezone = Timezones::resolve($user->organization->timezone);
         $today = CarbonImmutable::now($timezone)->startOfDay();
         $assignedFieldIds = $user->isEmployee()

@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\UserRole;
 use App\Notifications\QueuedVerifyEmail;
+use App\Support\EmployeePermissions;
 use Database\Factories\UserFactory;
 use Illuminate\Contracts\Auth\MustVerifyEmail;
 use Illuminate\Contracts\Translation\HasLocalePreference;
@@ -28,7 +29,8 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
 
     protected $fillable = [
         'organization_id', 'name', 'email', 'password', 'role', 'phone',
-        'preferred_language', 'email_verified_at', 'last_login_at',
+        'preferred_language', 'email_verified_at', 'last_login_at', 'status',
+        'permissions', 'invited_at', 'invitation_accepted_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -43,6 +45,9 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
         return [
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
+            'invited_at' => 'datetime',
+            'invitation_accepted_at' => 'datetime',
+            'permissions' => 'array',
             'password' => 'hashed',
             'role' => UserRole::class,
         ];
@@ -71,6 +76,20 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     public function isEmployee(): bool
     {
         return $this->role === UserRole::Employee;
+    }
+
+    public function isActive(): bool
+    {
+        return $this->status === 'active';
+    }
+
+    public function hasEmployeePermission(string $permission): bool
+    {
+        if (! $this->isEmployee() || ! $this->isActive()) {
+            return false;
+        }
+
+        return in_array($permission, $this->permissions ?? EmployeePermissions::all(), true);
     }
 
     public function preferredLocale(): string

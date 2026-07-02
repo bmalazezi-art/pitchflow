@@ -8,6 +8,7 @@ use App\Models\FootballField;
 use App\Models\Reservation;
 use App\Services\ActivityLogger;
 use App\Services\PhoneNormalizer;
+use App\Support\EmployeePermissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Inertia\Inertia;
@@ -17,6 +18,7 @@ class CustomerController extends Controller
 {
     public function index(Request $request): Response
     {
+        abort_if($request->user()->isEmployee() && ! $request->user()->hasEmployeePermission(EmployeePermissions::VIEW_CUSTOMERS), 403);
         $search = trim((string) $request->input('search'));
         $user = $request->user();
         $fieldIds = $user->isEmployee()

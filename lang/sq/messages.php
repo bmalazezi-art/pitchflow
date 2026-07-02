@@ -20,6 +20,7 @@ return [
     'employee_updated' => 'Punonjësi u përditësua.',
     'employee_deleted' => 'Punonjësi u hoq.',
     'invalid_field_assignment' => 'Një ose më shumë caktime të fushave janë të pavlefshme.',
+    'account_disabled' => 'Kjo llogari e punonjësit është çaktivizuar. Kontaktoni pronarin e biznesit.',
     'reservation_created' => 'Rezervimi u krijua.',
     'reservation_updated' => 'Rezervimi u përditësua.',
     'reservation_cancelled' => 'Rezervimi u anulua.',

@@ -17,6 +17,10 @@ class EnsureOrganizationApproved
             return $next($request);
         }
 
+        if ($user?->isEmployee() && ! $user->isActive()) {
+            abort(403, __('messages.account_disabled'));
+        }
+
         if (! $user?->organization || $user->organization->status !== OrganizationStatus::Approved) {
             return redirect()->route('approval.pending');
         }

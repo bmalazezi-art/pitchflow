@@ -51,6 +51,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
         Route::resource('fields', FootballFieldController::class)->only(['index', 'store', 'update', 'destroy']);
         Route::resource('employees', EmployeeController::class)->only(['index', 'store', 'update', 'destroy']);
+        Route::patch('/employees/{employee}/status', [EmployeeController::class, 'status'])->name('employees.status');
         Route::get('/calendar', [ReservationController::class, 'index'])->name('calendar');
         Route::get('/reservations', [ReservationController::class, 'list'])->name('reservations.index');
         Route::post('/reservations', [ReservationController::class, 'store'])->name('reservations.store');

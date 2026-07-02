@@ -34,13 +34,18 @@ class EmployeeController extends Controller
         $this->authorize('create', User::class);
         $data = $request->validated();
         $fieldIds = $this->validFieldIds($request, $data['field_ids']);
+        $name = trim($data['first_name'].' '.$data['last_name']);
+        unset($data['first_name'], $data['last_name'], $data['field_ids']);
 
-        $employee = DB::transaction(function () use ($request, $data, $fieldIds) {
+        $employee = DB::transaction(function () use ($request, $data, $fieldIds, $name) {
             $employee = User::create([
                 ...$data,
+                'name' => $name,
                 'organization_id' => $request->user()->organization_id,
                 'role' => UserRole::Employee,
                 'password' => Str::password(40),
+                'status' => 'invited',
+                'invited_at' => now(),
             ]);
             $employee->assignedFields()->syncWithPivotValues($fieldIds, [
                 'organization_id' => $request->user()->organization_id,
@@ -59,7 +64,8 @@ class EmployeeController extends Controller
         $this->authorize('update', $employee);
         $data = $request->validated();
         $fieldIds = $this->validFieldIds($request, $data['field_ids']);
-        unset($data['field_ids']);
+        $data['name'] = trim($data['first_name'].' '.$data['last_name']);
+        unset($data['first_name'], $data['last_name'], $data['field_ids']);
 
         DB::transaction(function () use ($request, $employee, $data, $fieldIds) {
             $employee->update($data);
@@ -79,6 +85,15 @@ class EmployeeController extends Controller
         $activity->log('employee_deleted', $employee);
 
         return back()->with('success', __('messages.employee_deleted'));
+    }
+
+    public function status(User $employee, ActivityLogger $activity): RedirectResponse
+    {
+        $this->authorize('update', $employee);
+        $employee->update(['status' => $employee->status === 'disabled' ? 'active' : 'disabled']);
+        $activity->log($employee->status === 'disabled' ? 'employee_disabled' : 'employee_enabled', $employee);
+
+        return back()->with('success', __('messages.employee_updated'));
     }
 
     private function validFieldIds(EmployeeRequest $request, array $fieldIds): array

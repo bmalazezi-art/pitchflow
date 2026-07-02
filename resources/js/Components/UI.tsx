@@ -69,6 +69,7 @@ export function Badge({ value }: { value: string }) {
         approved: 'approved', rejected: 'rejected', suspended: 'suspended',
         available: 'available', occupied: 'occupied', past: 'past',
         trial: 'trial', expired: 'expired',
+        invited: 'invited', disabled: 'disabled',
     } as Record<string, any>)[value];
 
     return <span className={clsx('badge', `badge-${value}`)}>{key ? t(key) : value.replaceAll('_', ' ')}</span>;

@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Support\EmployeePermissions;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,12 +18,15 @@ class EmployeeRequest extends FormRequest
         $employeeId = $this->route('employee')?->id;
 
         return [
-            'name' => ['required', 'string', 'max:120'],
+            'first_name' => ['required', 'string', 'max:60'],
+            'last_name' => ['required', 'string', 'max:60'],
             'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($employeeId)],
             'phone' => ['nullable', 'string', 'max:32'],
             'preferred_language' => ['required', 'in:en,sq'],
             'field_ids' => ['required', 'array'],
             'field_ids.*' => ['integer'],
+            'permissions' => ['required', 'array'],
+            'permissions.*' => ['string', Rule::in(EmployeePermissions::all())],
         ];
     }
 }

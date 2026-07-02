@@ -37,6 +37,8 @@ class NewPasswordController extends Controller
                 'password' => Hash::make($password),
                 'remember_token' => Str::random(60),
                 'email_verified_at' => $user->email_verified_at ?? now(),
+                'status' => $user->isEmployee() ? 'active' : $user->status,
+                'invitation_accepted_at' => $user->isEmployee() ? now() : $user->invitation_accepted_at,
             ])->save();
             event(new PasswordReset($user));
         });
