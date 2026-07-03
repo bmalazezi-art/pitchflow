@@ -2,11 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Enums\OrganizationStatus;
 use App\Enums\UserRole;
 use App\Models\ActivityLog;
+use App\Models\City;
+use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class AdminSubscriptionTest extends TestCase
@@ -60,5 +64,33 @@ class AdminSubscriptionTest extends TestCase
             'organization_id' => $organization->id,
             'plan_name' => '3–5 Fields',
         ]);
+    }
+
+    public function test_organization_directory_prioritizes_pending_and_supports_admin_filters(): void
+    {
+        $superAdmin = User::factory()->create(['role' => UserRole::SuperAdmin, 'organization_id' => null]);
+        $prishtina = City::factory()->create(['name' => 'Prishtina']);
+        $approved = Organization::factory()->for($prishtina)->create(['name' => 'Alpha Arena']);
+        FootballField::factory()->for($approved)->create(['city_id' => $prishtina->id]);
+        $pending = Organization::factory()->for($prishtina)->create([
+            'name' => 'Pending Pitch',
+            'email' => 'pending-owner@example.test',
+            'status' => OrganizationStatus::Pending,
+            'approved_at' => null,
+        ]);
+
+        $this->actingAs($superAdmin)->get('/admin/organizations')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Organizations')
+                ->where('organizations.data.0.id', $pending->id)
+                ->where('summary.pending', 1));
+
+        $this->actingAs($superAdmin)->get('/admin/organizations?search=pending-owner&status=pending&city='.$prishtina->id.'&visibility=pending')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('organizations.data', 1)
+                ->where('organizations.data.0.id', $pending->id)
+                ->where('filters.search', 'pending-owner'));
     }
 }
