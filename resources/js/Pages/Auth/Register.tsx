@@ -1,11 +1,17 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Building2, Check, ChevronLeft, ChevronRight, Clock3, MapPin, ShieldCheck, UserRound } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import AuthLayout from '../../Layouts/AuthLayout';
 import { Button, Field, Input, Select } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 
 const amenityKeys = ['parking', 'cafe', 'showers', 'indoor', 'outdoor', 'lighting'] as const;
+const registrationStepForErrors = (errors: Record<string, string>) => {
+    const errorKeys = Object.keys(errors);
+    if (errorKeys.some(key => ['name', 'email', 'owner_phone', 'password', 'password_confirmation'].includes(key))) return 1;
+    if (errorKeys.some(key => ['business_name', 'business_phone', 'city_id', 'business_address', 'preferred_language'].includes(key))) return 2;
+    return 3;
+};
 
 export default function Register({ cities }: { cities: Array<{ id: number; name: string }> }) {
     const t = useTranslation();
@@ -14,6 +20,14 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
     const stepFields = step === 1 ? ['name', 'email', 'owner_phone', 'password', 'password_confirmation'] : step === 2 ? ['business_name', 'business_phone', 'city_id', 'business_address'] : ['number_of_fields', 'starting_price_per_hour', 'opening_time', 'closing_time'];
     const canContinue = stepFields.every(key => String(form.data[key as keyof typeof form.data] ?? '').trim() !== '');
     const toggleAmenity = (key: string) => form.setData('amenities', form.data.amenities.includes(key) ? form.data.amenities.filter(item => item !== key) : [...form.data.amenities, key]);
+    useEffect(() => {
+        if (Object.keys(form.errors).length > 0) setStep(registrationStepForErrors(form.errors));
+    }, [form.errors]);
+
+    const submit = () => form.post('/register', {
+        preserveScroll: false,
+        onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
+    });
 
     return <AuthLayout wide><Head title={t('register')} /><div className="registration-shell">
         <header className="registration-heading"><span className="registration-kicker"><ShieldCheck size={16} />{t('businessApplication')}</span><h1>{t('createBusinessWorkspace')}</h1><p>{t('applicationsReviewed')}</p></header>
@@ -21,7 +35,8 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
             [1, t('ownerInformation'), UserRound], [2, t('businessInformation'), Building2], [3, t('fieldSetup'), MapPin],
         ].map(([number, label, Icon]: any) => <div key={number} className={step >= number ? 'active' : ''}><span>{step > number ? <Check size={17} /> : <Icon size={17} />}</span><strong>{label}</strong></div>)}</nav>
 
-        <form className="registration-card" onSubmit={event => { event.preventDefault(); form.post('/register'); }}>
+        <form className="registration-card" onSubmit={event => { event.preventDefault(); submit(); }}>
+            {Object.keys(form.errors).length > 0 && <div className="registration-error" role="alert">{t('registrationError')}</div>}
             {step === 1 && <section><div className="step-title"><span>01</span><div><h2>{t('ownerInformation')}</h2><p>{t('ownerInformationHelp')}</p></div></div><div className="form-grid">
                 <Field label={t('fullName')} error={form.errors.name} required><Input autoFocus autoComplete="name" value={form.data.name} onChange={e => form.setData('name', e.target.value)} /></Field>
                 <Field label={t('email')} error={form.errors.email} required><Input type="email" autoComplete="email" value={form.data.email} onChange={e => form.setData('email', e.target.value)} /></Field>

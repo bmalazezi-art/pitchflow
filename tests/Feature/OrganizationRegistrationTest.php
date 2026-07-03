@@ -5,7 +5,10 @@ namespace Tests\Feature;
 use App\Enums\OrganizationStatus;
 use App\Enums\UserRole;
 use App\Models\City;
+use App\Models\Organization;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
 class OrganizationRegistrationTest extends TestCase
@@ -41,9 +44,27 @@ class OrganizationRegistrationTest extends TestCase
             'timezone' => 'Europe/Pristina',
             'currency' => 'EUR',
         ]);
-        $this->assertDatabaseHas('users', ['email' => 'owner@example.com', 'role' => UserRole::Owner->value]);
+        $organization = Organization::query()->where('name', 'Prishtina Arena')->firstOrFail();
+        $owner = User::query()->where('email', 'owner@example.com')->firstOrFail();
+        $this->assertSame($organization->id, $owner->organization_id);
+        $this->assertSame(UserRole::Owner, $owner->role);
         $this->assertDatabaseCount('football_fields', 2);
         $this->assertDatabaseCount('operating_hours', 14);
         $this->assertDatabaseHas('football_fields', ['price_per_hour' => 35, 'opening_time' => '12:00']);
+
+        $owner->forceFill(['email_verified_at' => now()])->save();
+        $this->actingAs($owner)->get('/dashboard')->assertRedirect(route('approval.pending'));
+
+        $superAdmin = User::factory()->create(['role' => UserRole::SuperAdmin]);
+        $this->actingAs($superAdmin)->get('/admin/organizations?status=pending')
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Admin/Organizations')
+                ->where('summary.pending', 1)
+                ->has('organizations.data', 1)
+                ->where('organizations.data.0.id', $organization->id)
+                ->where('organizations.data.0.status', OrganizationStatus::Pending->value));
+
+        $this->assertFalse(Organization::query()->eligibleForPublicDirectory()->whereKey($organization)->exists());
     }
 }
