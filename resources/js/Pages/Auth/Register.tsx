@@ -1,6 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { Building2, Check, ChevronLeft, ChevronRight, Clock3, MapPin, ShieldCheck, UserRound } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import AuthLayout from '../../Layouts/AuthLayout';
 import { Button, Field, Input, Select } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
@@ -28,6 +28,16 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
         preserveScroll: false,
         onError: () => window.scrollTo({ top: 0, behavior: 'smooth' }),
     });
+    const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (step < 3) {
+            if (canContinue) setStep(current => Math.min(current + 1, 3));
+            return;
+        }
+
+        submit();
+    };
 
     return <AuthLayout wide><Head title={t('register')} /><div className="registration-shell">
         <header className="registration-heading"><span className="registration-kicker"><ShieldCheck size={16} />{t('businessApplication')}</span><h1>{t('createBusinessWorkspace')}</h1><p>{t('applicationsReviewed')}</p></header>
@@ -35,7 +45,7 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
             [1, t('ownerInformation'), UserRound], [2, t('businessInformation'), Building2], [3, t('fieldSetup'), MapPin],
         ].map(([number, label, Icon]: any) => <div key={number} className={step >= number ? 'active' : ''}><span>{step > number ? <Check size={17} /> : <Icon size={17} />}</span><strong>{label}</strong></div>)}</nav>
 
-        <form className="registration-card" onSubmit={event => { event.preventDefault(); submit(); }}>
+        <form className="registration-card" onSubmit={handleSubmit} data-registration-step={step}>
             {Object.keys(form.errors).length > 0 && <div className="registration-error" role="alert">{t('registrationError')}</div>}
             {step === 1 && <section><div className="step-title"><span>01</span><div><h2>{t('ownerInformation')}</h2><p>{t('ownerInformationHelp')}</p></div></div><div className="form-grid">
                 <Field label={t('fullName')} error={form.errors.name} required><Input autoFocus autoComplete="name" value={form.data.name} onChange={e => form.setData('name', e.target.value)} /></Field>
@@ -60,7 +70,7 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
             </div><div className="amenity-section"><h3>{t('amenities')}</h3><div className="amenity-selector">{amenityKeys.map(key => <label key={key} className={form.data.amenities.includes(key) ? 'selected' : ''}><input type="checkbox" checked={form.data.amenities.includes(key)} onChange={() => toggleAmenity(key)} /><span>{form.data.amenities.includes(key) && <Check size={15} />}{t(key)}</span></label>)}</div></div>
             <div className="review-note"><Clock3 size={20} /><div><strong>{t('reviewBeforePublishing')}</strong><p>{t('reviewBeforePublishingHelp')}</p></div></div></section>}
 
-            <footer className="registration-actions"><div>{step > 1 && <Button type="button" variant="secondary" onClick={() => setStep(step - 1)}><ChevronLeft size={17} />{t('back')}</Button>}</div><div>{step < 3 ? <Button type="button" disabled={!canContinue} onClick={() => setStep(step + 1)}>{t('continue')}<ChevronRight size={17} /></Button> : <Button disabled={form.processing}>{t('submitApplication')}</Button>}</div></footer>
+            <footer className="registration-actions"><div>{step > 1 && <Button type="button" variant="secondary" onClick={() => setStep(current => Math.max(current - 1, 1))}><ChevronLeft size={17} />{t('back')}</Button>}</div><div>{step < 3 ? <Button type="submit" disabled={!canContinue}>{t('continue')}<ChevronRight size={17} /></Button> : <Button type="submit" disabled={form.processing}>{t('submitApplication')}</Button>}</div></footer>
         </form><p className="registration-login">{t('alreadyHaveAccount')} <Link href="/login">{t('login')}</Link></p>
     </div></AuthLayout>;
 }
