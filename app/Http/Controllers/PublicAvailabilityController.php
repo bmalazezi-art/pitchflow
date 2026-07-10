@@ -56,10 +56,12 @@ class PublicAvailabilityController extends Controller
 
         $recentBusinesses = Organization::query()
             ->eligibleForPublicDirectory()
+            ->when($request->filled('city'), fn ($query) => $query->publiclyDiscoverable($cityId))
             ->with([
                 'city:id,name',
                 'footballFields' => fn ($query) => $query
                     ->where('status', FieldStatus::Active)
+                    ->when($request->filled('city'), fn ($query) => $activeFields($query))
                     ->orderBy('name')
                     ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
                 'footballFields.organization:id,timezone',

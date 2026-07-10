@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Lightbulb, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
@@ -59,6 +59,13 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
     const hasCity = Boolean(filters.city);
     const hasBusiness = Boolean(selectedBusiness);
     const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
+    const discoveryTitle = selectedCity ? `${t('footballFieldsIn')} ${selectedCity.name}` : t('discoverFootballFields');
+    const discoverySummary = selectedCity
+        ? `${businesses.length} ${businesses.length === 1 ? t('footballFieldFound') : t('footballFieldsFound')} ${t('inCity')} ${selectedCity.name}`
+        : t('discoverFootballFieldsIntro');
+    const recentIntro = selectedCity
+        ? `${t('recentlyAddedIn')} ${selectedCity.name}`
+        : t('recentlyAddedIntro');
 
     useEffect(() => {
         localStorage.setItem('public-theme', dark ? 'dark' : 'light');
@@ -73,11 +80,6 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
     const setCity = (value: string) => router.get('/', { city: value || undefined, date: filters.date }, { preserveState: true, preserveScroll: true, replace: true });
     const setDate = (date: string) => navigate({ date });
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
-    const selectPopularCity = (cityId: number) => router.get('/', { city: cityId, date: filters.date }, {
-        preserveState: true,
-        replace: true,
-        onSuccess: () => requestAnimationFrame(() => document.getElementById('discover-fields')?.scrollIntoView({ behavior: 'smooth', block: 'start' })),
-    });
     const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: filters.date });
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
@@ -96,27 +98,26 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
 
             {!hasBusiness && <>
                 <PlatformStatistics statistics={statistics} />
-                <PopularCities cities={popularCities} onSelect={selectPopularCity} />
-                <section className="public-content-section recent-fields" aria-labelledby="recently-added-heading">
-                    <PublicSectionHeading eyebrow={t('latestOnPitchFlow')} title={t('recentlyAdded')} description={t('recentlyAddedIntro')} id="recently-added-heading" />
+                {recentBusinesses.length > 0 && <section className="public-content-section recent-fields" aria-labelledby="recently-added-heading">
+                    <PublicSectionHeading eyebrow={t('latestOnPitchFlow')} title={t('recentlyAdded')} description={recentIntro} id="recently-added-heading" />
                     <div className="field-card-grid">
                         {recentBusinesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewRecentBusiness(business)} />)}
                     </div>
-                </section>
+                </section>}
             </>}
 
             {hasCity && !hasBusiness && <section className="field-discovery" aria-labelledby="discover-fields">
                 <div className="section-heading">
                     <div>
                         <span>{selectedCity?.name ?? t('chooseCity')}</span>
-                        <h2 id="discover-fields">{t('discoverFootballFields')}</h2>
+                        <h2 id="discover-fields">{discoveryTitle}</h2>
                     </div>
-                    <p>{t('discoverFootballFieldsIntro')}</p>
+                    <p>{discoverySummary}</p>
                 </div>
                 <div className="field-card-grid">
                     {businesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewBusiness(business.id)} />)}
                 </div>
-                {businesses.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('selectCityToDiscover')}</p></div>}
+                {businesses.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('noFootballFieldsInCity')}</p></div>}
             </section>}
 
             {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} />}
@@ -140,14 +141,6 @@ function PlatformStatistics({ statistics }: { statistics: Props['statistics'] })
         { label: t('verifiedBusinessesStat'), value: statistics.verified_businesses, icon: BadgeCheck, tone: 'teal' },
     ];
     return <section className="public-stat-band" aria-label={t('platformStatistics')}><div>{cards.map(card => { const Icon = card.icon; return <article key={card.label}><span className={card.tone}><Icon size={21} /></span><div><strong>{card.value.toLocaleString()}</strong><small>{card.label}</small></div></article>; })}</div></section>;
-}
-
-function PopularCities({ cities, onSelect }: { cities: Props['popularCities']; onSelect: (cityId: number) => void }) {
-    const t = useTranslation();
-    return <section className="public-content-section popular-cities" aria-labelledby="popular-cities-heading">
-        <PublicSectionHeading eyebrow={t('exploreByLocation')} title={t('popularCities')} description={t('popularCitiesIntro')} id="popular-cities-heading" />
-        <div className="popular-city-grid">{cities.map(city => <button key={city.id} onClick={() => onSelect(city.id)}><span><Trophy size={19} /></span><div><strong>{city.name}</strong><small>{city.football_fields_count} {Number(city.football_fields_count) === 1 ? t('footballPitch') : t('footballPitches')}</small></div><ChevronRight size={18} /></button>)}</div>
-    </section>;
 }
 
 function PublicSectionHeading({ eyebrow, title, description, id }: { eyebrow: string; title: string; description: string; id: string }) {
@@ -223,6 +216,7 @@ function SearchPanel({ cities, filters, setCity, setDate }: {
 }) {
     const t = useTranslation();
     return <div className="availability-search-card simple">
+        <span className="availability-search-icon" aria-hidden="true"><Search size={19} /></span>
         <label className="public-input">
             <span><MapPin size={18} /></span>
             <select aria-label={t('selectCity')} value={filters.city ?? ''} onChange={event => setCity(event.target.value)} required>
@@ -238,10 +232,49 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
     const t = useTranslation();
     const selectedDate = parseDate(value);
     const [open, setOpen] = useState(false);
+    const triggerRef = useRef<HTMLButtonElement>(null);
+    const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
     const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(selectedDate));
     const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
     const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(visibleMonth);
     const weekdays = useMemo(() => buildWeekdayLabels(), []);
+
+    useEffect(() => {
+        if (!open || !triggerRef.current) {
+            return;
+        }
+
+        const updatePosition = () => {
+            const rect = triggerRef.current?.getBoundingClientRect();
+
+            if (!rect) {
+                return;
+            }
+
+            const margin = 12;
+            const popoverWidth = Math.min(330, window.innerWidth - margin * 2);
+            const estimatedHeight = 360;
+            const hasRoomBelow = window.innerHeight - rect.bottom >= estimatedHeight + margin;
+            const top = hasRoomBelow
+                ? rect.bottom + 8
+                : Math.max(margin, rect.top - estimatedHeight - 8);
+            const left = Math.min(
+                Math.max(margin, rect.left),
+                Math.max(margin, window.innerWidth - popoverWidth - margin),
+            );
+
+            setPopoverPosition({ top, left });
+        };
+
+        updatePosition();
+        window.addEventListener('resize', updatePosition);
+        window.addEventListener('scroll', updatePosition, true);
+
+        return () => {
+            window.removeEventListener('resize', updatePosition);
+            window.removeEventListener('scroll', updatePosition, true);
+        };
+    }, [open]);
 
     const selectDate = (date: Date) => {
         onChange(toDateInput(date));
@@ -252,6 +285,7 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
     return <div className="calendar-picker">
         <button
             type="button"
+            ref={triggerRef}
             className="calendar-trigger"
             aria-label={t('chooseDate')}
             aria-expanded={open}
@@ -260,7 +294,7 @@ function CalendarPicker({ value, onChange }: { value: string; onChange: (value: 
             <CalendarDays size={19} />
             <span>{formatDate(value)}</span>
         </button>
-        {open && <div className="calendar-popover" role="dialog" aria-label={t('chooseDate')}>
+        {open && <div className="calendar-popover" style={{ top: popoverPosition.top, left: popoverPosition.left }} role="dialog" aria-label={t('chooseDate')}>
             <div className="calendar-month">
                 <button type="button" aria-label={t('previousMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}>
                     <ChevronLeft size={18} />
