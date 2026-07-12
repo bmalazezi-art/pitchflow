@@ -49,7 +49,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             ] : []),
         ];
 
-    return <div className={clsx('app-shell', collapsed && 'sidebar-collapsed', auth.user?.role === 'employee' && 'employee-shell')}>
+    return <div className={clsx('app-shell', collapsed && 'sidebar-collapsed', auth.user?.role === 'employee' && 'employee-shell', auth.user?.role === 'owner' && 'owner-shell')}>
         <aside className={clsx('sidebar', open && 'open')}>
             <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong><button className="icon-btn mobile-only" onClick={() => setOpen(false)} aria-label={t('close')}><X size={20} /></button></div>
             <nav>{nav.map(({ label, href, icon: Icon }) => <Link key={href} href={href} className={location.pathname.startsWith(href) ? 'active' : ''} onClick={() => setOpen(false)} title={label}><Icon size={19} /><span>{label}</span></Link>)}</nav>

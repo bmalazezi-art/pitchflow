@@ -177,7 +177,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                         <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} tickFormatter={(value) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))} />
                         <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} />
                         <Tooltip cursor={{ fill: 'var(--surface-2)' }} contentStyle={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }} />
-                        <Bar dataKey="count" name={t('reservations')} fill="#2563eb" radius={[5, 5, 0, 0]} maxBarSize={44} />
+                        <Bar dataKey="count" name={t('reservations')} fill="var(--blue)" radius={[5, 5, 0, 0]} maxBarSize={44} />
                     </BarChart></ResponsiveContainer></div>
                 </section>
 

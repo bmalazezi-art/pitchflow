@@ -1,5 +1,5 @@
 import { Head, router, useForm } from '@inertiajs/react';
-import { Ban, CheckCircle2, Clock3, KeyRound, MailPlus, Pencil, ShieldCheck, Trash2, UserRound } from 'lucide-react';
+import { Ban, CheckCircle2, Clock3, KeyRound, MailPlus, Pencil, ShieldCheck, Trash2, UserRound, Users } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, Drawer, EmptyState, Field, Input, PageHeader, Pagination, Select } from '../../Components/UI';
 import AppLayout from '../../Layouts/AppLayout';
@@ -9,7 +9,7 @@ import type { Paginated } from '../../types';
 const permissionKeys = ['create_reservations', 'edit_reservations', 'cancel_reservations', 'view_customers', 'add_customer_notes', 'view_calendar', 'view_assigned_fields'] as const;
 const ownerOnlyKeys = ['view_reports', 'organization_settings', 'manage_employees', 'manage_fields'] as const;
 
-export default function Employees({ employees, fields }: { employees: Paginated<any>; fields: Array<{ id: number; name: string }> }) {
+export default function Employees({ employees, fields, stats }: { employees: Paginated<any>; fields: Array<{ id: number; name: string }>; stats: { total: number; active: number; invited: number; disabled: number } }) {
     const t = useTranslation();
     const [open, setOpen] = useState(false);
     const [editing, setEditing] = useState<any>(null);
@@ -23,9 +23,14 @@ export default function Employees({ employees, fields }: { employees: Paginated<
     };
     const submit = () => editing ? form.put(`/employees/${editing.id}`, { onSuccess: () => setOpen(false) }) : form.post('/employees', { onSuccess: () => setOpen(false) });
     const toggle = (key: 'field_ids' | 'permissions', value: number | string) => form.setData(key, (form.data[key] as any[]).includes(value) ? (form.data[key] as any[]).filter(item => item !== value) : [...(form.data[key] as any[]), value] as any);
-
     return <AppLayout title={t('employees')}><Head title={t('employees')} /><div className="owner-page">
         <PageHeader eyebrow={t('team')} title={t('employees')} description={t('employeeManagementIntro')} actions={<Button onClick={() => show()}><MailPlus size={18} />{t('inviteEmployee')}</Button>} />
+        <section className="owner-summary-grid employee-status-grid">
+            <article><span><Users size={18} /></span><div><small>{t('teamMembers')}</small><strong>{stats.total}</strong></div></article>
+            <article><span className="success"><CheckCircle2 size={18} /></span><div><small>{t('active')}</small><strong>{stats.active}</strong></div></article>
+            <article><span className="warning"><MailPlus size={18} /></span><div><small>{t('invited')}</small><strong>{stats.invited}</strong></div></article>
+            <article><span className="danger"><Ban size={18} /></span><div><small>{t('disabled')}</small><strong>{stats.disabled}</strong></div></article>
+        </section>
         <div className="employee-summary"><div><ShieldCheck size={19} /><span><strong>{employees.total}</strong>{t('teamMembers')}</span></div><p>{t('employeeAccessSummary')}</p></div>
         {employees.data.length === 0 ? <section className="dashboard-panel"><EmptyState title={t('noEmployees')} action={<Button onClick={() => show()}><MailPlus size={17} />{t('inviteEmployee')}</Button>} /></section> : <>
             <div className="table-wrap modern-table employee-table"><table><thead><tr><th>{t('employee')}</th><th>{t('phone')}</th><th>{t('assignedFields')}</th><th>{t('status')}</th><th>{t('lastLogin')}</th><th>{t('actions')}</th></tr></thead><tbody>{employees.data.map(employee => <tr key={employee.id} onClick={() => show(employee)} className="clickable-row">

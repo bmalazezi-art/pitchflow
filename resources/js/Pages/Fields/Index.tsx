@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { CalendarDays, Clock3, MapPin, Pencil, Plus, Trash2, Users, Wrench } from 'lucide-react';
+import { BadgeCheck, CalendarDays, Clock3, Eye, MapPin, Pencil, Plus, Trash2, Users, Wrench } from 'lucide-react';
 import { useState } from 'react';
 import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select } from '../../Components/UI';
 import AppLayout from '../../Layouts/AppLayout';
@@ -108,12 +108,13 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
             ? <section className="dashboard-panel"><EmptyState title={t('noFields')} action={canCreateFields ? <Button onClick={() => show()}>{t('newField')}</Button> : undefined} /></section>
             : <>
                 <div className="field-card-grid owner-field-grid">{fields.data.map(field => <article className="owner-field-card" key={field.id}>
-                    <div className="field-card-visual"><span className="field-initial">{field.name.slice(0, 1).toUpperCase()}</span><Badge value={field.status} /></div>
+                    <div className="field-card-visual"><span className="field-initial">{field.name.slice(0, 1).toUpperCase()}</span><div className="field-visual-badges"><Badge value={field.status} />{field.status === 'active' && <span><BadgeCheck size={13} />{t('publicAvailabilityVisibility')}</span>}</div></div>
                     <div className="field-card-content"><div className="field-card-title"><div><h2>{field.name}</h2><p><MapPin size={14} />{field.address || t('noData')}</p></div>{!isEmployee && <strong>€{Number(field.price_per_hour).toFixed(2)}<small>/{t('hour')}</small></strong>}</div>
+                        <div className="field-open-today"><Clock3 size={15} /><span>{t('workingHours')}</span><strong>{field.opening_time?.slice(0, 5)}–{field.closing_time?.slice(0, 5)}</strong></div>
                         <div className="field-card-stats"><div><CalendarDays size={17} /><span>{t('todayReservations')}</span><strong>{field.today_reservations_count}</strong></div><div><Users size={17} /><span>{t('assignedStaff')}</span><strong>{field.employees_count}</strong></div></div>
                         <div className="tag-list field-team">{field.employees.length ? field.employees.map((employee: any) => <span key={employee.id}>{employee.name}</span>) : <span>{t('noAssignedEmployees')}</span>}</div>
                     </div>
-                    <footer className="field-card-actions">{canEditFields && <><button className="icon-btn bordered" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('workingHours')}><Clock3 size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('maintenance')}><Wrench size={17} /></button></>}<Link className="icon-btn bordered" href={`/calendar?field=${field.id}`} title={t('reservations')}><CalendarDays size={17} /></Link>{canDeleteFields && <button className="icon-btn bordered danger" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button>}</footer>
+                    <footer className="field-card-actions">{canEditFields && <><button className="icon-btn bordered" onClick={() => show(field)} title={t('edit')}><Pencil size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('workingHours')}><Clock3 size={17} /></button><button className="icon-btn bordered" onClick={() => show(field)} title={t('maintenance')}><Wrench size={17} /></button></>}<Link className="icon-btn bordered" href={`/calendar?field=${field.id}`} title={t('reservations')}><Eye size={17} /></Link>{canDeleteFields && <button className="icon-btn bordered danger" onClick={() => confirm(t('removeFieldConfirm')) && router.delete(`/fields/${field.id}`)} title={t('delete')}><Trash2 size={17} /></button>}</footer>
                 </article>)}</div>
                 {fields.last_page > 1 && <Pagination links={fields.links} />}
             </>}

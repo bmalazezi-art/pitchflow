@@ -21,10 +21,17 @@ class EmployeeController extends Controller
     {
         abort_unless(request()->user()->isOwner() || request()->user()->isSuperAdmin(), 403);
         $organizationId = request()->user()->organization_id;
+        $employeeQuery = User::query()->where('organization_id', $organizationId)
+            ->where('role', UserRole::Employee);
 
         return Inertia::render('Employees/Index', [
-            'employees' => User::query()->where('organization_id', $organizationId)
-                ->where('role', UserRole::Employee)->with('assignedFields:id,name')->paginate(15),
+            'employees' => (clone $employeeQuery)->with('assignedFields:id,name')->paginate(15),
+            'stats' => [
+                'total' => (clone $employeeQuery)->count(),
+                'active' => (clone $employeeQuery)->where('status', 'active')->count(),
+                'invited' => (clone $employeeQuery)->where('status', 'invited')->count(),
+                'disabled' => (clone $employeeQuery)->where('status', 'disabled')->count(),
+            ],
             'fields' => FootballField::query()->forOrganization($organizationId)->orderBy('name')->get(['id', 'name']),
         ]);
     }
