@@ -86,7 +86,7 @@ const messages = {
         walkIns: 'Walk-ins', noShows: 'No-shows', mostBookedField: 'Most booked field', noData: 'No data',
         publicIntro: 'Live one-hour availability from verified football field businesses.',
         privacyNotice: 'Only slot availability is shown. Customer details remain private.',
-        accessWorkspace: 'Access your reservation workspace.', rememberMe: 'Remember me', forgotPassword: 'Forgot password?',
+        accessWorkspace: 'Access your football field workspace.', rememberMe: 'Remember me', forgotPassword: 'Forgot password?',
         secureWorkspaceAccess: 'Secure workspace access', authVisualIntro: 'Run reservations, fields, and employee workflows from one clean football-business workspace.',
         fasterReservationManagement: 'Faster reservation management', easyEmployeeWorkflow: 'Easy employee workflow',
         fullName: 'Full name', businessName: 'Business name', numberOfFields: 'Number of fields', businessAddress: 'Business address',
