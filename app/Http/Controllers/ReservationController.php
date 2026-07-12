@@ -136,7 +136,11 @@ class ReservationController extends Controller
     {
         $this->authorize('delete', $reservation);
         $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
-        $service->cancel($reservation, $request->user()->organization, $request->user()->id, $request->input('reason'));
+        try {
+            $service->cancel($reservation, $request->user()->organization, $request->user()->id, $request->input('reason'));
+        } catch (ReservationConflictException $exception) {
+            return back()->withErrors(['reason' => $exception->getMessage()]);
+        }
 
         return back()->with('success', __('messages.reservation_cancelled'));
     }
@@ -144,7 +148,11 @@ class ReservationController extends Controller
     public function markPaid(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
     {
         $this->authorize('update', $reservation);
-        $service->markPaid($reservation, $request->user()->id);
+        try {
+            $service->markPaid($reservation, $request->user()->id);
+        } catch (ReservationConflictException $exception) {
+            return back()->withErrors(['payment_status' => $exception->getMessage()]);
+        }
 
         return back()->with('success', __('messages.reservation_updated'));
     }
@@ -152,7 +160,11 @@ class ReservationController extends Controller
     public function complete(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
     {
         $this->authorize('update', $reservation);
-        $service->complete($reservation, $request->user()->id);
+        try {
+            $service->complete($reservation, $request->user()->id);
+        } catch (ReservationConflictException $exception) {
+            return back()->withErrors(['status' => $exception->getMessage()]);
+        }
 
         return back()->with('success', __('messages.reservation_updated'));
     }

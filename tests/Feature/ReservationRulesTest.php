@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
+use Carbon\Carbon;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -57,6 +58,62 @@ class ReservationRulesTest extends TestCase
         $this->actingAs($employee)->put("/reservations/{$reservation->id}", $reopened)
             ->assertSessionHasErrors('starts_at');
         $this->assertSame(ReservationStatus::Completed, $reservation->refresh()->status);
+    }
+
+    public function test_past_reservation_cannot_be_edited(): void
+    {
+        [$organization, $employee, $field] = $this->context();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
+        $reservation = Reservation::query()->firstOrFail();
+
+        Carbon::setTestNow($reservation->starts_at->copy()->addMinute());
+
+        $this->actingAs($employee)->put("/reservations/{$reservation->id}", [
+            ...$this->payload($field, $start),
+            'customer_name' => 'Changed Customer',
+        ])->assertSessionHasErrors('starts_at');
+
+        $this->assertSame('Customer', $reservation->refresh()->customer_name);
+        Carbon::setTestNow();
+    }
+
+    public function test_completed_reservation_is_locked_for_payment_and_cancellation_actions(): void
+    {
+        [$organization, $employee, $field] = $this->context();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
+        $reservation = Reservation::query()->firstOrFail();
+
+        $this->actingAs($employee)->patch("/reservations/{$reservation->id}/complete")->assertRedirect();
+        $this->assertSame(ReservationStatus::Completed, $reservation->refresh()->status);
+
+        $this->actingAs($employee)->patch("/reservations/{$reservation->id}/paid")
+            ->assertSessionHasErrors('payment_status');
+        $this->actingAs($employee)->delete("/reservations/{$reservation->id}", ['reason' => 'Customer called'])
+            ->assertSessionHasErrors('reason');
+
+        $this->assertSame(ReservationStatus::Completed, $reservation->refresh()->status);
+        $this->assertSame('unpaid', $reservation->payment_status->value);
+    }
+
+    public function test_past_reservation_cancellation_requires_a_reason(): void
+    {
+        [$organization, $employee, $field] = $this->context();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
+        $reservation = Reservation::query()->firstOrFail();
+
+        Carbon::setTestNow($reservation->starts_at->copy()->addMinute());
+
+        $this->actingAs($employee)->delete("/reservations/{$reservation->id}")
+            ->assertSessionHasErrors('reason');
+        $this->assertSame(ReservationStatus::Confirmed, $reservation->refresh()->status);
+
+        $this->actingAs($employee)->delete("/reservations/{$reservation->id}", ['reason' => 'Customer did not arrive'])
+            ->assertRedirect();
+        $this->assertSame(ReservationStatus::LateCancelled, $reservation->refresh()->status);
+        Carbon::setTestNow();
     }
 
     private function context(): array

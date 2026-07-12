@@ -325,6 +325,10 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .reservation-drawer-details strong { margin-top: 3px; font-size: 13px; }
 .reservation-drawer-details section { padding: 18px 0; }
 .reservation-drawer-details section p { margin: 7px 0 0; color: var(--text); line-height: 1.55; }
+.reservation-drawer-details .drawer-action-error, .reservation-drawer-details .drawer-readonly-note { min-height: auto; margin: 12px 0; padding: 12px; grid-template-columns: 1fr; align-items: start; gap: 4px; border: 1px solid #fecaca; border-radius: 9px; color: #991b1b; background: #fef2f2; }
+.reservation-drawer-details .drawer-readonly-note { border-color: #bbf7d0; color: #166534; background: #f0fdf4; }
+.dark .reservation-drawer-details .drawer-action-error { border-color: #7f1d1d; color: #fecaca; background: #450a0a; }
+.dark .reservation-drawer-details .drawer-readonly-note { border-color: #166534; color: #bbf7d0; background: #052e16; }
 .board-reservation-form textarea { min-height: 92px; resize: vertical; }
 .form-callout { margin-top: 14px; padding: 13px; border: 1px solid var(--border); border-radius: 7px; background: var(--surface-2); }
 .form-callout p { margin-bottom: 0; }

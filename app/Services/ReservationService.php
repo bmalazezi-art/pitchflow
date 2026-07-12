@@ -83,6 +83,7 @@ class ReservationService
     {
         return DB::transaction(function () use ($reservation, $organization, $data, $actorId) {
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            $this->ensureEditable($reservation);
             $field = FootballField::query()
                 ->forOrganization($organization->id)
                 ->with(['organization:id,timezone', 'operatingHours'])
@@ -139,6 +140,7 @@ class ReservationService
     {
         return DB::transaction(function () use ($reservation, $organization, $actorId, $reason) {
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            $this->ensureCancellable($reservation, $reason);
             $cutoff = $reservation->starts_at->subMinutes($organization->cancellation_window_minutes);
             $status = now()->greaterThan($cutoff)
                 ? ReservationStatus::LateCancelled
@@ -164,6 +166,9 @@ class ReservationService
     {
         return DB::transaction(function () use ($reservation, $actorId) {
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+            if ($reservation->status === ReservationStatus::Completed) {
+                throw new ReservationConflictException(__('messages.reservation_locked'));
+            }
             $reservation->forceFill([
                 'payment_status' => PaymentStatus::Paid,
                 'paid_amount' => $reservation->price,
@@ -271,6 +276,32 @@ class ReservationService
     {
         if ($field->status !== FieldStatus::Active) {
             throw new ReservationConflictException(__('messages.field_unavailable'));
+        }
+    }
+
+    private function ensureEditable(Reservation $reservation): void
+    {
+        if ($reservation->status === ReservationStatus::Completed) {
+            throw new ReservationConflictException(__('messages.reservation_locked'));
+        }
+
+        if (! in_array($reservation->status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true)) {
+            throw new ReservationConflictException(__('messages.invalid_reservation_status'));
+        }
+
+        if ($reservation->starts_at->lessThanOrEqualTo(now())) {
+            throw new ReservationConflictException(__('messages.past_reservation_edit_forbidden'));
+        }
+    }
+
+    private function ensureCancellable(Reservation $reservation, ?string $reason): void
+    {
+        if ($reservation->status === ReservationStatus::Completed) {
+            throw new ReservationConflictException(__('messages.completed_reservation_cancel_forbidden'));
+        }
+
+        if ($reservation->starts_at->lessThanOrEqualTo(now()) && blank($reason)) {
+            throw new ReservationConflictException(__('messages.past_reservation_cancel_reason_required'));
         }
     }
 

@@ -3,7 +3,7 @@ import {
     CalendarDays, Check, ChevronLeft, ChevronRight, Clock3, CreditCard,
     Edit3, Phone, Plus, RefreshCw, Trash2, UserRound,
 } from 'lucide-react';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Drawer, Field, Input, Modal, Select } from './UI';
 import { useTranslation } from '../lib/i18n';
 import type { SharedProps } from '../types';
@@ -112,8 +112,15 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
     const [drawerReservation, setDrawerReservation] = useState<BoardReservation | null>(initialReservation);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<BoardReservation | null>(null);
+    const [actionError, setActionError] = useState<string | null>(null);
     const touchStart = useRef<number | null>(null);
     const form = useForm(formDefaults);
+
+    useEffect(() => {
+        if (!drawerReservation) return;
+        const fresh = reservations.find(reservation => reservation.id === drawerReservation.id);
+        if (fresh) setDrawerReservation(fresh);
+    }, [drawerReservation?.id, reservations]);
 
     const schedules = useMemo(() => new Map(fields.map(field => [field.id, scheduleFor(field, selectedDate)])), [fields, selectedDate]);
     const slots = useMemo(() => {
@@ -198,11 +205,6 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
         else form.post('/reservations', options);
     };
 
-    const mutate = (action: () => void) => {
-        setDrawerReservation(null);
-        action();
-    };
-
     return <div className="booking-board-page">
         <header className="booking-board-heading">
             <div><span>{t('employeeWorkspace')}</span><h1>{t('bookingBoard')}</h1><p>{t('bookingBoardIntro')}</p></div>
@@ -244,8 +246,8 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                                 const reservation = reservationAt(field.id, slot);
                                 const unavailable = field.status !== 'active' || !schedule || slot < schedule.start || slot + 60 > schedule.end;
                                 const past = !unavailable && isPast(slot);
-                                const state = unavailable ? 'maintenance' : past ? 'past' : reservation ? (reservation.status === 'pending' ? 'pending' : 'reserved') : 'available';
-                                return <button key={field.id} className={`board-slot ${state} board-field-${index} ${index === mobileFieldIndex ? 'mobile-active' : ''}`} disabled={unavailable || past} onClick={() => reservation ? setDrawerReservation(reservation) : openNew(field.id, slot)}>
+                                const state = unavailable ? 'maintenance' : reservation ? (reservation.status === 'pending' ? 'pending' : 'reserved') : past ? 'past' : 'available';
+                                return <button key={field.id} className={`board-slot ${state} board-field-${index} ${index === mobileFieldIndex ? 'mobile-active' : ''}`} disabled={unavailable || (past && !reservation)} onClick={() => reservation ? setDrawerReservation(reservation) : openNew(field.id, slot)}>
                                     <span className="board-slot-dot" />
                                     <span className="board-slot-copy"><strong>{reservation ? reservation.customer_name : t(state === 'maintenance' ? 'maintenance' : state === 'past' ? 'past' : 'free')}</strong><small className={reservation?.payment_status === 'paid' ? 'paid' : ''}>{reservation ? (reservation.payment_status === 'paid' ? t('paid') : t(reservation.status === 'pending' ? 'pending' : 'reserved')) : unavailable ? t('closed') : t('clickToBook')}</small></span>
                                     {reservation?.payment_status === 'paid' && <Check size={15} />}
@@ -258,13 +260,47 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
             </>}
         </section>
 
-        <Drawer open={Boolean(drawerReservation)} title={drawerReservation?.customer_name ?? ''} subtitle={drawerReservation?.football_field.name} onClose={() => setDrawerReservation(null)} footer={drawerReservation && <>
-            <Button variant="secondary" onClick={() => openEdit(drawerReservation)}><Edit3 size={16} />{t('edit')}</Button>
-            {drawerReservation.payment_status !== 'paid' && <Button variant="success" onClick={() => mutate(() => router.patch(`/reservations/${drawerReservation.id}/paid`, {}, { preserveScroll: true }))}><CreditCard size={16} />{t('markPaid')}</Button>}
-            {['pending', 'confirmed'].includes(drawerReservation.status) && <Button variant="secondary" onClick={() => mutate(() => router.patch(`/reservations/${drawerReservation.id}/complete`, {}, { preserveScroll: true }))}><Check size={16} />{t('markCompleted')}</Button>}
-            {['pending', 'confirmed'].includes(drawerReservation.status) && <Button variant="danger" onClick={() => confirm(t('cancelReservationConfirm')) && mutate(() => router.delete(`/reservations/${drawerReservation.id}`, { preserveScroll: true }))}><Trash2 size={16} />{t('cancelReservation')}</Button>}
-        </>}>
+        <Drawer open={Boolean(drawerReservation)} title={drawerReservation?.customer_name ?? ''} subtitle={drawerReservation?.football_field.name} onClose={() => { setDrawerReservation(null); setActionError(null); }} footer={drawerReservation && (() => {
+            const isStarted = new Date(drawerReservation.starts_at).getTime() <= Date.now();
+            const isCompleted = drawerReservation.status === 'completed';
+            const isTerminal = ['completed', 'cancelled', 'late_cancelled', 'no_show'].includes(drawerReservation.status);
+            const canEdit = !isStarted && !isTerminal;
+            const actionOptions = {
+                preserveScroll: true,
+                preserveState: true,
+                only: ['reservations', 'fields', 'flash', 'errors'],
+                onSuccess: () => setActionError(null),
+                onError: (errors: Record<string, string>) => setActionError(Object.values(errors)[0] ?? null),
+            };
+            const cancelReservation = () => {
+                let reason = '';
+                if (isStarted) {
+                    if (!confirm(t('cancelReservationConfirm'))) return;
+                    const value = prompt(t('cancellationReasonPrompt'));
+                    if (value === null) return;
+                    reason = value.trim();
+                    if (!reason) {
+                        setActionError(t('cancellationReasonRequired'));
+                        return;
+                    }
+                } else if (!confirm(t('cancelReservationConfirm'))) {
+                    return;
+                }
+
+                setActionError(null);
+                router.delete(`/reservations/${drawerReservation.id}`, { ...actionOptions, data: { reason } });
+            };
+
+            return <>
+                <Button variant="secondary" disabled={!canEdit} title={!canEdit ? (isCompleted ? t('completedReservationReadOnly') : t('pastReservationEditDisabled')) : undefined} onClick={() => canEdit ? openEdit(drawerReservation) : setActionError(isCompleted ? t('completedReservationReadOnly') : t('pastReservationEditDisabled'))}><Edit3 size={16} />{t('edit')}</Button>
+                {!isTerminal && drawerReservation.payment_status !== 'paid' && <Button variant="success" onClick={() => { setActionError(null); router.patch(`/reservations/${drawerReservation.id}/paid`, {}, actionOptions); }}><CreditCard size={16} />{t('markPaid')}</Button>}
+                {drawerReservation.status === 'confirmed' && <Button variant="secondary" onClick={() => confirm(t('completeReservationConfirm')) && router.patch(`/reservations/${drawerReservation.id}/complete`, {}, actionOptions)}><Check size={16} />{t('markCompleted')}</Button>}
+                {['pending', 'confirmed'].includes(drawerReservation.status) && <Button variant="danger" onClick={cancelReservation}><Trash2 size={16} />{t('cancelReservation')}</Button>}
+            </>;
+        })()}>
             {drawerReservation && <div className="reservation-drawer-details">
+                {actionError && <div className="drawer-action-error"><span>{t('needsAttention')}</span><strong>{actionError}</strong></div>}
+                {drawerReservation.status === 'completed' && <div className="drawer-readonly-note"><span>{t('readOnly')}</span><strong>{t('completedReservationReadOnly')}</strong></div>}
                 <div><UserRound size={17} /><span>{t('customer')}</span><strong>{drawerReservation.customer_name}</strong></div>
                 <a href={`tel:${drawerReservation.customer_phone}`}><Phone size={17} /><span>{t('phone')}</span><strong>{drawerReservation.customer_phone}</strong></a>
                 <div><Clock3 size={17} /><span>{t('reservationTime')}</span><strong>{new Intl.DateTimeFormat(locale === 'sq' ? 'sq-AL' : 'en-GB', { timeZone: timezone, weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' }).format(new Date(drawerReservation.starts_at))}</strong></div>
