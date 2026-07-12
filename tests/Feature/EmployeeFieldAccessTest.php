@@ -6,6 +6,7 @@ use App\Enums\UserRole;
 use App\Models\FootballField;
 use App\Models\OperatingHour;
 use App\Models\Organization;
+use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -64,6 +65,69 @@ class EmployeeFieldAccessTest extends TestCase
             ->has('fields.0.operating_hours', 1)
             ->where('fields.0.operating_hours.0.opening_time', '15:00')
             ->where('timezone', 'Europe/Belgrade')
+        );
+    }
+
+    public function test_employee_created_reservation_syncs_to_owner_calendar_and_assigned_employee_only(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $otherEmployee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $assigned = FootballField::factory()->for($organization)->create(['name' => 'Main Pitch']);
+        $unassigned = FootballField::factory()->for($organization)->create(['name' => 'Training Pitch']);
+
+        $employee->assignedFields()->attach($assigned, ['organization_id' => $organization->id]);
+        $otherEmployee->assignedFields()->attach($unassigned, ['organization_id' => $organization->id]);
+
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(18, 0);
+        $payload = [
+            'customer_name' => 'Calendar Sync Customer',
+            'customer_phone' => '+38344111222',
+            'football_field_id' => $assigned->id,
+            'starts_at' => $start->format('Y-m-d\TH:i'),
+            'ends_at' => $start->addHour()->format('Y-m-d\TH:i'),
+            'payment_status' => 'unpaid',
+        ];
+
+        $this->actingAs($employee)->post('/reservations', $payload)->assertRedirect();
+
+        $reservation = Reservation::query()->firstOrFail();
+        $this->assertSame($organization->id, $reservation->organization_id);
+        $this->assertSame($assigned->id, $reservation->football_field_id);
+        $this->assertDatabaseHas('reservation_slots', [
+            'organization_id' => $organization->id,
+            'football_field_id' => $assigned->id,
+            'reservation_id' => $reservation->id,
+        ]);
+
+        $calendarRange = [
+            'from' => $start->toDateString(),
+            'to' => $start->toDateString(),
+        ];
+
+        $this->actingAs($owner)->get('/calendar?'.http_build_query($calendarRange))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->has('reservations', 1)
+            ->where('reservations.0.id', $reservation->id)
+            ->where('reservations.0.organization_id', $organization->id)
+            ->where('reservations.0.football_field_id', $assigned->id)
+            ->has('fields', 2)
+        );
+
+        $this->actingAs($employee)->get('/calendar?'.http_build_query($calendarRange))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->has('reservations', 1)
+            ->where('reservations.0.id', $reservation->id)
+            ->has('fields', 1)
+            ->where('fields.0.id', $assigned->id)
+        );
+
+        $this->actingAs($otherEmployee)->get('/calendar?'.http_build_query($calendarRange))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->has('reservations', 0)
+            ->has('fields', 1)
+            ->where('fields.0.id', $unassigned->id)
         );
     }
 }

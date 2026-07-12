@@ -47,6 +47,7 @@ class ReservationController extends Controller
         return Inertia::render('Reservations/Calendar', [
             'reservations' => $reservations,
             'fields' => FootballField::query()
+                ->forOrganization($organization->id)
                 ->whereIn('id', $fieldIds)
                 ->with(['operatingHours', 'operatingHourOverrides' => fn ($query) => $query
                     ->whereBetween('date', [$from->setTimezone($timezone)->toDateString(), $to->setTimezone($timezone)->toDateString()])])
@@ -162,7 +163,10 @@ class ReservationController extends Controller
 
         return $user->isOwner()
             ? FootballField::query()->forOrganization($user->organization_id)->pluck('id')->all()
-            : $user->assignedFields()->pluck('football_fields.id')->all();
+            : $user->assignedFields()
+                ->where('football_fields.organization_id', $user->organization_id)
+                ->pluck('football_fields.id')
+                ->all();
     }
 
     private function ensureFieldAccess(Request $request, int $fieldId): void
