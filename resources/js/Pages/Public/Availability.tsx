@@ -242,7 +242,6 @@ function SearchPanel({ cities, city, date, setCity, setDate, onSubmit }: {
 }) {
     const t = useTranslation();
     return <form className="availability-search-card simple" onSubmit={onSubmit}>
-        <span className="availability-search-icon" aria-hidden="true"><Search size={19} /></span>
         <label className="public-input">
             <span><MapPin size={18} /></span>
             <select aria-label={t('selectCity')} value={city} onChange={event => setCity(event.target.value)} required>

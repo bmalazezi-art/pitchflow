@@ -582,9 +582,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .public-dark .hero-content p { color: #cbd5e1; }
 .availability-search-card { position: relative; z-index: 50; width: min(980px, 100%); padding: 12px; display: grid; grid-template-columns: 1fr 1fr minmax(170px, .75fr) auto; gap: 10px; border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; box-shadow: 0 20px 70px rgb(17 24 39 / .08); }
 .public-dark .availability-search-card { border-color: #1f2937; background: #111827; box-shadow: 0 20px 70px rgb(0 0 0 / .28); }
-.availability-search-card.simple { grid-template-columns: 42px minmax(210px, .55fr) minmax(250px, 1fr) auto; align-items: stretch; }
-.availability-search-icon { min-height: 54px; display: grid; place-items: center; color: #16a34a; border: 1px solid #bbf7d0; border-radius: 8px; background: #f0fdf4; }
-.public-dark .availability-search-icon { color: #86efac; border-color: rgb(34 197 94 / .35); background: rgb(20 83 45 / .45); }
+.availability-search-card.simple { grid-template-columns: minmax(210px, .55fr) minmax(250px, 1fr) auto; align-items: stretch; }
 .public-input { min-height: 54px; padding: 0 13px; display: flex; align-items: center; gap: 10px; color: #6b7280; border: 1px solid #e5e7eb; border-radius: 8px; background: #f8fafc; }
 .public-dark .public-input { color: #9ca3af; border-color: #374151; background: #0f172a; }
 .public-input:focus-within { border-color: #22c55e; box-shadow: 0 0 0 4px rgb(34 197 94 / .14); }
@@ -818,9 +816,8 @@ textarea.input { min-height: 90px; resize: vertical; }
     .auth-shell { grid-template-columns: 1fr; }
     .auth-aside { display: none; }
     .availability-search-card { grid-template-columns: 1fr 1fr; }
-    .availability-search-card.simple { grid-template-columns: 42px minmax(0, 1fr); }
-    .availability-search-icon { grid-row: span 3; min-height: 100%; }
-    .availability-search-card.simple .availability-submit { grid-column: 2; width: 100%; }
+    .availability-search-card.simple { grid-template-columns: 1fr; }
+    .availability-search-card.simple .availability-submit { width: 100%; }
     .field-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .slot-card-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .selected-venue-card { grid-template-columns: 1fr; }
@@ -943,8 +940,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .hero-content h1 { width: 100%; min-width: 0; overflow-wrap: anywhere; font-size: 42px; }
     .hero-content > p, .hero-content > .availability-search-card, .hero-content > .availability-only-note { width: 100%; min-width: 0; }
     .availability-search-card, .field-card-grid, .slot-card-grid { grid-template-columns: 1fr; }
-    .availability-search-card.simple { grid-template-columns: 42px minmax(0, 1fr); }
-    .availability-search-icon { grid-row: span 3; min-height: 100%; }
+    .availability-search-card.simple { grid-template-columns: 1fr; }
     .availability-header { display: grid; align-items: start; }
     .pitch-slots-header { align-items: flex-start; flex-direction: column; }
     .availability-submit { grid-column: auto; width: 100%; }
