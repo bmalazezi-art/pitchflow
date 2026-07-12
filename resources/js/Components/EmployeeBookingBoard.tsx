@@ -73,6 +73,12 @@ const addDays = (date: string, days: number) => {
     value.setUTCDate(value.getUTCDate() + days);
     return value.toISOString().slice(0, 10);
 };
+const startOfWeek = (date: string) => {
+    const value = new Date(`${date}T12:00:00Z`);
+    const offset = (value.getUTCDay() + 6) % 7;
+    value.setUTCDate(value.getUTCDate() - offset);
+    return value.toISOString().slice(0, 10);
+};
 const dayOfWeek = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
 
 const zonedParts = (value: string | Date, timezone: string) => {
@@ -130,7 +136,21 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
         const end = Math.max(...active.map(schedule => schedule.end));
         return Array.from({ length: Math.ceil((end - start) / 60) }, (_, index) => start + index * 60);
     }, [schedules]);
-    const weekDates = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(today, index)), [today]);
+    const weekDates = useMemo(() => {
+        const firstDay = startOfWeek(selectedDate);
+        return Array.from({ length: 7 }, (_, index) => addDays(firstDay, index));
+    }, [selectedDate]);
+
+    const loadDateRange = (date: string, nextView: 'today' | 'tomorrow' | 'week' = view) => {
+        const from = nextView === 'week' ? startOfWeek(date) : date;
+        const to = nextView === 'week' ? addDays(from, 6) : date;
+        router.get('/calendar', { from, to }, {
+            preserveState: true,
+            preserveScroll: true,
+            replace: true,
+            only: ['reservations', 'fields', 'selectedField', 'selectedReservation'],
+        });
+    };
 
     const reservationAt = (fieldId: number, slot: number) => reservations.find(reservation => {
         if (reservation.football_field_id !== fieldId || ['cancelled', 'late_cancelled', 'no_show'].includes(reservation.status)) return false;
@@ -150,8 +170,21 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
     };
 
     const setQuickDate = (nextView: 'today' | 'tomorrow' | 'week') => {
+        const nextDate = nextView === 'tomorrow' ? addDays(today, 1) : nextView === 'week' ? startOfWeek(today) : today;
         setView(nextView);
-        setSelectedDate(nextView === 'tomorrow' ? addDays(today, 1) : today);
+        setSelectedDate(nextDate);
+        loadDateRange(nextDate, nextView);
+    };
+
+    const selectBoardDate = (date: string, nextView: 'today' | 'tomorrow' | 'week' = view) => {
+        setView(nextView);
+        setSelectedDate(date);
+        loadDateRange(date, nextView);
+    };
+
+    const moveWeek = (direction: -1 | 1) => {
+        const nextDate = addDays(startOfWeek(selectedDate), direction * 7);
+        selectBoardDate(nextDate, 'week');
     };
 
     const openNew = (fieldId = fields[0]?.id ?? '', slot?: number) => {
@@ -216,13 +249,18 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                 <div className="board-view-switch" aria-label={t('dateRange')}>
                     <button className={view === 'today' ? 'active' : ''} onClick={() => setQuickDate('today')}>{t('today')}</button>
                     <button className={view === 'tomorrow' ? 'active' : ''} onClick={() => setQuickDate('tomorrow')}>{t('tomorrow')}</button>
-                    <button className={view === 'week' ? 'active' : ''} onClick={() => setQuickDate('week')}>{t('week')}</button>
+                    <button className={view === 'week' ? 'active' : ''} onClick={() => setQuickDate('week')}>{t('thisWeek')}</button>
+                </div>
+                <div className="board-date-tools">
+                    <button className="icon-btn bordered" type="button" onClick={() => moveWeek(-1)} title={t('previousWeek')} aria-label={t('previousWeek')}><ChevronLeft size={16} /></button>
+                    <label className="board-date-picker"><CalendarDays size={16} /><input type="date" value={selectedDate} onChange={event => selectBoardDate(event.target.value, 'today')} /></label>
+                    <button className="icon-btn bordered" type="button" onClick={() => moveWeek(1)} title={t('nextWeek')} aria-label={t('nextWeek')}><ChevronRight size={16} /></button>
                 </div>
                 <div className="board-current-date"><CalendarDays size={17} /><strong>{formatDate(selectedDate, locale)}</strong></div>
                 <button className="board-refresh" onClick={() => router.reload({ only: ['reservations', 'fields'] })} title={t('refreshBoard')} aria-label={t('refreshBoard')}><RefreshCw size={17} /></button>
             </div>
 
-            {view === 'week' && <div className="board-week-strip">{weekDates.map(date => <button key={date} className={selectedDate === date ? 'active' : ''} onClick={() => setSelectedDate(date)}><span>{formatDate(date, locale, { weekday: 'short' }).split(' ')[0]}</span><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong></button>)}</div>}
+            {view === 'week' && <div className="board-week-strip">{weekDates.map(date => <button key={date} className={selectedDate === date ? 'active' : ''} onClick={() => selectBoardDate(date, 'week')}><span>{formatDate(date, locale, { weekday: 'short' }).split(' ')[0]}</span><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong></button>)}</div>}
 
             {!fields.length ? <div className="board-empty"><CalendarDays size={28} /><h2>{t('noAssignedFields')}</h2><p>{t('assignedFieldsIntro')}</p></div> : <>
                 <div className="mobile-field-switcher">

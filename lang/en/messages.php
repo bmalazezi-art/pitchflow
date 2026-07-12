@@ -30,6 +30,7 @@ return [
     'reservation_cancelled' => 'Reservation cancelled.',
     'customer_updated' => 'Customer updated.',
     'note_created' => 'Private note added.',
+    'note_updated' => 'Private note updated.',
     'settings_updated' => 'Organization settings updated.',
     'organization_updated' => 'Organization status updated.',
     'subscription_updated' => 'Subscription updated.',

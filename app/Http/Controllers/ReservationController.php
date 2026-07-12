@@ -62,32 +62,59 @@ class ReservationController extends Controller
     public function list(Request $request): Response
     {
         $query = trim((string) $request->input('search'));
-        $filter = (string) $request->input('filter');
+        $dateFilter = (string) $request->input('date_filter', $request->input('filter', 'today'));
+        $paymentFilter = (string) $request->input('payment_filter', 'all');
+        $statusFilter = (string) $request->input('status_filter', 'all');
         $fieldIds = $this->accessibleFieldIds($request);
         $timezone = Timezones::resolve($request->user()->organization->timezone);
         $today = CarbonImmutable::now($timezone)->startOfDay();
+        [$from, $to] = $this->reservationListRange($request, $dateFilter, $today, $timezone);
 
-        $reservations = Reservation::query()
+        $baseQuery = Reservation::query()
             ->forOrganization($request->user()->organization_id)
             ->whereIn('football_field_id', $fieldIds)
-            ->with('footballField:id,name')
+            ->whereBetween('starts_at', [$from, $to])
             ->when($query, fn ($builder) => $builder->where(function ($nested) use ($query) {
                 $nested->where('customer_name', 'like', "%{$query}%")
                     ->orWhere('customer_phone', 'like', "%{$query}%");
-            }))
-            ->when($filter === 'today', fn ($builder) => $builder->whereBetween('starts_at', [$today->utc(), $today->endOfDay()->utc()]))
-            ->when($filter === 'tomorrow', fn ($builder) => $builder->whereBetween('starts_at', [$today->addDay()->utc(), $today->addDay()->endOfDay()->utc()]))
-            ->when($filter === 'week', fn ($builder) => $builder->whereBetween('starts_at', [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()]))
-            ->when(in_array($filter, ['paid', 'unpaid'], true), fn ($builder) => $builder->where('payment_status', $filter))
-            ->when(in_array($filter, ['confirmed', 'pending', 'completed'], true), fn ($builder) => $builder->where('status', $filter))
-            ->when($filter === 'cancelled', fn ($builder) => $builder->whereIn('status', ['cancelled', 'late_cancelled']))
+            }));
+
+        $summaryReservations = (clone $baseQuery)->get(['id', 'status', 'payment_status']);
+        $statusValue = fn (Reservation $reservation): string => is_string($reservation->status)
+            ? $reservation->status
+            : $reservation->status->value;
+        $paymentValue = fn (Reservation $reservation): string => is_string($reservation->payment_status)
+            ? $reservation->payment_status
+            : $reservation->payment_status->value;
+
+        $reservations = (clone $baseQuery)
+            ->with('footballField:id,name')
+            ->when(in_array($paymentFilter, ['paid', 'unpaid', 'partial'], true), fn ($builder) => $builder->where('payment_status', $paymentFilter))
+            ->when(in_array($statusFilter, ['confirmed', 'pending', 'completed', 'no_show'], true), fn ($builder) => $builder->where('status', $statusFilter))
+            ->when($statusFilter === 'cancelled', fn ($builder) => $builder->whereIn('status', ['cancelled', 'late_cancelled']))
             ->latest('starts_at')
             ->paginate(20)
             ->withQueryString();
 
         return Inertia::render('Reservations/Index', [
             'reservations' => $reservations,
-            'filters' => ['search' => $query, 'filter' => $filter],
+            'filters' => [
+                'search' => $query,
+                'date_filter' => $dateFilter,
+                'payment_filter' => $paymentFilter,
+                'status_filter' => $statusFilter,
+                'from' => $request->input('from', $from->setTimezone($timezone)->toDateString()),
+                'to' => $request->input('to', $to->setTimezone($timezone)->toDateString()),
+            ],
+            'summary' => [
+                'total' => $summaryReservations->count(),
+                'paid' => $summaryReservations->filter(fn (Reservation $reservation) => $paymentValue($reservation) === 'paid')->count(),
+                'unpaid' => $summaryReservations->filter(fn (Reservation $reservation) => $paymentValue($reservation) === 'unpaid')->count(),
+                'partial' => $summaryReservations->filter(fn (Reservation $reservation) => $paymentValue($reservation) === 'partial')->count(),
+                'pending' => $summaryReservations->filter(fn (Reservation $reservation) => $statusValue($reservation) === 'pending')->count(),
+                'cancelled' => $summaryReservations->filter(fn (Reservation $reservation) => in_array($statusValue($reservation), ['cancelled', 'late_cancelled'], true))->count(),
+                'completed' => $summaryReservations->filter(fn (Reservation $reservation) => $statusValue($reservation) === 'completed')->count(),
+            ],
             'timezone' => $timezone,
         ]);
     }
@@ -184,5 +211,18 @@ class ReservationController extends Controller
     private function ensureFieldAccess(Request $request, int $fieldId): void
     {
         abort_unless(in_array($fieldId, $this->accessibleFieldIds($request), true), 403);
+    }
+
+    private function reservationListRange(Request $request, string $dateFilter, CarbonImmutable $today, string $timezone): array
+    {
+        return match ($dateFilter) {
+            'tomorrow' => [$today->addDay()->utc(), $today->addDay()->endOfDay()->utc()],
+            'week' => [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()],
+            'custom' => [
+                CarbonImmutable::parse($request->input('from', $today->toDateString()), $timezone)->startOfDay()->utc(),
+                CarbonImmutable::parse($request->input('to', $today->toDateString()), $timezone)->endOfDay()->utc(),
+            ],
+            default => [$today->utc(), $today->endOfDay()->utc()],
+        };
     }
 }

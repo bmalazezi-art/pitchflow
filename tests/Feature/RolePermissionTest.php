@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\Customer;
+use App\Models\CustomerNote;
 use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\Reservation;
@@ -78,6 +79,17 @@ class RolePermissionTest extends TestCase
             'customer_id' => $customer->id,
             'user_id' => $employee->id,
             'note' => 'Reliable customer',
+        ]);
+
+        $note = CustomerNote::query()->firstOrFail();
+        $this->actingAs($owner)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Owner edit'])->assertForbidden();
+        $this->actingAs($otherEmployee)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Other edit'])->assertForbidden();
+        $this->actingAs($employee)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Updated private note'])->assertRedirect();
+
+        $this->assertDatabaseHas('customer_notes', [
+            'id' => $note->id,
+            'user_id' => $employee->id,
+            'note' => 'Updated private note',
         ]);
     }
 

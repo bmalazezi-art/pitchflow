@@ -30,6 +30,7 @@ return [
     'reservation_cancelled' => 'Rezervimi u anulua.',
     'customer_updated' => 'Klienti u përditësua.',
     'note_created' => 'Shënimi privat u shtua.',
+    'note_updated' => 'Shënimi privat u përditësua.',
     'settings_updated' => 'Cilësimet e organizatës u përditësuan.',
     'organization_updated' => 'Statusi i organizatës u përditësua.',
     'subscription_updated' => 'Abonimi u përditësua.',

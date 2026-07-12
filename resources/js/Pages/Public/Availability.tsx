@@ -95,6 +95,11 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
             preserveScroll: false,
         });
     };
+    const resetSearch = () => {
+        setDraftCity('');
+        setDraftDate(today());
+        router.get('/', {}, { preserveState: false, preserveScroll: false });
+    };
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
     const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: draftDate });
 
@@ -111,6 +116,11 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
                     <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
                 </div>
             </section>
+
+            {hasSearch && <div className="public-return-actions">
+                <button type="button" onClick={resetSearch}><ChevronLeft size={16} />{t('backToHome')}</button>
+                <button type="button" onClick={resetSearch}>{t('resetSearch')}</button>
+            </div>}
 
             {!hasBusiness && !hasSearch && <>
                 <PlatformStatistics statistics={statistics} />

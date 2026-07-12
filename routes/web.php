@@ -63,6 +63,7 @@ Route::middleware('auth')->group(function () {
         Route::get('/customers/{customer}', [CustomerController::class, 'show'])->name('customers.show');
         Route::put('/customers/{customer}', [CustomerController::class, 'update'])->name('customers.update');
         Route::post('/customers/{customer}/notes', [CustomerNoteController::class, 'store'])->name('customers.notes.store');
+        Route::put('/customers/{customer}/notes/{note}', [CustomerNoteController::class, 'update'])->name('customers.notes.update');
         Route::get('/reports', ReportController::class)->name('reports');
         Route::get('/settings/organization', [OrganizationSettingsController::class, 'edit'])->name('settings.organization');
         Route::put('/settings/organization', [OrganizationSettingsController::class, 'update'])->name('settings.organization.update');
