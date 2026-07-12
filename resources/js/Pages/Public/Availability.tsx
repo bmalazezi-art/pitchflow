@@ -1,5 +1,5 @@
 import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Lightbulb, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
@@ -52,24 +52,30 @@ const venueImages = [
     'linear-gradient(135deg, #ecfeff 0%, #f7fee7 100%)',
 ];
 
-export default function Availability({ cities, businesses, recentBusinesses, popularCities, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
+export default function Availability({ cities, businesses, recentBusinesses, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
     const selectedCity = cities.find(city => city.id === Number(filters.city));
+    const [draftCity, setDraftCity] = useState(filters.city ? String(filters.city) : '');
+    const [draftDate, setDraftDate] = useState(filters.date);
     const hasCity = Boolean(filters.city);
     const hasBusiness = Boolean(selectedBusiness);
+    const hasSearch = hasCity || hasBusiness;
+    const searchIsDirty = draftCity !== (filters.city ? String(filters.city) : '') || draftDate !== filters.date;
+    const showSearchResults = hasCity && !hasBusiness && !searchIsDirty;
     const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
     const discoveryTitle = selectedCity ? `${t('footballFieldsIn')} ${selectedCity.name}` : t('discoverFootballFields');
     const discoverySummary = selectedCity
         ? `${businesses.length} ${businesses.length === 1 ? t('footballFieldFound') : t('footballFieldsFound')} ${t('inCity')} ${selectedCity.name}`
         : t('discoverFootballFieldsIntro');
-    const recentIntro = selectedCity
-        ? `${t('recentlyAddedIn')} ${selectedCity.name}`
-        : t('recentlyAddedIntro');
-
     useEffect(() => {
         localStorage.setItem('public-theme', dark ? 'dark' : 'light');
     }, [dark]);
+
+    useEffect(() => {
+        setDraftCity(filters.city ? String(filters.city) : '');
+        setDraftDate(filters.date);
+    }, [filters.city, filters.date]);
 
     const setLocale = (nextLocale: 'en' | 'sq') => router.post('/locale', { locale: nextLocale }, { preserveScroll: true });
     const navigate = (overrides: Partial<Props['filters']>) => router.get('/', {
@@ -77,10 +83,20 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
         date: overrides.date ?? filters.date,
         business: overrides.business ?? filters.business ?? undefined,
     }, { preserveState: true, preserveScroll: true });
-    const setCity = (value: string) => router.get('/', { city: value || undefined, date: filters.date }, { preserveState: true, preserveScroll: true, replace: true });
-    const setDate = (date: string) => navigate({ date });
+    const submitSearch = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+
+        if (!draftCity) {
+            return;
+        }
+
+        router.get('/', { city: draftCity, date: draftDate }, {
+            preserveState: true,
+            preserveScroll: false,
+        });
+    };
     const viewBusiness = (businessId: number) => navigate({ business: businessId });
-    const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: filters.date });
+    const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: draftDate });
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('checkAvailabilityTitle')} />
@@ -91,22 +107,22 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
                     <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
                     <h1>{t('checkAvailabilityTitle')}</h1>
                     <p>{t('availabilityHeroDescription')}</p>
-                    <SearchPanel cities={cities} filters={filters} setCity={setCity} setDate={setDate} />
+                    <SearchPanel cities={cities} city={draftCity} date={draftDate} setCity={setDraftCity} setDate={setDraftDate} onSubmit={submitSearch} />
                     <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
                 </div>
             </section>
 
-            {!hasBusiness && <>
+            {!hasBusiness && !hasSearch && <>
                 <PlatformStatistics statistics={statistics} />
                 {recentBusinesses.length > 0 && <section className="public-content-section recent-fields" aria-labelledby="recently-added-heading">
-                    <PublicSectionHeading eyebrow={t('latestOnPitchFlow')} title={t('recentlyAdded')} description={recentIntro} id="recently-added-heading" />
+                    <PublicSectionHeading eyebrow={t('latestOnPitchFlow')} title={t('recentlyAdded')} description={t('recentlyAddedIntro')} id="recently-added-heading" />
                     <div className="field-card-grid">
                         {recentBusinesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewRecentBusiness(business)} />)}
                     </div>
                 </section>}
             </>}
 
-            {hasCity && !hasBusiness && <section className="field-discovery" aria-labelledby="discover-fields">
+            {showSearchResults && <section className="field-discovery" aria-labelledby="discover-fields">
                 <div className="section-heading">
                     <div>
                         <span>{selectedCity?.name ?? t('chooseCity')}</span>
@@ -120,9 +136,17 @@ export default function Availability({ cities, businesses, recentBusinesses, pop
                 {businesses.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('noFootballFieldsInCity')}</p></div>}
             </section>}
 
+            {hasCity && !hasBusiness && searchIsDirty && <section className="field-discovery" aria-labelledby="pending-search-heading">
+                <div className="public-empty">
+                    <Search size={24} />
+                    <h2 id="pending-search-heading">{t('searchReadyTitle')}</h2>
+                    <p>{t('searchReadyText')}</p>
+                </div>
+            </section>}
+
             {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} />}
 
-            {!hasBusiness && <>
+            {!hasBusiness && !hasSearch && <>
                 <WhyPitchFlow />
                 <PartnerCallout />
                 <FrequentlyAskedQuestions />
@@ -208,24 +232,27 @@ export function PublicNav({ locale, dark, setLocale, setDark }: {
     </nav>;
 }
 
-function SearchPanel({ cities, filters, setCity, setDate }: {
+function SearchPanel({ cities, city, date, setCity, setDate, onSubmit }: {
     cities: Props['cities'];
-    filters: Props['filters'];
+    city: string;
+    date: string;
     setCity: (value: string) => void;
     setDate: (value: string) => void;
+    onSubmit: (event: FormEvent<HTMLFormElement>) => void;
 }) {
     const t = useTranslation();
-    return <div className="availability-search-card simple">
+    return <form className="availability-search-card simple" onSubmit={onSubmit}>
         <span className="availability-search-icon" aria-hidden="true"><Search size={19} /></span>
         <label className="public-input">
             <span><MapPin size={18} /></span>
-            <select aria-label={t('selectCity')} value={filters.city ?? ''} onChange={event => setCity(event.target.value)} required>
+            <select aria-label={t('selectCity')} value={city} onChange={event => setCity(event.target.value)} required>
                 <option value="">{t('selectCity')}</option>
                 {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
             </select>
         </label>
-        <CalendarPicker value={filters.date} onChange={setDate} />
-    </div>;
+        <CalendarPicker value={date} onChange={setDate} />
+        <Button type="submit" className="availability-submit"><Search size={17} />{t('checkAvailabilityButton')}</Button>
+    </form>;
 }
 
 function CalendarPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
