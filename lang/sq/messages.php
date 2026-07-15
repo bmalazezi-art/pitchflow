@@ -8,7 +8,7 @@ return [
     'reservation_locked' => 'Rezervimet e përfunduara janë të mbyllura dhe nuk mund të ndryshohen.',
     'past_reservation_edit_forbidden' => 'Koha e këtij rezervimi ka kaluar dhe nuk mund të ndryshohet më.',
     'completed_reservation_cancel_forbidden' => 'Rezervimet e përfunduara nuk mund të anulohen.',
-    'past_reservation_cancel_reason_required' => 'Arsyeja e anulimit kërkohet për rezervimet e kaluara.',
+    'past_reservation_cancel_reason_required' => 'Arsyeja e anulimit është e detyrueshme.',
     'field_unavailable' => 'Ky fushë futbolli nuk është në dispozicion për rezervime.',
     'reset_link_sent' => 'Nëse llogaria ekziston, lidhja për rivendosjen e fjalëkalimit është dërguar.',
     'verification_sent' => 'Një lidhje e re verifikimi është dërguar.',

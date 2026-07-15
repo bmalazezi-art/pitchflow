@@ -116,6 +116,22 @@ class ReservationRulesTest extends TestCase
         Carbon::setTestNow();
     }
 
+    public function test_future_reservation_cancellation_requires_a_reason(): void
+    {
+        [$organization, $employee, $field] = $this->context();
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+        $this->actingAs($employee)->post('/reservations', $this->payload($field, $start));
+        $reservation = Reservation::query()->firstOrFail();
+
+        $this->actingAs($employee)->delete("/reservations/{$reservation->id}")
+            ->assertSessionHasErrors('reason');
+        $this->assertSame(ReservationStatus::Confirmed, $reservation->refresh()->status);
+
+        $this->actingAs($employee)->delete("/reservations/{$reservation->id}", ['reason' => 'Customer rescheduled'])
+            ->assertRedirect();
+        $this->assertSame(ReservationStatus::Cancelled, $reservation->refresh()->status);
+    }
+
     private function context(): array
     {
         $organization = Organization::factory()->create();

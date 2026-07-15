@@ -311,17 +311,15 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                 onError: (errors: Record<string, string>) => setActionError(Object.values(errors)[0] ?? null),
             };
             const cancelReservation = () => {
-                let reason = '';
-                if (isStarted) {
-                    if (!confirm(t('cancelReservationConfirm'))) return;
-                    const value = prompt(t('cancellationReasonPrompt'));
-                    if (value === null) return;
-                    reason = value.trim();
-                    if (!reason) {
-                        setActionError(t('cancellationReasonRequired'));
-                        return;
-                    }
-                } else if (!confirm(t('cancelReservationConfirm'))) {
+                if (!confirm(t('cancelReservationConfirm'))) {
+                    return;
+                }
+
+                const value = prompt(t('cancellationReasonPrompt'));
+                if (value === null) return;
+                const reason = value.trim();
+                if (!reason) {
+                    setActionError(t('cancellationReasonRequired'));
                     return;
                 }
 

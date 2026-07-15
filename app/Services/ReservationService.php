@@ -300,7 +300,7 @@ class ReservationService
             throw new ReservationConflictException(__('messages.completed_reservation_cancel_forbidden'));
         }
 
-        if ($reservation->starts_at->lessThanOrEqualTo(now()) && blank($reason)) {
+        if (blank($reason)) {
             throw new ReservationConflictException(__('messages.past_reservation_cancel_reason_required'));
         }
     }

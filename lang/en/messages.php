@@ -8,7 +8,7 @@ return [
     'reservation_locked' => 'Completed reservations are locked and cannot be changed.',
     'past_reservation_edit_forbidden' => 'This reservation time has already passed and can no longer be edited.',
     'completed_reservation_cancel_forbidden' => 'Completed reservations cannot be cancelled.',
-    'past_reservation_cancel_reason_required' => 'A cancellation reason is required for past reservations.',
+    'past_reservation_cancel_reason_required' => 'A cancellation reason is required.',
     'field_unavailable' => 'This football field is not available for reservations.',
     'reset_link_sent' => 'If the account exists, a password reset link has been sent.',
     'verification_sent' => 'A new verification link has been sent.',

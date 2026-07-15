@@ -129,5 +129,12 @@ class EmployeeFieldAccessTest extends TestCase
             ->has('fields', 1)
             ->where('fields.0.id', $unassigned->id)
         );
+
+        $this->actingAs($owner)->get('/reports?'.http_build_query($calendarRange))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reports/Index')
+            ->where('report.reservation_count', 1)
+            ->where('report.booked_revenue', 40)
+            ->where('report.unpaid_reservations', 1)
+        );
     }
 }
