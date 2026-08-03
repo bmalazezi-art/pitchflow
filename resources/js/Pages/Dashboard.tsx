@@ -1,22 +1,25 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, useForm, usePage } from '@inertiajs/react';
 import {
     Activity,
     ArrowUpRight,
     Banknote,
     CalendarCheck,
     CalendarDays,
+    CheckCircle2,
     CircleDollarSign,
-    Clock3,
     Gauge,
+    ShieldCheck,
     Trophy,
     TriangleAlert,
     UserRound,
     WalletCards,
     type LucideIcon,
 } from 'lucide-react';
+import { useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../Layouts/AppLayout';
 import { Badge } from '../Components/UI';
+import { Button, Field, Modal } from '../Components/UI';
 import { useTranslation } from '../lib/i18n';
 import type { SharedProps } from '../types';
 
@@ -53,6 +56,12 @@ interface DashboardMetrics {
     weekly: Array<{ date: string; count: number }>;
     peak_hours: Record<string, number>;
     recent_activity: DashboardActivity[];
+    readiness: {
+        complete_count: number;
+        total_count: number;
+        items: Array<{ key: 'businessProfile' | 'activeFields' | 'employeesReady' | 'publicVisibilityReady'; complete: boolean; href: string }>;
+        warnings: string[];
+    };
 }
 
 interface KpiCardProps {
@@ -71,6 +80,28 @@ function KpiCard({ label, value, detail, icon: Icon, tone }: KpiCardProps) {
     </article>;
 }
 
+function ReadinessPanel({ readiness }: { readiness: DashboardMetrics['readiness'] }) {
+    const t = useTranslation();
+    const complete = readiness.complete_count === readiness.total_count;
+
+    return <section className={`dashboard-panel dashboard-readiness-panel ${complete ? 'complete' : ''}`}>
+        <div className="dashboard-section-heading">
+            <div><span className="dashboard-eyebrow">{t('mvpReadiness')}</span><h2>{complete ? t('readyForBeta') : t('finishSetup')}</h2></div>
+            <strong>{readiness.complete_count}/{readiness.total_count}</strong>
+        </div>
+        <div className="readiness-list">
+            {readiness.items.map(item => {
+                const Icon = item.complete ? CheckCircle2 : TriangleAlert;
+                return <Link key={item.key} href={item.href} className={item.complete ? 'complete' : 'warning'}>
+                    <span><Icon size={17} /></span>
+                    <div><strong>{t(item.key)}</strong><small>{item.complete ? t('ready') : t(`${item.key}Warning`)}</small></div>
+                    <ArrowUpRight size={15} />
+                </Link>;
+            })}
+        </div>
+    </section>;
+}
+
 export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     const t = useTranslation();
     const { auth, locale } = usePage<SharedProps>().props;
@@ -86,6 +117,8 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
         weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
     }).format(new Date(`${metrics.today_date}T12:00:00Z`));
     const peakEntries = Object.entries(metrics.peak_hours);
+    const [supportOpen, setSupportOpen] = useState(false);
+    const supportForm = useForm({ message: '' });
     const peakMaximum = Math.max(...peakEntries.map(([, count]) => count), 1);
 
     const formatTime = (date: string) => new Intl.DateTimeFormat(localeCode, {
@@ -129,7 +162,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                     <h1>{greeting}, {firstName} <span aria-hidden="true">👋</span></h1>
                     <p>{t('dashboardTodayAt')} <strong>{organizationName}</strong>.</p>
                 </div>
-                <Link className="btn btn-primary dashboard-primary-action" href="/calendar"><CalendarDays size={18} />{t('viewCalendar')}</Link>
+                <div className="dashboard-action-stack"><button className="btn btn-secondary dashboard-primary-action" type="button" onClick={() => setSupportOpen(true)}>{t('needHelp')}</button><Link className="btn btn-primary dashboard-primary-action" href="/calendar"><CalendarDays size={18} />{t('viewCalendar')}</Link></div>
             </header>
 
             <section className="dashboard-kpi-grid" aria-label={t('todayOverview')}>
@@ -140,6 +173,8 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                 <KpiCard label={t('unpaidBookings')} value={metrics.unpaid_reservations} detail={t('needsPayment')} icon={WalletCards} tone="yellow" />
                 <KpiCard label={t('cancellationsNoShowsToday')} value={metrics.cancellations_and_no_shows} detail={t('needsAttention')} icon={TriangleAlert} tone="red" />
             </section>
+
+            <ReadinessPanel readiness={metrics.readiness} />
 
             <div className="dashboard-primary-grid">
                 <section className="dashboard-panel dashboard-today-panel">
@@ -160,7 +195,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                 <section className="dashboard-panel dashboard-upcoming-panel">
                     <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('nextUp')}</span><h2>{t('upcoming')}</h2></div></div>
                     {metrics.upcoming.length === 0
-                        ? <div className="dashboard-empty compact"><span><Clock3 size={21} /></span><h3>{t('noUpcoming')}</h3></div>
+                        ? <div className="dashboard-empty compact"><span><ShieldCheck size={21} /></span><h3>{t('noUpcoming')}</h3></div>
                         : <div className="upcoming-list">{metrics.upcoming.map((reservation) => <article className="upcoming-item" key={reservation.id}>
                             <div className="upcoming-avatar"><UserRound size={17} /></div>
                             <div><strong>{reservation.customer_name}</strong><span>{reservation.football_field.name}</span><time>{formatReservationDate(reservation.starts_at)}</time></div>
@@ -201,6 +236,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                         <div><strong>{activityLabel(item.action)}</strong><span>{item.user?.name ?? t('system')} · {relativeTime(item.created_at)}</span></div>
                     </article>)}</div>}
             </section>
+            <Modal open={supportOpen} title={t('needHelp')} onClose={() => setSupportOpen(false)}><form className="form-grid one-column" onSubmit={event => { event.preventDefault(); supportForm.post('/support-requests', { preserveScroll: true, onSuccess: () => { supportForm.reset(); setSupportOpen(false); } }); }}><Field label={t('message')} error={supportForm.errors.message} required><textarea className="input" value={supportForm.data.message} onChange={event => supportForm.setData('message', event.target.value)} /></Field><div className="form-actions"><Button type="button" variant="secondary" onClick={() => setSupportOpen(false)}>{t('cancel')}</Button><Button disabled={supportForm.processing}>{t('send')}</Button></div></form></Modal>
         </div>
     </AppLayout>;
 }

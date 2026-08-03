@@ -4,10 +4,12 @@ import sqLocale from '@fullcalendar/core/locales/sq';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import { SlidersHorizontal } from 'lucide-react';
+import { CalendarDays, SlidersHorizontal } from 'lucide-react';
 import { useCallback, useMemo, useRef, useState } from 'react';
 import AppLayout from '../Layouts/AppLayout';
 import { PageHeader, Select } from './UI';
+import { SingleDateNavigator } from './DateControls';
+import { todayIso } from '../lib/dateControls';
 import { useTranslation } from '../lib/i18n';
 import { usePage } from '@inertiajs/react';
 import type { SharedProps } from '../types';
@@ -23,11 +25,16 @@ const reservationColor = (reservation: any, fields: any[]) => {
     return '#ca8a04';
 };
 
-export default function OwnerCalendar({ reservations, fields, timezone, selectedField }: CalendarProps) {
+export default function OwnerCalendar({ reservations, fields, timezone, selectedField, initialDate }: CalendarProps) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
     const [fieldFilter, setFieldFilter] = useState<number | 'all'>(selectedField ?? 'all');
+    const [selectedDate, setSelectedDate] = useState(initialDate ?? todayIso());
+    const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
+    const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'>(isMobileViewport ? 'timeGridDay' : 'timeGridWeek');
+    const [quickMode, setQuickMode] = useState<'today' | 'tomorrow' | 'week'>(isMobileViewport ? 'today' : 'week');
     const didMountCalendar = useRef(false);
+    const calendarRef = useRef<FullCalendar | null>(null);
     const events = useMemo(() => reservations
         .filter(reservation => fieldFilter === 'all' || reservation.football_field_id === fieldFilter)
         .map(reservation => ({
@@ -40,6 +47,7 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
             extendedProps: { reservation },
         })), [fieldFilter, fields, reservations]);
     const handleDatesSet = useCallback((info: { startStr: string; endStr: string }) => {
+        setSelectedDate(info.startStr.slice(0, 10));
         if (!didMountCalendar.current) {
             didMountCalendar.current = true;
             return;
@@ -56,12 +64,33 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
             only: ['reservations', 'fields', 'selectedField'],
         });
     }, [fieldFilter]);
+    const selectDate = (date: string, mode: 'today' | 'tomorrow' | 'week' = quickMode) => {
+        const nextView = mode === 'week' ? 'timeGridWeek' : 'timeGridDay';
+        setQuickMode(mode);
+        setView(nextView);
+        setSelectedDate(date);
+        calendarRef.current?.getApi().changeView(nextView, date);
+    };
+    const changeView = (nextView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') => {
+        setView(nextView);
+        if (nextView === 'timeGridWeek') setQuickMode('week');
+        if (nextView === 'timeGridDay') setQuickMode('today');
+        calendarRef.current?.getApi().changeView(nextView, selectedDate);
+    };
 
     return <AppLayout title={t('calendar')}><Head title={t('calendar')} /><div className="owner-page calendar-page">
         <PageHeader eyebrow={t('schedule')} title={t('calendar')} description={t('readOnlyCalendarHelp')} actions={<span className="read-only-indicator">{t('readOnly')}</span>} />
         <section className="calendar-shell read-only">
+            <div className="calendar-date-panel">
+                <SingleDateNavigator value={selectedDate} mode={quickMode} showWeek onModeChange={setQuickMode} onChange={(date, mode = quickMode) => selectDate(date, mode)} />
+                <div className="calendar-view-switch" aria-label={t('calendar')}>
+                    <button type="button" className={view === 'dayGridMonth' ? 'active' : ''} onClick={() => changeView('dayGridMonth')}><CalendarDays size={15} />{t('month')}</button>
+                    <button type="button" className={view === 'timeGridWeek' ? 'active' : ''} onClick={() => changeView('timeGridWeek')}><CalendarDays size={15} />{t('week')}</button>
+                    <button type="button" className={view === 'timeGridDay' ? 'active' : ''} onClick={() => changeView('timeGridDay')}><CalendarDays size={15} />{t('day')}</button>
+                </div>
+            </div>
             <div className="calendar-filterbar"><div><SlidersHorizontal size={17} /><strong>{t('fieldFilter')}</strong></div><Select aria-label={t('fieldFilter')} value={fieldFilter} onChange={event => setFieldFilter(event.target.value === 'all' ? 'all' : Number(event.target.value))}><option value="all">{t('allFields')}</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</Select><div className="calendar-legend"><span className="paid">{t('paid')}</span><span className="confirmed">{t('confirmed')}</span><span className="partial">{t('partial')}</span><span className="problem">{t('cancelled')}</span></div></div>
-            <FullCalendar plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]} locales={[sqLocale]} locale={locale} timeZone={timezone} initialView={window.innerWidth < 768 ? 'timeGridDay' : 'timeGridWeek'} headerToolbar={{ left: 'prev,next today', center: 'title', right: 'dayGridMonth,timeGridWeek,timeGridDay' }} buttonText={{ today: t('today'), month: t('month'), week: t('week'), day: t('day') }} slotMinTime="12:00:00" slotMaxTime="26:00:00" slotDuration="01:00:00" slotLabelInterval="01:00:00" allDaySlot={false} height="auto" nowIndicator editable={false} selectable={false} events={events} datesSet={handleDatesSet} eventDidMount={info => { info.el.title = `${info.event.title}\n${info.event.extendedProps.reservation.customer_phone}`; }} />
+            <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]} locales={[sqLocale]} locale={locale} timeZone={timezone} initialView={view} initialDate={selectedDate} headerToolbar={false} buttonText={{ today: t('today'), month: t('month'), week: t('week'), day: t('day') }} slotMinTime="00:00:00" slotMaxTime="26:00:00" slotDuration="01:00:00" slotLabelInterval="01:00:00" allDaySlot={false} height="auto" nowIndicator editable={false} selectable={false} events={events} datesSet={handleDatesSet} eventDidMount={info => { info.el.title = `${info.event.title}\n${info.event.extendedProps.reservation.customer_phone}`; }} />
         </section>
     </div></AppLayout>;
 }

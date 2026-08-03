@@ -9,7 +9,7 @@ export default function ApprovalPending() {
     const t = useTranslation();
     const status = auth.organization?.status ?? 'pending';
     return <AuthLayout><Head title={t('applicationStatus')} /><Badge value={status} /><h1 style={{ marginTop: 16 }}>{t('applicationStatus')}: {status.replace('_', ' ')}</h1>
-        <p>{t('approvalIntro')}</p>
+        <p>{status === 'pending' ? t('approvalPendingIntro') : t('approvalIntro')}</p>
         {status === 'approved' && <Button onClick={() => router.visit('/dashboard')}>{t('openDashboard')}</Button>}
         <Button variant="secondary" onClick={() => router.post('/logout')}>{t('logout')}</Button>
     </AuthLayout>;

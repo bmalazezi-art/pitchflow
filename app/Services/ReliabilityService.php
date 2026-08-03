@@ -28,18 +28,23 @@ class ReliabilityService
             default => ReliabilityStatus::Reliable,
         };
 
-        $customer->forceFill([
+        $updates = [
             'total_reservations' => $total,
             'completed_reservations' => $completed,
             'cancelled_reservations' => $cancelled,
             'late_cancellations' => $late,
             'no_shows' => $noShows,
-            'reliability_status' => $status,
             'reliability_score' => $score,
             'last_visit_at' => $customer->reservations()
                 ->where('status', ReservationStatus::Completed->value)
                 ->max('ends_at'),
-        ])->save();
+        ];
+
+        if (! $customer->reliability_status_manual) {
+            $updates['reliability_status'] = $status;
+        }
+
+        $customer->forceFill($updates)->save();
 
         return $customer->refresh();
     }

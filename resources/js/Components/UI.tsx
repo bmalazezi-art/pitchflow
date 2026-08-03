@@ -16,6 +16,20 @@ export function Input(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return <input className="input" {...props} />;
 }
 
+export function PriceInput(props: Omit<React.InputHTMLAttributes<HTMLInputElement>, 'type'>) {
+    return <div className="price-input-group">
+        <span aria-hidden="true">€</span>
+        <input
+            className="input"
+            inputMode="decimal"
+            pattern="^[0-9]+([.,][0-9]{1,2})?$"
+            placeholder="p.sh. 30"
+            {...props}
+        />
+        <span aria-hidden="true">/h</span>
+    </div>;
+}
+
 export function SearchInput(props: React.InputHTMLAttributes<HTMLInputElement>) {
     return <label className="search-input"><Search size={17} /><input {...props} /></label>;
 }
@@ -63,7 +77,7 @@ export function Badge({ value }: { value: string }) {
     const key = ({
         reliable: 'reliable', needs_attention: 'needsAttention', high_risk: 'highRisk',
         pending: 'pending', confirmed: 'confirmed', completed: 'completed',
-        cancelled: 'cancelled', late_cancelled: 'lateCancelled', no_show: 'noShow',
+        cancelled: 'cancelled', late_cancelled: 'lateCancelled', no_show: 'noShow', voided: 'voided',
         unpaid: 'unpaid', partial: 'partial', paid: 'paid',
         active: 'active', maintenance: 'maintenance', closed: 'closed',
         approved: 'approved', rejected: 'rejected', suspended: 'suspended',

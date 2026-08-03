@@ -25,6 +25,7 @@ class PublicAvailabilityController extends Controller
         $business = null;
         $pitchAvailability = [];
         $cityId = $request->integer('city');
+        $clientNow = $request->input('client_now');
         $activeFields = fn ($query) => $query
             ->where('status', FieldStatus::Active)
             ->where(fn ($cityQuery) => $cityQuery
@@ -85,8 +86,13 @@ class PublicAvailabilityController extends Controller
             ->join('football_fields', 'football_fields.organization_id', '=', 'organizations.id')
             ->where('cities.is_active', true)
             ->where('organizations.status', OrganizationStatus::Approved)
+            ->whereNotNull('organizations.city_id')
+            ->whereNotNull('organizations.phone')
+            ->where('organizations.phone', '!=', '')
             ->whereNull('organizations.deleted_at')
             ->where('football_fields.status', FieldStatus::Active)
+            ->whereNotNull('football_fields.opening_time')
+            ->whereNotNull('football_fields.closing_time')
             ->whereNull('football_fields.deleted_at')
             ->selectRaw('COUNT(football_fields.id) as football_fields_count')
             ->groupBy('cities.id', 'cities.name')
@@ -96,15 +102,13 @@ class PublicAvailabilityController extends Controller
             ->get();
 
         $activePublicFields = FootballField::query()
-            ->where('status', FieldStatus::Active)
-            ->whereHas('organization', fn ($query) => $query->where('status', OrganizationStatus::Approved));
+            ->publicReady()
+            ->whereHas('organization', fn ($query) => $query->eligibleForPublicDirectory());
         $statistics = [
             'football_fields' => (clone $activePublicFields)->count(),
             'cities' => City::query()
                 ->where('is_active', true)
-                ->whereHas('organizations', fn ($query) => $query
-                    ->where('status', OrganizationStatus::Approved)
-                    ->whereHas('footballFields', fn ($fieldQuery) => $fieldQuery->where('status', FieldStatus::Active)))
+                ->whereHas('organizations', fn ($query) => $query->eligibleForPublicDirectory())
                 ->count(),
             'registered_businesses' => Organization::query()->count(),
             'verified_businesses' => Organization::query()->where('status', OrganizationStatus::Approved)->count(),
@@ -127,7 +131,7 @@ class PublicAvailabilityController extends Controller
             if ($business) {
                 $pitchAvailability = $business->footballFields->map(fn (FootballField $field) => [
                     'field' => $field,
-                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString())),
+                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString()), $clientNow),
                 ])->values();
             }
         } elseif ($request->filled(['city', 'field'])) {
@@ -150,13 +154,13 @@ class PublicAvailabilityController extends Controller
                 $business = $field->organization->load('city:id,name');
                 $pitchAvailability = [[
                     'field' => $field,
-                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString())),
+                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString()), $clientNow),
                 ]];
             }
         }
 
         return Inertia::render('Public/Availability', [
-            'cities' => City::query()->where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'cities' => City::query()->forSelector()->inKosovoSelectorOrder()->get(['id', 'name']),
             'businesses' => $businesses,
             'recentBusinesses' => $recentBusinesses,
             'popularCities' => $popularCities,
@@ -167,6 +171,7 @@ class PublicAvailabilityController extends Controller
                 'city' => $request->integer('city') ?: null,
                 'business' => $request->integer('business') ?: null,
                 'date' => $request->input('date', now()->toDateString()),
+                'client_now' => $clientNow,
             ],
         ]);
     }

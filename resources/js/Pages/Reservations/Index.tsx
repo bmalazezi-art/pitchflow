@@ -1,14 +1,16 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { CalendarPlus, CheckCircle2, CircleDollarSign, Clock3, Eye, Pencil, UserRound, WalletCards, XCircle } from 'lucide-react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { AlertTriangle, CalendarPlus, CheckCircle2, ChevronLeft, ChevronRight, CircleDollarSign, Clock3, Eye, Pencil, RotateCcw, UserRound, WalletCards, XCircle } from 'lucide-react';
 import { useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
-import { Badge, Button, Drawer, EmptyState, Field, Input, PageHeader, Pagination, SearchInput, Select } from '../../Components/UI';
+import { Badge, Button, Drawer, EmptyState, Field, Modal, PageHeader, Pagination, SearchInput, Select } from '../../Components/UI';
+import { DatePicker } from '../../Components/DateControls';
+import { addDays, formatCalendarDate, formatDateLabel, localeCode, todayIso, type RangePeriod } from '../../lib/dateControls';
 import { useTranslation } from '../../lib/i18n';
 import type { Paginated, SharedProps } from '../../types';
 
 type Filters = {
     search?: string;
-    date_filter?: string;
+    date_filter?: RangePeriod | 'week' | 'tomorrow';
     payment_filter?: string;
     status_filter?: string;
     from?: string;
@@ -25,19 +27,42 @@ type Summary = {
     completed: number;
 };
 
-export default function Reservations({ reservations, filters, summary, timezone }: { reservations: Paginated<any>; filters: Filters; summary: Summary; timezone: string }) {
+const cancellationReasons = [
+    ['customer_called', 'customerCalledToCancel'],
+    ['customer_no_show', 'customerNoShow'],
+    ['field_unavailable', 'fieldUnavailableReason'],
+    ['duplicate_wrong_booking', 'duplicateWrongBooking'],
+    ['weather_issue', 'weatherTechnicalIssue'],
+    ['other', 'other'],
+] as const;
+const reviewActions = [
+    ['reopen', 'reopenReservation'],
+    ['cancel', 'cancelAppointment'],
+    ['no_show', 'noShow'],
+    ['void', 'voidReservation'],
+    ['ignore', 'ignoreRequest'],
+] as const;
+
+export default function Reservations({ reservations, correctionRequests = [], filters, summary, timezone }: { reservations: Paginated<any>; correctionRequests?: any[]; filters: Filters; summary: Summary; timezone: string }) {
     const t = useTranslation();
-    const { auth } = usePage<SharedProps>().props;
+    const { auth, locale } = usePage<SharedProps>().props;
+    const formatterLocale = localeCode(locale);
     const canManageReservations = auth.user?.role === 'employee';
     const [search, setSearch] = useState(filters.search ?? '');
-    const [dateFilter, setDateFilter] = useState(filters.date_filter ?? 'today');
+    const normalizedDateFilter: RangePeriod = filters.date_filter === 'week' ? 'this_week' : filters.date_filter === 'tomorrow' ? 'today' : filters.date_filter ?? 'today';
+    const [dateFilter, setDateFilter] = useState<RangePeriod>(normalizedDateFilter);
     const [paymentFilter, setPaymentFilter] = useState(filters.payment_filter ?? 'all');
     const [statusFilter, setStatusFilter] = useState(filters.status_filter ?? 'all');
     const [from, setFrom] = useState(filters.from ?? '');
     const [to, setTo] = useState(filters.to ?? '');
     const [selected, setSelected] = useState<any>(null);
+    const [cancelling, setCancelling] = useState<any>(null);
+    const [reviewing, setReviewing] = useState<any>(null);
+    const cancelForm = useForm({ reason: 'customer_called', note: '' });
+    const reviewForm = useForm({ action: 'reopen', reason: '' });
+    const selectedDate = from || to || todayIso();
     const applyFilters = (overrides: Partial<Filters> = {}) => {
-        const nextDateFilter = overrides.date_filter ?? dateFilter;
+        const nextDateFilter = (overrides.date_filter === 'week' ? 'this_week' : overrides.date_filter === 'tomorrow' ? 'today' : overrides.date_filter ?? dateFilter) as RangePeriod;
         router.get('/reservations', {
             search: overrides.search ?? search,
             date_filter: nextDateFilter,
@@ -46,27 +71,65 @@ export default function Reservations({ reservations, filters, summary, timezone 
             ...(nextDateFilter === 'custom' ? { from: overrides.from ?? from, to: overrides.to ?? to } : {}),
         }, { preserveState: true, replace: true });
     };
-    const formatDate = (value: string) => new Intl.DateTimeFormat(undefined, { day: '2-digit', month: 'short', year: 'numeric', timeZone: timezone }).format(new Date(value));
-    const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(new Date(value));
+    const formatDate = (value: string) => formatCalendarDate(new Date(value), locale, { day: '2-digit', month: 'short', year: 'numeric' });
+    const formatSelectedDate = (value: string) => formatDateLabel(value, locale);
+    const formatTime = (value: string) => new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(new Date(value));
+    const selectReservationDate = (date: string) => {
+        setDateFilter('custom');
+        setFrom(date);
+        setTo(date);
+        applyFilters({ date_filter: 'custom', from: date, to: date });
+    };
+    const moveReservationDate = (direction: -1 | 1) => {
+        selectReservationDate(addDays(selectedDate, direction));
+    };
     const markCompleted = (reservation: any) => {
         if (!confirm(t('completeReservationConfirm'))) return;
         router.patch(`/reservations/${reservation.id}/complete`, {}, { preserveScroll: true });
     };
     const cancelReservation = (reservation: any) => {
-        if (!confirm(t('cancelReservationConfirm'))) return;
-        const value = prompt(t('cancellationReasonPrompt'));
-        if (value === null) return;
-        const reason = value.trim();
-        if (!reason) {
-            alert(t('cancellationReasonRequired'));
-            return;
-        }
-        router.delete(`/reservations/${reservation.id}`, { preserveScroll: true, data: { reason } });
+        cancelForm.setData({ reason: 'customer_called', note: '' });
+        cancelForm.clearErrors();
+        setCancelling(reservation);
     };
-    const periodLabel = dateFilter === 'tomorrow' ? t('tomorrow') : dateFilter === 'week' ? t('thisWeek') : dateFilter === 'custom' ? t('customDateRange') : t('today');
-    const fourthCard = dateFilter === 'tomorrow'
-        ? { label: t('pending'), value: summary.pending, icon: Clock3, tone: 'warning' }
-        : { label: t('cancelled'), value: summary.cancelled, icon: XCircle, tone: 'danger' };
+    const submitCancel = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!cancelling) return;
+        cancelForm.delete(`/reservations/${cancelling.id}`, { preserveScroll: true, onSuccess: () => { setCancelling(null); setSelected(null); } });
+    };
+    const openReview = (request: any) => {
+        reviewForm.setData({ action: 'reopen', reason: '' });
+        reviewForm.clearErrors();
+        setReviewing(request);
+    };
+    const submitReview = (event: React.FormEvent) => {
+        event.preventDefault();
+        if (!reviewing) return;
+        reviewForm.patch(`/reservation-correction-requests/${reviewing.id}`, { preserveScroll: true, onSuccess: () => setReviewing(null) });
+    };
+    const correctionReasonLabel = (reason: string) => {
+        switch (reason) {
+            case 'completed_by_mistake': return t('markedCompletedByMistake');
+            case 'payment_status_wrong': return t('paymentStatusWrong');
+            case 'wrong_customer_details': return t('wrongCustomerDetails');
+            case 'should_mark_no_show': return t('shouldMarkNoShow');
+            case 'other': return t('other');
+            default: return reason.replaceAll('_', ' ');
+        }
+    };
+    const cancellationReasonLabel = (reason: string) => {
+        switch (reason) {
+            case 'customer_called': return t('customerCalledToCancel');
+            case 'customer_no_show': return t('customerNoShow');
+            case 'weather_issue': return t('weatherTechnicalIssue');
+            case 'field_unavailable': return t('fieldUnavailableReason');
+            case 'duplicate_wrong_booking': return t('duplicateWrongBooking');
+            case 'other': return t('other');
+            default: return reason.replaceAll('_', ' ');
+        }
+    };
+    const periodLabel = selectedDate && from === to ? formatSelectedDate(selectedDate) : dateFilter === 'this_week' ? t('thisWeek') : dateFilter === 'last_week' ? t('last_week') : dateFilter === 'this_month' ? t('this_month') : dateFilter === 'custom' ? t('customDateRange') : dateFilter === 'yesterday' ? t('periodYesterday') : t('today');
+    const fourthCard = { label: t('cancelled'), value: summary.cancelled, icon: XCircle, tone: 'danger' };
     const FourthCardIcon = fourthCard.icon;
 
     return <AppLayout title={t('reservations')}><Head title={t('reservations')} /><div className="owner-page">
@@ -78,21 +141,26 @@ export default function Reservations({ reservations, filters, summary, timezone 
             <article><span className={fourthCard.tone}><FourthCardIcon size={18} /></span><div><small>{fourthCard.label}</small><strong>{fourthCard.value}</strong></div></article>
             <article><span className="success"><CheckCircle2 size={18} /></span><div><small>{t('completed')}</small><strong>{summary.completed}</strong></div></article>
         </section>
+        {correctionRequests.length > 0 && <section className="dashboard-panel correction-request-panel">
+            <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('needsAttention')}</span><h2>{t('correctionRequests')}</h2><p>{t('correctionRequestsIntro')}</p></div></div>
+            <div className="correction-request-list">{correctionRequests.map(request => <article key={request.id}>
+                <div><AlertTriangle size={18} /><div><strong>{request.reservation.customer_name}</strong><small>{request.reservation.football_field.name} · {formatDate(request.reservation.starts_at)} · {formatTime(request.reservation.starts_at)}–{formatTime(request.reservation.ends_at)}</small></div></div>
+                <p>{correctionReasonLabel(request.reason)}{request.note ? ` · ${request.note}` : ''}</p>
+                <Button type="button" variant="secondary" onClick={() => openReview(request)}><RotateCcw size={16} />{t('reviewCorrection')}</Button>
+            </article>)}</div>
+        </section>}
         <section className="data-toolbar reservation-filter-toolbar">
             <form onSubmit={event => { event.preventDefault(); applyFilters(); }}>
                 <SearchInput aria-label={t('search')} placeholder={`${t('searchReservations')}…`} value={search} onChange={event => setSearch(event.target.value)} />
             </form>
+            <section className="pf-period-panel reservation-date-navigator" aria-label={t('chooseDate')}>
+                <div className="pf-period-nav">
+                    <Button type="button" variant="secondary" onClick={() => moveReservationDate(-1)}><ChevronLeft size={16} />{t('previousDay')}</Button>
+                    <DatePicker value={selectedDate} onChange={selectReservationDate} showShortcuts={false} />
+                    <Button type="button" variant="secondary" onClick={() => moveReservationDate(1)}>{t('nextDay')}<ChevronRight size={16} /></Button>
+                </div>
+            </section>
             <div className="reservation-filter-grid">
-                <Field label={t('dateFilter')}><Select value={dateFilter} onChange={event => { setDateFilter(event.target.value); applyFilters({ date_filter: event.target.value }); }}>
-                    <option value="today">{t('today')}</option>
-                    <option value="tomorrow">{t('tomorrow')}</option>
-                    <option value="week">{t('thisWeek')}</option>
-                    <option value="custom">{t('customDateRange')}</option>
-                </Select></Field>
-                {dateFilter === 'custom' && <>
-                    <Field label={t('start')}><Input type="date" value={from} onChange={event => setFrom(event.target.value)} /></Field>
-                    <Field label={t('end')}><Input type="date" value={to} onChange={event => setTo(event.target.value)} /></Field>
-                </>}
                 <Field label={t('paymentFilter')}><Select value={paymentFilter} onChange={event => { setPaymentFilter(event.target.value); applyFilters({ payment_filter: event.target.value }); }}>
                     <option value="all">{t('all')}</option>
                     <option value="paid">{t('paid')}</option>
@@ -122,8 +190,24 @@ export default function Reservations({ reservations, filters, summary, timezone 
                 <div><CircleDollarSign size={17} /><span>{t('amount')}</span><strong>{selected.currency} {Number(selected.price).toFixed(2)}</strong></div>
                 <div><WalletCards size={17} /><span>{t('payment')}</span><strong><Badge value={selected.payment_status} /></strong></div>
                 <div><CheckCircle2 size={17} /><span>{t('status')}</span><strong><Badge value={selected.status} /></strong></div>
-                {selected.notes && <section><span>{t('notes')}</span><p>{selected.notes}</p></section>}
+                {selected.notes && <section><span>{t('bookingPrivateNote')}</span><p>{selected.notes}</p></section>}
+                {selected.cancellation_reason && <section><span>{t('cancellationReason')}</span><p>{cancellationReasonLabel(selected.cancellation_reason)}{selected.cancellation_note ? ` · ${selected.cancellation_note}` : ''}</p></section>}
             </div>}
         </Drawer>
+        <Modal open={Boolean(cancelling)} title={t('cancelAppointment')} onClose={() => setCancelling(null)}>
+            <form onSubmit={submitCancel} className="board-reservation-form">
+                <p className="modal-copy">{t('cancelReservationHelp')}</p>
+                <Field label={t('cancellationReason')} error={cancelForm.errors.reason} required><Select value={cancelForm.data.reason} onChange={event => cancelForm.setData('reason', event.target.value)}>{cancellationReasons.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</Select></Field>
+                <Field label={t('cancellationNote')} error={cancelForm.errors.note} required={cancelForm.data.reason === 'other'}><textarea className="input" value={cancelForm.data.note} onChange={event => cancelForm.setData('note', event.target.value)} /></Field>
+                <div className="form-actions"><Button type="button" variant="secondary" onClick={() => setCancelling(null)}>{t('close')}</Button><Button variant="danger" disabled={cancelForm.processing}>{t('cancelAppointment')}</Button></div>
+            </form>
+        </Modal>
+        <Modal open={Boolean(reviewing)} title={t('reviewCorrection')} onClose={() => setReviewing(null)}>
+            <form onSubmit={submitReview} className="board-reservation-form">
+                <Field label={t('actions')} error={reviewForm.errors.action} required><Select value={reviewForm.data.action} onChange={event => reviewForm.setData('action', event.target.value)}>{reviewActions.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</Select></Field>
+                <Field label={t('reviewReason')} error={reviewForm.errors.reason} required><textarea className="input" value={reviewForm.data.reason} onChange={event => reviewForm.setData('reason', event.target.value)} /></Field>
+                <div className="form-actions"><Button type="button" variant="secondary" onClick={() => setReviewing(null)}>{t('close')}</Button><Button disabled={reviewForm.processing}>{t('save')}</Button></div>
+            </form>
+        </Modal>
     </div></AppLayout>;
 }

@@ -2,7 +2,7 @@ import { Head, Link, useForm } from '@inertiajs/react';
 import { Building2, Check, ChevronLeft, ChevronRight, Clock3, MapPin, ShieldCheck, UserRound } from 'lucide-react';
 import { useEffect, useState, type FormEvent } from 'react';
 import AuthLayout from '../../Layouts/AuthLayout';
-import { Button, Field, Input, Select } from '../../Components/UI';
+import { Button, Field, Input, PriceInput, Select } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
 
 const amenityKeys = ['parking', 'cafe', 'showers', 'indoor', 'outdoor', 'lighting'] as const;
@@ -16,7 +16,7 @@ const registrationStepForErrors = (errors: Record<string, string>) => {
 export default function Register({ cities }: { cities: Array<{ id: number; name: string }> }) {
     const t = useTranslation();
     const [step, setStep] = useState(1);
-    const form = useForm({ name: '', email: '', owner_phone: '', password: '', password_confirmation: '', business_name: '', business_phone: '', city_id: '', business_address: '', preferred_language: 'en', number_of_fields: 1, starting_price_per_hour: 0, opening_time: '12:00', closing_time: '01:00', amenities: [] as string[] });
+    const form = useForm({ name: '', email: '', owner_phone: '', password: '', password_confirmation: '', business_name: '', business_phone: '', city_id: '', business_address: '', preferred_language: 'en', number_of_fields: 1, starting_price_per_hour: '', opening_time: '12:00', closing_time: '01:00', amenities: [] as string[] });
     const stepFields = step === 1 ? ['name', 'email', 'owner_phone', 'password', 'password_confirmation'] : step === 2 ? ['business_name', 'business_phone', 'city_id', 'business_address'] : ['number_of_fields', 'starting_price_per_hour', 'opening_time', 'closing_time'];
     const canContinue = stepFields.every(key => String(form.data[key as keyof typeof form.data] ?? '').trim() !== '');
     const toggleAmenity = (key: string) => form.setData('amenities', form.data.amenities.includes(key) ? form.data.amenities.filter(item => item !== key) : [...form.data.amenities, key]);
@@ -40,6 +40,7 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
     };
 
     return <AuthLayout wide><Head title={t('register')} /><div className="registration-shell">
+        <Link href="/" className="auth-back-home">← {t('backToHome')}</Link>
         <header className="registration-heading"><span className="registration-kicker"><ShieldCheck size={16} />{t('businessApplication')}</span><h1>{t('createBusinessWorkspace')}</h1><p>{t('applicationsReviewed')}</p></header>
         <nav className="registration-progress" aria-label={t('registrationProgress')}>{[
             [1, t('ownerInformation'), UserRound], [2, t('businessInformation'), Building2], [3, t('fieldSetup'), MapPin],
@@ -64,7 +65,7 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
             </div></section>}
             {step === 3 && <section><div className="step-title"><span>03</span><div><h2>{t('fieldSetup')}</h2><p>{t('fieldSetupHelp')}</p></div></div><div className="form-grid">
                 <Field label={t('numberOfFields')} error={form.errors.number_of_fields} required><Input type="number" min={1} max={100} value={form.data.number_of_fields} onChange={e => form.setData('number_of_fields', Number(e.target.value))} /></Field>
-                <Field label={t('startingHourlyPrice')} error={form.errors.starting_price_per_hour} required><Input type="number" min={0} step="0.01" value={form.data.starting_price_per_hour} onChange={e => form.setData('starting_price_per_hour', Number(e.target.value))} /></Field>
+                <Field label={t('startingHourlyPrice')} error={form.errors.starting_price_per_hour} required><PriceInput value={form.data.starting_price_per_hour} onChange={e => form.setData('starting_price_per_hour', e.target.value)} /></Field>
                 <Field label={t('openingTime')} error={form.errors.opening_time} required><Input type="time" value={form.data.opening_time} onChange={e => form.setData('opening_time', e.target.value)} /></Field>
                 <Field label={t('closingTime')} error={form.errors.closing_time} required><Input type="time" value={form.data.closing_time} onChange={e => form.setData('closing_time', e.target.value)} /></Field>
             </div><div className="amenity-section"><h3>{t('amenities')}</h3><div className="amenity-selector">{amenityKeys.map(key => <label key={key} className={form.data.amenities.includes(key) ? 'selected' : ''}><input type="checkbox" checked={form.data.amenities.includes(key)} onChange={() => toggleAmenity(key)} /><span>{form.data.amenities.includes(key) && <Check size={15} />}{t(key)}</span></label>)}</div></div>

@@ -9,7 +9,27 @@ class CitySeeder extends Seeder
 {
     public function run(): void
     {
-        foreach (['Prishtinë', 'Prizren', 'Pejë', 'Mitrovicë', 'Ferizaj', 'Gjilan', 'Gjakovë'] as $name) {
+        foreach ([
+            'Deçan',
+            'Drenas',
+            'Ferizaj',
+            'Fushë Kosovë',
+            'Gjakovë',
+            'Gjilan',
+            'Klinë',
+            'Lipjan',
+            'Malishevë',
+            'Mitrovicë',
+            'Obiliq',
+            'Pejë',
+            'Podujevë',
+            'Prishtinë',
+            'Prizren',
+            'Shtime',
+            'Suharekë',
+            'Viti',
+            'Vushtrri',
+        ] as $name) {
             City::query()->firstOrCreate(
                 ['name' => $name, 'country' => 'XK'],
                 ['is_active' => true],

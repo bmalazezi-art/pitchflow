@@ -6,6 +6,8 @@ use App\Exceptions\ReservationConflictException;
 use App\Http\Requests\ReservationRequest;
 use App\Models\FootballField;
 use App\Models\Reservation;
+use App\Models\ReservationCorrectionRequest;
+use App\Models\WaitingListRequest;
 use App\Services\ReservationService;
 use App\Support\EmployeePermissions;
 use App\Support\Timezones;
@@ -32,15 +34,24 @@ class ReservationController extends Controller
         $localNow = $selectedReservation
             ? CarbonImmutable::parse($selectedReservation->starts_at)->setTimezone($timezone)
             : CarbonImmutable::now($timezone);
-        $from = CarbonImmutable::parse($request->input('from', $localNow->startOfMonth()->subWeek()), $timezone)->startOfDay()->utc();
-        $to = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->endOfDay()->utc();
+        $localFrom = CarbonImmutable::parse($request->input('from', $localNow->startOfMonth()->subWeek()), $timezone)->startOfDay();
+        $localTo = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->endOfDay();
+        $from = $localFrom->utc();
+        $to = $localTo->utc();
 
         $reservations = Reservation::query()
             ->forOrganization($organization->id)
             ->whereIn('football_field_id', $fieldIds)
             ->where('starts_at', '<', $to)
             ->where('ends_at', '>', $from)
-            ->with(['footballField:id,name', 'customer:id,name,phone,reliability_status,total_reservations,no_shows,late_cancellations'])
+            ->with([
+                'footballField:id,name',
+                'customer:id,name,phone,reliability_status,total_reservations,no_shows,late_cancellations',
+                'waitingListRequests' => fn ($query) => $query
+                    ->where('status', 'waiting')
+                    ->orderBy('created_at')
+                    ->select('id', 'organization_id', 'football_field_id', 'reservation_id', 'customer_name', 'phone', 'note', 'status', 'created_at'),
+            ])
             ->orderBy('starts_at')
             ->get();
 
@@ -56,6 +67,9 @@ class ReservationController extends Controller
             'timezone' => $timezone,
             'selectedField' => $request->integer('field') ?: null,
             'selectedReservation' => $selectedReservation?->id,
+            'initialDate' => $selectedReservation
+                ? CarbonImmutable::parse($selectedReservation->starts_at)->setTimezone($timezone)->toDateString()
+                : ($request->filled('from') ? $localFrom->toDateString() : $localNow->toDateString()),
         ]);
     }
 
@@ -98,6 +112,7 @@ class ReservationController extends Controller
 
         return Inertia::render('Reservations/Index', [
             'reservations' => $reservations,
+            'correctionRequests' => $this->correctionRequests($request),
             'filters' => [
                 'search' => $query,
                 'date_filter' => $dateFilter,
@@ -127,6 +142,13 @@ class ReservationController extends Controller
         try {
             $service->create($request->user()->organization, $request->validated(), $request->user()->id);
         } catch (ReservationConflictException $exception) {
+            if ($exception->getMessage() === __('messages.missing_field_price')) {
+                return back()->withErrors(['football_field_id' => $exception->getMessage()]);
+            }
+            if ($exception->getMessage() === __('messages.blocked_customer_reservation_forbidden')) {
+                return back()->withErrors(['customer_phone' => $exception->getMessage()]);
+            }
+
             return back()
                 ->withErrors(['starts_at' => $exception->getMessage()])
                 ->with('slot_suggestions', $service->suggestAlternatives(
@@ -147,6 +169,10 @@ class ReservationController extends Controller
         try {
             $service->update($reservation, $request->user()->organization, $request->validated(), $request->user()->id);
         } catch (ReservationConflictException $exception) {
+            if ($exception->getMessage() === __('messages.blocked_customer_reservation_forbidden')) {
+                return back()->withErrors(['customer_phone' => $exception->getMessage()]);
+            }
+
             return back()
                 ->withErrors(['starts_at' => $exception->getMessage()])
                 ->with('slot_suggestions', $service->suggestAlternatives(
@@ -162,14 +188,61 @@ class ReservationController extends Controller
     public function destroy(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
     {
         $this->authorize('delete', $reservation);
-        $request->validate(['reason' => ['nullable', 'string', 'max:255']]);
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'in:customer_called,customer_no_show,weather_issue,field_unavailable,duplicate_wrong_booking,other'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:reason,other'],
+        ]);
         try {
-            $service->cancel($reservation, $request->user()->organization, $request->user()->id, $request->input('reason'));
+            $cancelled = $service->cancel($reservation, $request->user()->organization, $request->user()->id, $data['reason'], $data['note'] ?? null);
         } catch (ReservationConflictException $exception) {
             return back()->withErrors(['reason' => $exception->getMessage()]);
         }
 
-        return back()->with('success', __('messages.reservation_cancelled'));
+        return back()
+            ->with('success', __('messages.reservation_cancelled'))
+            ->with('waiting_list_requests', $this->waitingListPayload($cancelled, $request));
+    }
+
+    public function requestCorrection(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
+    {
+        $this->authorize('view', $reservation);
+        $data = $request->validate([
+            'reason' => ['required', 'string', 'in:completed_by_mistake,payment_status_wrong,wrong_customer_details,should_mark_no_show,other'],
+            'action' => ['nullable', 'string', 'in:reopen,cancel,no_show', 'required_if:reason,completed_by_mistake'],
+            'note' => ['nullable', 'string', 'max:1000', 'required_if:reason,other', 'required_if:action,cancel'],
+        ]);
+
+        try {
+            $correction = $service->requestCorrection($reservation, $request->user(), $data['reason'], $data['note'] ?? null, $data['action'] ?? null);
+            if (($data['action'] ?? null) && $this->canApplyCorrectionAction($request, $reservation, $data['action'])) {
+                $service->reviewCorrection($correction, $request->user(), $data['action'], $data['note'] ?? __('messages.correction_review_saved'));
+
+                return back()->with('success', __('messages.correction_review_saved'));
+            }
+        } catch (ReservationConflictException $exception) {
+            return back()->withErrors(['reason' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', __('messages.correction_request_sent'));
+    }
+
+    public function reviewCorrection(Request $request, ReservationCorrectionRequest $correctionRequest, ReservationService $service): RedirectResponse
+    {
+        abort_unless($request->user()->isOwner() || $request->user()->isSuperAdmin(), 403);
+        abort_unless($request->user()->isSuperAdmin() || $request->user()->organization_id === $correctionRequest->organization_id, 403);
+
+        $data = $request->validate([
+            'action' => ['required', 'string', 'in:reopen,cancel,no_show,void,ignore'],
+            'reason' => ['required', 'string', 'max:1000'],
+        ]);
+
+        try {
+            $service->reviewCorrection($correctionRequest, $request->user(), $data['action'], $data['reason']);
+        } catch (ReservationConflictException $exception) {
+            return back()->withErrors(['reason' => $exception->getMessage()]);
+        }
+
+        return back()->with('success', __('messages.correction_review_saved'));
     }
 
     public function markPaid(Request $request, Reservation $reservation, ReservationService $service): RedirectResponse
@@ -216,13 +289,100 @@ class ReservationController extends Controller
     private function reservationListRange(Request $request, string $dateFilter, CarbonImmutable $today, string $timezone): array
     {
         return match ($dateFilter) {
-            'tomorrow' => [$today->addDay()->utc(), $today->addDay()->endOfDay()->utc()],
-            'week' => [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()],
+            'yesterday' => [$today->subDay()->utc(), $today->subDay()->endOfDay()->utc()],
+            'this_week', 'week' => [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()],
+            'last_week' => [$today->subWeek()->startOfWeek()->utc(), $today->subWeek()->endOfWeek()->utc()],
+            'this_month' => [$today->startOfMonth()->utc(), $today->endOfMonth()->utc()],
             'custom' => [
                 CarbonImmutable::parse($request->input('from', $today->toDateString()), $timezone)->startOfDay()->utc(),
                 CarbonImmutable::parse($request->input('to', $today->toDateString()), $timezone)->endOfDay()->utc(),
             ],
             default => [$today->utc(), $today->endOfDay()->utc()],
         };
+    }
+
+    private function correctionRequests(Request $request): array
+    {
+        if (! $request->user()->isOwner() && ! $request->user()->isSuperAdmin()) {
+            return [];
+        }
+
+        return ReservationCorrectionRequest::query()
+            ->forOrganization($request->user()->organization_id)
+            ->where('status', 'pending')
+            ->with([
+                'requester:id,name,role',
+                'reservation:id,organization_id,football_field_id,customer_name,customer_phone,starts_at,ends_at,status,payment_status,price,currency',
+                'reservation.footballField:id,name',
+            ])
+            ->latest()
+            ->limit(20)
+            ->get()
+            ->toArray();
+    }
+
+    private function waitingListPayload(Reservation $reservation, Request $request): ?array
+    {
+        $timezone = Timezones::resolve($request->user()->organization->timezone);
+        $startsAt = CarbonImmutable::parse($reservation->starts_at)->setTimezone($timezone);
+        $endsAt = CarbonImmutable::parse($reservation->ends_at)->setTimezone($timezone);
+        $waiting = WaitingListRequest::query()
+            ->where('organization_id', $reservation->organization_id)
+            ->where('football_field_id', $reservation->football_field_id)
+            ->where(fn ($query) => $query
+                ->where('reservation_id', $reservation->id)
+                ->orWhere(fn ($slotQuery) => $slotQuery
+                    ->where('date', $startsAt->toDateString())
+                    ->where('start_time', $startsAt->format('H:i:s'))
+                    ->where('end_time', $endsAt->format('H:i:s'))))
+            ->where('status', 'waiting')
+            ->orderBy('created_at')
+            ->get(['id', 'customer_name', 'phone', 'email', 'note', 'created_at']);
+
+        if ($waiting->isEmpty()) {
+            return null;
+        }
+
+        $fieldName = $reservation->footballField?->name
+            ?? FootballField::query()->whereKey($reservation->football_field_id)->value('name')
+            ?? __('messages.field');
+
+        return [
+            'count' => $waiting->count(),
+            'field_name' => $fieldName,
+            'start_time' => $startsAt->format('H:i'),
+            'end_time' => $endsAt->format('H:i'),
+            'requests' => $waiting->map(fn (WaitingListRequest $item) => [
+                'id' => $item->id,
+                'customer_name' => $item->customer_name,
+                'phone' => $item->phone,
+                'email' => $item->email,
+                'note' => $item->note,
+                'created_at' => $item->created_at,
+                'message' => __('messages.waiting_list_whatsapp_message', [
+                    'name' => $item->customer_name,
+                    'start_time' => $startsAt->format('H:i'),
+                    'field_name' => $fieldName,
+                ]),
+            ])->values()->all(),
+        ];
+    }
+
+    private function canApplyCorrectionAction(Request $request, Reservation $reservation, string $action): bool
+    {
+        $user = $request->user();
+
+        if ($user->isOwner() || $user->isSuperAdmin()) {
+            return true;
+        }
+
+        if ($action === 'reopen') {
+            return $user->hasEmployeePermission(EmployeePermissions::EDIT_RESERVATIONS)
+                && $user->assignedFields()->whereKey($reservation->football_field_id)->exists();
+        }
+
+        return in_array($action, ['cancel', 'no_show'], true)
+            && $user->hasEmployeePermission(EmployeePermissions::CANCEL_RESERVATIONS)
+            && $user->assignedFields()->whereKey($reservation->football_field_id)->exists();
     }
 }

@@ -56,6 +56,7 @@ class Organization extends Model
         return $this->scopeEligibleForPublicDirectory($query)
             ->where('city_id', $cityId)
             ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
+                ->publicReady()
                 ->where(fn (Builder $cityQuery) => $cityQuery
                     ->where('city_id', $cityId)
                     ->orWhereNull('city_id')));
@@ -65,8 +66,11 @@ class Organization extends Model
     {
         return $query
             ->where('status', OrganizationStatus::Approved)
+            ->whereNotNull('city_id')
+            ->whereNotNull('phone')
+            ->where('phone', '!=', '')
             ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
-                ->where('status', FieldStatus::Active));
+                ->publicReady());
     }
 
     public function scopeInPublicDirectoryOrder(Builder $query, ?CarbonImmutable $at = null): Builder
@@ -127,5 +131,20 @@ class Organization extends Model
     public function latestSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->latestOfMany();
+    }
+
+    public function adminNotes(): HasMany
+    {
+        return $this->hasMany(OrganizationAdminNote::class);
+    }
+
+    public function statusHistories(): HasMany
+    {
+        return $this->hasMany(OrganizationStatusHistory::class);
+    }
+
+    public function supportRequests(): HasMany
+    {
+        return $this->hasMany(SupportRequest::class);
     }
 }

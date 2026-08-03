@@ -38,7 +38,7 @@ class FootballFieldController extends Controller
 
         return Inertia::render('Fields/Index', [
             'fields' => $fields,
-            'cities' => City::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'cities' => City::query()->forSelector()->inKosovoSelectorOrder()->get(['id', 'name']),
         ]);
     }
 

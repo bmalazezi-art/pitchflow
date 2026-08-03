@@ -43,4 +43,18 @@ class ReliabilityServiceTest extends TestCase
         $this->assertSame(40, $customer->reliability_score);
         $this->assertSame(2, $customer->no_shows);
     }
+
+    public function test_manual_reliability_status_is_not_overwritten_by_recalculation(): void
+    {
+        $organization = Organization::factory()->create();
+        $customer = Customer::factory()->for($organization)->create([
+            'reliability_status' => ReliabilityStatus::HighRisk,
+            'reliability_status_manual' => true,
+        ]);
+
+        app(ReliabilityService::class)->recalculate($customer);
+
+        $this->assertSame(ReliabilityStatus::HighRisk, $customer->refresh()->reliability_status);
+        $this->assertSame(100, $customer->reliability_score);
+    }
 }

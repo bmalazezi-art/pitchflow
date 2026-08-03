@@ -1,7 +1,7 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { BadgeCheck, CalendarDays, Clock3, Eye, MapPin, Pencil, Plus, Trash2, Users, Wrench } from 'lucide-react';
 import { useState } from 'react';
-import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, Select } from '../../Components/UI';
+import { Badge, Button, EmptyState, Field, Input, Modal, PageHeader, Pagination, PriceInput, Select } from '../../Components/UI';
 import AppLayout from '../../Layouts/AppLayout';
 import { useTranslation } from '../../lib/i18n';
 import type { Paginated, SharedProps } from '../../types';
@@ -18,7 +18,7 @@ interface FieldForm {
     city_id: number | string;
     address: string;
     status: string;
-    price_per_hour: number;
+    price_per_hour: string;
     opening_time: string;
     closing_time: string;
     operating_hours: OperatingHour[];
@@ -46,7 +46,7 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
         city_id: '',
         address: '',
         status: 'active',
-        price_per_hour: 0,
+        price_per_hour: '',
         opening_time: '12:00',
         closing_time: '01:00',
         operating_hours: defaultHours(),
@@ -67,7 +67,7 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
             city_id: field.city_id ?? '',
             address: field.address ?? '',
             status: field.status,
-            price_per_hour: Number(field.price_per_hour),
+            price_per_hour: String(field.price_per_hour ?? ''),
             opening_time: field.opening_time.slice(0, 5),
             closing_time: field.closing_time.slice(0, 5),
             operating_hours: hours,
@@ -76,7 +76,7 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
             city_id: '',
             address: '',
             status: 'active',
-            price_per_hour: 0,
+            price_per_hour: '',
             opening_time: '12:00',
             closing_time: '01:00',
             operating_hours: defaultHours(),
@@ -126,7 +126,7 @@ export default function Fields({ fields, cities }: { fields: Paginated<any>; cit
                     {!editing && <Field label={t('selectCity')} error={form.errors.city_id}><Select value={form.data.city_id} onChange={event => form.setData('city_id', event.target.value)}><option value="">{t('organizationCity')}</option>{cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}</Select></Field>}
                     {!editing && <Field label={t('address')} error={form.errors.address}><Input value={form.data.address} onChange={event => form.setData('address', event.target.value)} /></Field>}
                     <Field label={t('status')} error={form.errors.status}><Select value={form.data.status} onChange={event => form.setData('status', event.target.value)}><option value="active">{t('active')}</option><option value="maintenance">{t('maintenance')}</option><option value="closed">{t('closed')}</option></Select></Field>
-                    <Field label={t('pricePerHour')} error={form.errors.price_per_hour}><Input type="number" min="0" step="0.01" value={form.data.price_per_hour} onChange={event => form.setData('price_per_hour', Number(event.target.value))} /></Field>
+                    <Field label={t('pricePerHour')} error={form.errors.price_per_hour}><PriceInput value={form.data.price_per_hour} onChange={event => form.setData('price_per_hour', event.target.value)} /></Field>
                 </div>
 
                 <h3>{t('weeklyHours')}</h3>

@@ -24,11 +24,13 @@ class CustomerPolicy
 
     public function update(User $user, Customer $customer): bool
     {
-        return $user->hasEmployeePermission(EmployeePermissions::VIEW_CUSTOMERS) && $this->view($user, $customer);
+        return $this->view($user, $customer)
+            && ($user->isOwner() || $user->hasEmployeePermission(EmployeePermissions::VIEW_CUSTOMERS));
     }
 
     public function addNote(User $user, Customer $customer): bool
     {
-        return $user->hasEmployeePermission(EmployeePermissions::ADD_CUSTOMER_NOTES) && $this->view($user, $customer);
+        return $this->view($user, $customer)
+            && ($user->isOwner() || $user->hasEmployeePermission(EmployeePermissions::ADD_CUSTOMER_NOTES));
     }
 }

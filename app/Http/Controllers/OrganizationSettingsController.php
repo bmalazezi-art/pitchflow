@@ -17,7 +17,7 @@ class OrganizationSettingsController extends Controller
 
         return Inertia::render('Settings/Organization', [
             'organization' => request()->user()->organization,
-            'cities' => City::where('is_active', true)->orderBy('name')->get(['id', 'name']),
+            'cities' => City::query()->forSelector()->inKosovoSelectorOrder()->get(['id', 'name']),
         ]);
     }
 

@@ -4,11 +4,16 @@ namespace Tests\Feature;
 
 use App\Enums\FieldStatus;
 use App\Enums\OrganizationStatus;
+use App\Enums\PaymentStatus;
+use App\Enums\ReservationStatus;
 use App\Enums\UserRole;
 use App\Models\City;
+use App\Models\Customer;
 use App\Models\FootballField;
 use App\Models\Organization;
+use App\Models\Reservation;
 use App\Models\User;
+use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Carbon;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -55,6 +60,9 @@ class PublicAvailabilityPrivacyTest extends TestCase
         $maintenance = Organization::factory()->for($city)->create(['name' => 'Maintenance Arena']);
         FootballField::factory()->for($maintenance)->create(['city_id' => $city->id, 'status' => FieldStatus::Maintenance]);
 
+        $missingPhone = Organization::factory()->for($city)->create(['name' => 'Missing Phone Arena', 'phone' => '']);
+        FootballField::factory()->for($missingPhone)->create(['city_id' => $city->id]);
+
         $archived = Organization::factory()->for($city)->create(['name' => 'Archived Arena']);
         FootballField::factory()->for($archived)->create(['city_id' => $city->id])->delete();
 
@@ -75,9 +83,71 @@ class PublicAvailabilityPrivacyTest extends TestCase
             ->has('popularCities', 2)
             ->where('statistics.football_fields', 2)
             ->where('statistics.cities', 2)
-            ->where('statistics.registered_businesses', 5)
-            ->where('statistics.verified_businesses', 4)
+            ->where('statistics.registered_businesses', 6)
+            ->where('statistics.verified_businesses', 5)
         );
+    }
+
+    public function test_homepage_recently_added_is_limited_to_six_public_businesses(): void
+    {
+        Carbon::setTestNow('2026-08-03 12:00:00');
+        $city = City::factory()->create(['name' => 'Prishtinë']);
+
+        foreach (range(1, 7) as $index) {
+            $organization = Organization::factory()->for($city)->create([
+                'name' => "Demo Public Arena {$index}",
+                'approved_at' => now()->subDays(7 - $index),
+            ]);
+            FootballField::factory()->for($organization)->create(['city_id' => $city->id]);
+        }
+
+        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('recentBusinesses', 6)
+            ->where('recentBusinesses.0.name', 'Demo Public Arena 7')
+        );
+    }
+
+    public function test_public_football_fields_listing_filters_and_exposes_only_safe_public_data(): void
+    {
+        $city = City::factory()->create(['name' => 'Ferizaj']);
+        $otherCity = City::factory()->create(['name' => 'Gjilan']);
+        $visible = Organization::factory()->for($city)->create(['name' => 'Demo Visible Pitch']);
+        FootballField::factory()->for($visible)->create(['city_id' => $city->id, 'name' => 'Main Pitch']);
+        $pending = Organization::factory()->for($city)->create(['name' => 'Pending Private Pitch', 'status' => OrganizationStatus::Pending]);
+        FootballField::factory()->for($pending)->create(['city_id' => $city->id]);
+        $other = Organization::factory()->for($otherCity)->create(['name' => 'Other City Pitch']);
+        FootballField::factory()->for($other)->create(['city_id' => $otherCity->id]);
+        $customer = Customer::factory()->for($visible)->create(['name' => 'Private Customer']);
+        Reservation::create([
+            'organization_id' => $visible->id,
+            'football_field_id' => $visible->footballFields()->first()->id,
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'starts_at' => now()->addDay(),
+            'ends_at' => now()->addDay()->addHour(),
+            'status' => ReservationStatus::Confirmed,
+            'payment_status' => PaymentStatus::Paid,
+            'price' => 40,
+            'paid_amount' => 40,
+            'currency' => 'EUR',
+        ]);
+
+        $this->get('/football-fields?city='.$city->id.'&search=Visible')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Public/Fields')
+                ->has('businesses', 1)
+                ->where('businesses.0.name', 'Demo Visible Pitch')
+                ->where('businesses.0.city.name', 'Ferizaj')
+                ->has('businesses.0.football_fields', 1)
+                ->where('filters.city', $city->id)
+                ->where('filters.search', 'Visible')
+            )
+            ->assertDontSee('Private Customer')
+            ->assertDontSee('customer_phone')
+            ->assertDontSee('payment_status')
+            ->assertDontSee('Pending Private Pitch')
+            ->assertDontSee('Other City Pitch');
     }
 
     public function test_public_directory_orders_featured_then_new_then_alphabetical(): void
@@ -132,5 +202,181 @@ class PublicAvailabilityPrivacyTest extends TestCase
         $this->get('/terms')->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Public/Legal')
             ->where('document', 'terms'));
+    }
+
+    public function test_city_selector_uses_kosovo_priority_order_and_hides_placeholder_options(): void
+    {
+        foreach ([
+            'Shtime',
+            'Prizren',
+            'Gjithë Kosovën',
+            'Prishtinë',
+            'Viti',
+            'Ferizaj',
+            'Jashtë Vendit',
+            'Gjilan',
+            'Pejë',
+            'Gjakovë',
+            'Mitrovicë',
+            'Vushtrri',
+            'Podujevë',
+            'Deçan',
+            'Drenas',
+            'Fushë Kosovë',
+            'Klinë',
+            'Lipjan',
+            'Malishevë',
+            'Obiliq',
+            'Kamenicë',
+            'Suharekë',
+        ] as $name) {
+            City::factory()->create(['name' => $name, 'country' => 'XK', 'is_active' => true]);
+        }
+
+        $this->get('/')->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('cities.0.name', 'Prishtinë')
+            ->where('cities.1.name', 'Prizren')
+            ->where('cities.2.name', 'Ferizaj')
+            ->where('cities.3.name', 'Gjilan')
+            ->where('cities.4.name', 'Pejë')
+            ->where('cities.5.name', 'Gjakovë')
+            ->where('cities.6.name', 'Mitrovicë')
+            ->where('cities.7.name', 'Vushtrri')
+            ->where('cities.8.name', 'Podujevë')
+            ->where('cities.9.name', 'Deçan')
+            ->where('cities.10.name', 'Drenas')
+            ->where('cities.11.name', 'Fushë Kosovë')
+            ->where('cities.12.name', 'Klinë')
+            ->where('cities.13.name', 'Lipjan')
+            ->where('cities.14.name', 'Malishevë')
+            ->where('cities.15.name', 'Obiliq')
+            ->where('cities.16.name', 'Shtime')
+            ->where('cities.17.name', 'Suharekë')
+            ->where('cities.18.name', 'Viti')
+            ->missing('cities.19'));
+    }
+
+    public function test_current_hour_slot_stays_available_until_it_ends_in_business_timezone(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 14:30:00', 'Europe/Belgrade'));
+        $city = City::factory()->create(['name' => 'Ferizaj']);
+        $organization = Organization::factory()->for($city)->create([
+            'timezone' => 'Europe/Pristina',
+            'name' => 'Arena Ferizaj',
+        ]);
+        $field = FootballField::factory()->for($organization)->create([
+            'city_id' => $city->id,
+            'name' => 'Arena',
+            'opening_time' => '12:00',
+            'closing_time' => '16:00',
+        ]);
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $field->id,
+            'date' => '2026-07-22',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Availability')
+            ->where('pitchAvailability.0.slots.0.label', '12:00–13:00')
+            ->where('pitchAvailability.0.slots.0.status', 'past')
+            ->where('pitchAvailability.0.slots.1.label', '13:00–14:00')
+            ->where('pitchAvailability.0.slots.1.status', 'past')
+            ->where('pitchAvailability.0.slots.2.label', '14:00–15:00')
+            ->where('pitchAvailability.0.slots.2.status', 'current')
+            ->where('pitchAvailability.0.slots.3.label', '15:00–16:00')
+            ->where('pitchAvailability.0.slots.3.status', 'available')
+        );
+    }
+
+    public function test_future_public_availability_date_does_not_mark_slots_as_past(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-22 14:30:00', 'Europe/Belgrade'));
+        $city = City::factory()->create(['name' => 'Prishtinë']);
+        $organization = Organization::factory()->for($city)->create(['timezone' => 'Europe/Pristina']);
+        $field = FootballField::factory()->for($organization)->create([
+            'city_id' => $city->id,
+            'opening_time' => '12:00',
+            'closing_time' => '16:00',
+        ]);
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $field->id,
+            'date' => '2026-07-23',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Availability')
+            ->where('pitchAvailability.0.slots.0.status', 'available')
+            ->where('pitchAvailability.0.slots.1.status', 'available')
+            ->where('pitchAvailability.0.slots.2.status', 'available')
+            ->where('pitchAvailability.0.slots.3.status', 'available')
+        );
+    }
+
+    public function test_completed_reservation_still_blocks_public_availability_slot(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-24 12:00:00', 'Europe/Belgrade'));
+        $city = City::factory()->create(['name' => 'Ferizaj']);
+        $organization = Organization::factory()->for($city)->create(['timezone' => 'Europe/Pristina']);
+        $field = FootballField::factory()->for($organization)->create([
+            'city_id' => $city->id,
+            'opening_time' => '12:00',
+            'closing_time' => '23:00',
+        ]);
+        $customer = Customer::factory()->for($organization)->create();
+        $start = Carbon::parse('2026-07-25 18:00:00', Timezones::resolve($organization->timezone));
+        $reservation = Reservation::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'customer_id' => $customer->id,
+            'customer_name' => $customer->name,
+            'customer_phone' => $customer->phone,
+            'starts_at' => $start->utc(),
+            'ends_at' => $start->copy()->addHour()->utc(),
+            'status' => ReservationStatus::Completed,
+            'payment_status' => PaymentStatus::Paid,
+            'price' => 20,
+            'paid_amount' => 20,
+            'currency' => 'EUR',
+        ]);
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $field->id,
+            'date' => '2026-07-25',
+            'client_now' => '2026-07-24T12:00',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Availability')
+            ->where('pitchAvailability.0.slots.6.label', '18:00–19:00')
+            ->where('pitchAvailability.0.slots.6.status', 'reserved')
+            ->where('pitchAvailability.0.slots.6.reservation_id', $reservation->id)
+        );
+    }
+
+    public function test_public_availability_uses_client_now_to_avoid_local_server_timezone_drift(): void
+    {
+        Carbon::setTestNow(Carbon::parse('2026-07-26 23:34:00', 'Europe/Belgrade'));
+        $city = City::factory()->create(['name' => 'Gjakovë']);
+        $organization = Organization::factory()->for($city)->create(['timezone' => 'Europe/Pristina']);
+        $field = FootballField::factory()->for($organization)->create([
+            'city_id' => $city->id,
+            'opening_time' => '12:00',
+            'closing_time' => '23:00',
+        ]);
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $field->id,
+            'date' => '2026-07-26',
+            'client_now' => '2026-07-26T14:34',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Public/Availability')
+            ->where('pitchAvailability.0.slots.0.status', 'past')
+            ->where('pitchAvailability.0.slots.1.status', 'past')
+            ->where('pitchAvailability.0.slots.2.status', 'current')
+            ->where('pitchAvailability.0.slots.3.label', '15:00–16:00')
+            ->where('pitchAvailability.0.slots.3.status', 'available')
+            ->where('pitchAvailability.0.slots.10.label', '22:00–23:00')
+            ->where('pitchAvailability.0.slots.10.status', 'available')
+        );
     }
 }

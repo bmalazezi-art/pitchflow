@@ -32,7 +32,8 @@ class Reservation extends Model
         'organization_id', 'football_field_id', 'customer_id', 'customer_name',
         'customer_phone', 'starts_at', 'ends_at', 'status', 'payment_status',
         'price', 'paid_amount', 'currency', 'is_walk_in', 'notes',
-        'cancellation_reason', 'created_by', 'updated_by', 'cancelled_by', 'cancelled_at',
+        'cancellation_reason', 'previous_status', 'cancellation_note',
+        'created_by', 'updated_by', 'cancelled_by', 'cancelled_by_user_id', 'cancelled_at',
     ];
 
     protected function casts(): array
@@ -64,8 +65,23 @@ class Reservation extends Model
         return $this->belongsTo(User::class, 'created_by');
     }
 
+    public function cancelledByUser(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'cancelled_by_user_id');
+    }
+
     public function slots(): HasMany
     {
         return $this->hasMany(ReservationSlot::class);
+    }
+
+    public function correctionRequests(): HasMany
+    {
+        return $this->hasMany(ReservationCorrectionRequest::class);
+    }
+
+    public function waitingListRequests(): HasMany
+    {
+        return $this->hasMany(WaitingListRequest::class);
     }
 }

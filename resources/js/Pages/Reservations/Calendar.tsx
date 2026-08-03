@@ -11,6 +11,7 @@ export interface CalendarProps {
     timezone: string;
     selectedField?: number | null;
     selectedReservation?: number | null;
+    initialDate?: string;
 }
 
 const OwnerCalendar = lazy(() => import('../../Components/OwnerCalendar'));

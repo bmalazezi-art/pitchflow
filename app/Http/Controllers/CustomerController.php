@@ -11,6 +11,7 @@ use App\Services\PhoneNormalizer;
 use App\Support\EmployeePermissions;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -32,6 +33,12 @@ class CustomerController extends Controller
                     ->whereColumn('customer_id', 'customers.id')
                     ->whereNull('deleted_at')
                     ->when($fieldIds !== null, fn ($query) => $query->whereIn('football_field_id', $fieldIds))
+                    ->whereIn('status', ['pending', 'confirmed', 'completed']),
+            ])
+            ->withCount([
+                'reservations as unpaid_reservations_count' => fn ($query) => $query
+                    ->when($fieldIds !== null, fn ($reservationQuery) => $reservationQuery->whereIn('football_field_id', $fieldIds))
+                    ->whereIn('payment_status', ['unpaid', 'partial'])
                     ->whereIn('status', ['pending', 'confirmed', 'completed']),
             ])
             ->when($fieldIds !== null, fn ($query) => $query->whereHas('reservations', fn ($reservationQuery) => $reservationQuery->whereIn('football_field_id', $fieldIds)))
@@ -67,7 +74,12 @@ class CustomerController extends Controller
             : null;
 
         return Inertia::render('Customers/Show', [
-            'customer' => $customer->load([
+            'customer' => $customer->loadCount([
+                'reservations as unpaid_reservations_count' => fn ($query) => $query
+                    ->when($fieldIds !== null, fn ($reservationQuery) => $reservationQuery->whereIn('football_field_id', $fieldIds))
+                    ->whereIn('payment_status', ['unpaid', 'partial'])
+                    ->whereIn('status', ['pending', 'confirmed', 'completed']),
+            ])->load([
                 'preferredField:id,name',
                 'notes' => fn ($query) => $query->with('user:id,name')->latest(),
                 'reservations' => fn ($query) => $query
@@ -88,11 +100,41 @@ class CustomerController extends Controller
     ): RedirectResponse {
         $this->authorize('update', $customer);
         $data = $request->validated();
-        if ($data['preferred_field_id'] ?? null) {
-            abort_unless($request->user()->assignedFields()->whereKey($data['preferred_field_id'])->exists(), 422);
+        $normalizedPhone = $phones->normalize($data['phone']);
+
+        $duplicate = Customer::withTrashed()
+            ->where('organization_id', $customer->organization_id)
+            ->where('phone_normalized', $normalizedPhone)
+            ->whereKeyNot($customer->id)
+            ->first();
+
+        if ($duplicate) {
+            throw ValidationException::withMessages([
+                'phone' => __('messages.customer_phone_taken'),
+            ]);
         }
 
-        $customer->update([...$data, 'phone_normalized' => $phones->normalize($data['phone'])]);
+        if ($data['preferred_field_id'] ?? null) {
+            $fieldAllowed = $request->user()->isEmployee()
+                ? $request->user()->assignedFields()->whereKey($data['preferred_field_id'])->exists()
+                : FootballField::query()
+                    ->forOrganization($customer->organization_id)
+                    ->whereKey($data['preferred_field_id'])
+                    ->exists();
+
+            abort_unless($fieldAllowed, 422);
+        }
+
+        $updates = [
+            ...$data,
+            'phone_normalized' => $normalizedPhone,
+        ];
+
+        if (array_key_exists('reliability_status', $data) && $data['reliability_status'] !== null) {
+            $updates['reliability_status_manual'] = true;
+        }
+
+        $customer->update($updates);
         $activity->log('customer_updated', $customer);
 
         return back()->with('success', __('messages.customer_updated'));

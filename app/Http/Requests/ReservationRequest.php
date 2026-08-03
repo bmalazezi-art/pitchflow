@@ -15,7 +15,7 @@ class ReservationRequest extends FormRequest
     {
         return [
             'customer_name' => ['required', 'string', 'max:120'],
-            'customer_phone' => ['required', 'string', 'max:32'],
+            'customer_phone' => ['required', 'string', 'max:32', 'regex:/^\+?[0-9 ]*[0-9][0-9 ]*$/'],
             'football_field_id' => ['required', 'integer'],
             'starts_at' => ['required', 'date'],
             'ends_at' => ['required', 'date'],
@@ -24,6 +24,13 @@ class ReservationRequest extends FormRequest
             'paid_amount' => ['nullable', 'numeric', 'min:0'],
             'is_walk_in' => ['sometimes', 'boolean'],
             'notes' => ['nullable', 'string', 'max:2000'],
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'customer_phone.regex' => 'Numri i telefonit nuk është valid.',
         ];
     }
 }

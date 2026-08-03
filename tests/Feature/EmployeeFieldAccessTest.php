@@ -9,6 +9,7 @@ use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
@@ -136,5 +137,45 @@ class EmployeeFieldAccessTest extends TestCase
             ->where('report.booked_revenue', 40)
             ->where('report.unpaid_reservations', 1)
         );
+    }
+
+    public function test_midnight_reservation_is_returned_for_selected_calendar_date(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-01 10:00:00', 'Europe/Belgrade'));
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create(['name' => 'Arena']);
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        $start = CarbonImmutable::parse('2026-07-22 00:00:00', Timezones::resolve($organization->timezone));
+
+        $this->actingAs($employee)->post('/reservations', [
+            'customer_name' => 'Ahmed',
+            'customer_phone' => '+38344123456',
+            'football_field_id' => $field->id,
+            'starts_at' => $start->format('Y-m-d\TH:i'),
+            'ends_at' => $start->addHour()->format('Y-m-d\TH:i'),
+            'payment_status' => 'unpaid',
+        ])->assertRedirect();
+
+        $reservation = Reservation::query()->firstOrFail();
+        $range = ['from' => '2026-07-22', 'to' => '2026-07-22'];
+
+        $this->actingAs($owner)->get('/calendar?'.http_build_query($range))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->where('initialDate', '2026-07-22')
+            ->has('reservations', 1)
+            ->where('reservations.0.id', $reservation->id)
+            ->where('reservations.0.customer_name', 'Ahmed')
+        );
+
+        $this->actingAs($employee)->get('/calendar?'.http_build_query($range))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->component('Reservations/Calendar')
+            ->where('initialDate', '2026-07-22')
+            ->has('reservations', 1)
+            ->where('reservations.0.customer_name', 'Ahmed')
+        );
+
+        CarbonImmutable::setTestNow();
     }
 }

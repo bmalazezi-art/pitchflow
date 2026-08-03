@@ -1,19 +1,25 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
-import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { BadgeCheck, Building2, CalendarDays, CheckCircle2, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Instagram, Languages, Lightbulb, Linkedin, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
-import { Button } from '../../Components/UI';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { BadgeCheck, Building2, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Lightbulb, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
+import { Button, Field, Input, Modal } from '../../Components/UI';
+import { DatePicker } from '../../Components/DateControls';
+import { slotStatusForAnalytics, trackPublicEvent } from '../../lib/analytics';
+import { formatDateLabel, todayIso } from '../../lib/dateControls';
 import { useTranslation } from '../../lib/i18n';
+import { getSlotStatus, zonedNowInput, type SlotStatus } from '../../lib/slotStatus';
 import type { SharedProps } from '../../types';
 
-interface PublicField {
+export interface PublicField {
     id: number;
     name: string;
     address?: string | null;
     price_per_hour?: string | number | null;
+    opening_time?: string | null;
+    closing_time?: string | null;
     city?: { id: number; name: string } | null;
 }
 
-interface PublicBusiness {
+export interface PublicBusiness {
     id: number;
     name: string;
     phone?: string | null;
@@ -37,9 +43,9 @@ interface Props {
     selectedBusiness?: PublicBusiness | null;
     pitchAvailability: Array<{
         field: PublicField;
-        slots: Array<{ starts_at: string; ends_at: string; label: string; status: string }>;
+        slots: Array<{ starts_at: string; ends_at: string; label: string; status: SlotStatus | 'occupied'; reservation_id?: number | null; timezone?: string }>;
     }>;
-    filters: { city?: number | null; business?: number | null; date: string };
+    filters: { city?: number | null; business?: number | null; date: string; client_now?: string | null };
 }
 
 type Amenity = 'parking' | 'cafe' | 'showers' | 'indoor' | 'outdoor' | 'lighting';
@@ -54,10 +60,16 @@ const venueImages = [
 
 export default function Availability({ cities, businesses, recentBusinesses, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const { locale, flash } = usePage<SharedProps>().props;
     const selectedCity = cities.find(city => city.id === Number(filters.city));
     const [draftCity, setDraftCity] = useState(filters.city ? String(filters.city) : '');
     const [draftDate, setDraftDate] = useState(filters.date);
+    const [nowInput, setNowInput] = useState(() => zonedNowInput('Europe/Belgrade'));
+    const initialHomeEvent = useRef({
+        city_id: filters.city ?? null,
+        organization_id: filters.business ?? null,
+        metadata: { date: filters.date },
+    });
     const hasCity = Boolean(filters.city);
     const hasBusiness = Boolean(selectedBusiness);
     const hasSearch = hasCity || hasBusiness;
@@ -71,17 +83,30 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
     useEffect(() => {
         localStorage.setItem('public-theme', dark ? 'dark' : 'light');
     }, [dark]);
+    useEffect(() => {
+        trackPublicEvent('public_home_view', initialHomeEvent.current);
+    }, []);
 
     useEffect(() => {
         setDraftCity(filters.city ? String(filters.city) : '');
         setDraftDate(filters.date);
     }, [filters.city, filters.date]);
+    useEffect(() => {
+        const interval = window.setInterval(() => setNowInput(zonedNowInput('Europe/Belgrade')), 30000);
+        return () => window.clearInterval(interval);
+    }, []);
 
-    const setLocale = (nextLocale: 'en' | 'sq') => router.post('/locale', { locale: nextLocale }, { preserveScroll: true });
+    const setLocale = (nextLocale: 'en' | 'sq') => {
+        if (nextLocale === locale) return;
+        localStorage.setItem('locale', nextLocale);
+        trackPublicEvent('language_switch', { metadata: { locale: nextLocale } });
+        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
+    };
     const navigate = (overrides: Partial<Props['filters']>) => router.get('/', {
         city: overrides.city ?? filters.city ?? undefined,
         date: overrides.date ?? filters.date,
         business: overrides.business ?? filters.business ?? undefined,
+        client_now: zonedNowInput('Europe/Belgrade'),
     }, { preserveState: true, preserveScroll: true });
     const submitSearch = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -90,30 +115,49 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
             return;
         }
 
-        router.get('/', { city: draftCity, date: draftDate }, {
+        trackPublicEvent('availability_search', {
+            city_id: Number(draftCity),
+            metadata: { date: draftDate },
+        });
+        router.get('/', { city: draftCity, date: draftDate, client_now: zonedNowInput('Europe/Belgrade') }, {
             preserveState: true,
             preserveScroll: false,
         });
     };
     const resetSearch = () => {
+        trackPublicEvent('reset_search_click', {
+            city_id: filters.city ?? null,
+            organization_id: filters.business ?? null,
+            metadata: { date: filters.date },
+        });
         setDraftCity('');
-        setDraftDate(today());
+        setDraftDate(todayIso());
         router.get('/', {}, { preserveState: false, preserveScroll: false });
     };
-    const viewBusiness = (businessId: number) => navigate({ business: businessId });
-    const viewRecentBusiness = (business: PublicBusiness) => router.get('/', { city: business.city?.id, business: business.id, date: draftDate });
+    const viewBusiness = (business: PublicBusiness) => {
+        trackPublicEvent('business_view', { organization_id: business.id, city_id: business.city?.id ?? filters.city ?? null });
+        navigate({ business: business.id });
+    };
+    const viewRecentBusiness = (business: PublicBusiness) => {
+        trackPublicEvent('business_view', { organization_id: business.id, city_id: business.city?.id ?? null });
+        router.get('/', { city: business.city?.id, business: business.id, date: draftDate, client_now: zonedNowInput('Europe/Belgrade') });
+    };
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('checkAvailabilityTitle')} />
         <PublicNav locale={locale} dark={dark} setLocale={setLocale} setDark={setDark} />
+        {flash.success && <div className="public-flash success">{flash.success}</div>}
         <main className="public-home">
             <section className="public-hero light">
-                <div className="hero-content">
-                    <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
-                    <h1>{t('checkAvailabilityTitle')}</h1>
-                    <p>{t('availabilityHeroDescription')}</p>
-                    <SearchPanel cities={cities} city={draftCity} date={draftDate} setCity={setDraftCity} setDate={setDraftDate} onSubmit={submitSearch} />
-                    <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
+                <div className="hero-inner">
+                    <div className="hero-content">
+                        <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
+                        <h1>{t('checkAvailabilityTitle')}</h1>
+                        <p>{t('availabilityHeroDescription')}</p>
+                        <SearchPanel cities={cities} city={draftCity} date={draftDate} setCity={setDraftCity} setDate={setDraftDate} onSubmit={submitSearch} />
+                        <HeroTrustBadges />
+                        <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
+                    </div>
                 </div>
             </section>
 
@@ -129,6 +173,9 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
                     <div className="field-card-grid">
                         {recentBusinesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewRecentBusiness(business)} />)}
                     </div>
+                    <div className="recent-fields-action">
+                        <Link href="/football-fields" className="btn btn-secondary">{t('showMoreFields')}<ChevronRight size={16} /></Link>
+                    </div>
                 </section>}
             </>}
 
@@ -141,7 +188,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
                     <p>{discoverySummary}</p>
                 </div>
                 <div className="field-card-grid">
-                    {businesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewBusiness(business.id)} />)}
+                    {businesses.map((business, index) => <BusinessCard key={business.id} business={business} index={index} onView={() => viewBusiness(business)} />)}
                 </div>
                 {businesses.length === 0 && <div className="public-empty"><Search size={24} /><p>{t('noFootballFieldsInCity')}</p></div>}
             </section>}
@@ -154,7 +201,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
                 </div>
             </section>}
 
-            {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} />}
+            {hasBusiness && selectedBusiness && <AvailabilitySection business={selectedBusiness} date={filters.date} pitchAvailability={pitchAvailability} now={nowInput} />}
 
             {!hasBusiness && !hasSearch && <>
                 <WhyPitchFlow />
@@ -181,6 +228,22 @@ function PublicSectionHeading({ eyebrow, title, description, id }: { eyebrow: st
     return <div className="section-heading"><div><span>{eyebrow}</span><h2 id={id}>{title}</h2></div><p>{description}</p></div>;
 }
 
+function HeroTrustBadges() {
+    const t = useTranslation();
+    const badges = [
+        { icon: BadgeCheck, label: t('verifiedFields') },
+        { icon: Clock3, label: t('realtimeSchedule') },
+        { icon: Phone, label: t('directContact') },
+    ];
+
+    return <div className="hero-trust-badges" aria-label={t('availabilityOnly')}>
+        {badges.map(badge => {
+            const Icon = badge.icon;
+            return <span key={badge.label}><Icon size={15} />{badge.label}</span>;
+        })}
+    </div>;
+}
+
 function WhyPitchFlow() {
     const t = useTranslation();
     const features = [
@@ -196,7 +259,7 @@ function WhyPitchFlow() {
 
 function PartnerCallout() {
     const t = useTranslation();
-    return <section className="partner-callout" id="partner"><div><span>{t('forFootballBusinesses')}</span><h2>{t('ownFootballField')}</h2><p>{t('partnerCalloutText')}</p></div><Link href="/register" className="btn partner-button">{t('registerBusiness')}<ChevronRight size={17} /></Link></section>;
+    return <section className="partner-callout" id="partner"><div><span>{t('forFootballBusinesses')}</span><h2>{t('ownFootballField')}</h2><p>{t('partnerCalloutText')}</p></div><Link href="/register" className="btn partner-button" onClick={() => trackPublicEvent('register_business_click')}>{t('registerBusiness')}<ChevronRight size={17} /></Link></section>;
 }
 
 function FrequentlyAskedQuestions() {
@@ -213,9 +276,9 @@ function FrequentlyAskedQuestions() {
     </section>;
 }
 
-function PublicFooter() {
+export function PublicFooter() {
     const t = useTranslation();
-    return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:hello@pitchflow.app">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://facebook.com" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a><a href="https://instagram.com" target="_blank" rel="noreferrer"><Instagram size={16} />Instagram</a><a href="https://linkedin.com" target="_blank" rel="noreferrer"><Linkedin size={16} />LinkedIn</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
+    return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:pitchflowks@hotmail.com">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://www.facebook.com/profile.php?id=61593008453044" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
 }
 
 export function PublicNav({ locale, dark, setLocale, setDark }: {
@@ -225,19 +288,34 @@ export function PublicNav({ locale, dark, setLocale, setDark }: {
     setDark: (dark: boolean) => void;
 }) {
     const t = useTranslation();
+    const [languageOpen, setLanguageOpen] = useState(false);
+    const languageOptions = [
+        { code: 'en' as const, short: 'EN', label: 'English', flag: '🇬🇧' },
+        { code: 'sq' as const, short: 'SQ', label: 'Shqip', flag: '🇦🇱' },
+    ];
+    const activeLanguage = languageOptions.find(option => option.code === locale) ?? languageOptions[1];
+    const chooseLanguage = (nextLocale: 'en' | 'sq') => {
+        setLanguageOpen(false);
+        setLocale(nextLocale);
+    };
     return <nav className="public-nav">
         <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div>
         <div className="public-nav-actions">
-            <div className="language-switcher" aria-label={t('language')}>
-                <Languages size={16} />
-                <button className={locale === 'en' ? 'active' : ''} onClick={() => setLocale('en')}>EN</button>
-                <button className={locale === 'sq' ? 'active' : ''} onClick={() => setLocale('sq')}>SQ</button>
+            <div className="language-selector public-language-selector">
+                <button type="button" className="language-selector-trigger" onClick={() => setLanguageOpen(isOpen => !isOpen)} aria-expanded={languageOpen} aria-label={t('language')}>
+                    <span aria-hidden="true">{activeLanguage.flag}</span><strong>{activeLanguage.short}</strong><ChevronDown size={14} />
+                </button>
+                {languageOpen && <div className="language-selector-menu">
+                    {languageOptions.map(option => <button key={option.code} type="button" className={locale === option.code ? 'active' : ''} onClick={() => chooseLanguage(option.code)}>
+                        <span aria-hidden="true">{option.flag}</span><strong>{option.label}</strong>{locale === option.code && <Check size={15} />}
+                    </button>)}
+                </div>}
             </div>
             <button className="public-theme-toggle" onClick={() => setDark(!dark)} title={dark ? 'Light mode' : 'Dark mode'} aria-label={dark ? 'Light mode' : 'Dark mode'}>
                 {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
-            <Link href="/login" className="btn btn-secondary">{t('login')}</Link>
-            <Link href="/register" className="btn btn-primary"><span className="desktop-label">{t('register')}</span><span className="mobile-label">{t('registerShort')}</span></Link>
+            <Link href="/login" className="btn btn-secondary" onClick={() => trackPublicEvent('login_click')}>{t('login')}</Link>
+            <Link href="/register" className="btn btn-primary" onClick={() => trackPublicEvent('register_business_click')}><span className="desktop-label">{t('register')}</span><span className="mobile-label">{t('registerShort')}</span></Link>
         </div>
     </nav>;
 }
@@ -254,119 +332,27 @@ function SearchPanel({ cities, city, date, setCity, setDate, onSubmit }: {
     return <form className="availability-search-card simple" onSubmit={onSubmit}>
         <label className="public-input">
             <span><MapPin size={18} /></span>
-            <select aria-label={t('selectCity')} value={city} onChange={event => setCity(event.target.value)} required>
+            <select aria-label={t('selectCity')} value={city} onChange={event => {
+                setCity(event.target.value);
+                if (event.target.value) {
+                    trackPublicEvent('city_selected', { city_id: Number(event.target.value) });
+                }
+            }} required>
                 <option value="">{t('selectCity')}</option>
                 {cities.map(city => <option key={city.id} value={city.id}>{city.name}</option>)}
             </select>
         </label>
-        <CalendarPicker value={date} onChange={setDate} />
+        <DatePicker value={date} onChange={setDate} />
         <Button type="submit" className="availability-submit"><Search size={17} />{t('checkAvailabilityButton')}</Button>
     </form>;
 }
 
-function CalendarPicker({ value, onChange }: { value: string; onChange: (value: string) => void }) {
-    const t = useTranslation();
-    const selectedDate = parseDate(value);
-    const [open, setOpen] = useState(false);
-    const triggerRef = useRef<HTMLButtonElement>(null);
-    const [popoverPosition, setPopoverPosition] = useState({ top: 0, left: 0 });
-    const [visibleMonth, setVisibleMonth] = useState(() => startOfMonth(selectedDate));
-    const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
-    const monthLabel = new Intl.DateTimeFormat(undefined, { month: 'long', year: 'numeric' }).format(visibleMonth);
-    const weekdays = useMemo(() => buildWeekdayLabels(), []);
-
-    useEffect(() => {
-        if (!open || !triggerRef.current) {
-            return;
-        }
-
-        const updatePosition = () => {
-            const rect = triggerRef.current?.getBoundingClientRect();
-
-            if (!rect) {
-                return;
-            }
-
-            const margin = 12;
-            const popoverWidth = Math.min(330, window.innerWidth - margin * 2);
-            const estimatedHeight = 360;
-            const hasRoomBelow = window.innerHeight - rect.bottom >= estimatedHeight + margin;
-            const top = hasRoomBelow
-                ? rect.bottom + 8
-                : Math.max(margin, rect.top - estimatedHeight - 8);
-            const left = Math.min(
-                Math.max(margin, rect.left),
-                Math.max(margin, window.innerWidth - popoverWidth - margin),
-            );
-
-            setPopoverPosition({ top, left });
-        };
-
-        updatePosition();
-        window.addEventListener('resize', updatePosition);
-        window.addEventListener('scroll', updatePosition, true);
-
-        return () => {
-            window.removeEventListener('resize', updatePosition);
-            window.removeEventListener('scroll', updatePosition, true);
-        };
-    }, [open]);
-
-    const selectDate = (date: Date) => {
-        onChange(toDateInput(date));
-        setVisibleMonth(startOfMonth(date));
-        setOpen(false);
-    };
-
-    return <div className="calendar-picker">
-        <button
-            type="button"
-            ref={triggerRef}
-            className="calendar-trigger"
-            aria-label={t('chooseDate')}
-            aria-expanded={open}
-            onClick={() => setOpen(isOpen => !isOpen)}
-        >
-            <CalendarDays size={19} />
-            <span>{formatDate(value)}</span>
-        </button>
-        {open && <div className="calendar-popover" style={{ top: popoverPosition.top, left: popoverPosition.left }} role="dialog" aria-label={t('chooseDate')}>
-            <div className="calendar-month">
-                <button type="button" aria-label={t('previousMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}>
-                    <ChevronLeft size={18} />
-                </button>
-                <strong>{monthLabel}</strong>
-                <button type="button" aria-label={t('nextMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, 1))}>
-                    <ChevronRight size={18} />
-                </button>
-            </div>
-            <div className="calendar-weekdays" aria-hidden="true">
-                {weekdays.map(day => <span key={day}>{day}</span>)}
-            </div>
-            <div className="calendar-grid">
-                {calendarDays.map(day => <button
-                    type="button"
-                    key={day.key}
-                    className={[
-                        'calendar-day',
-                        day.currentMonth ? '' : 'outside',
-                        sameDay(day.date, selectedDate) ? 'selected' : '',
-                        sameDay(day.date, parseDate(today())) ? 'today' : '',
-                    ].filter(Boolean).join(' ')}
-                    onClick={() => selectDate(day.date)}
-                >
-                    {day.date.getDate()}
-                </button>)}
-            </div>
-        </div>}
-    </div>;
-}
-
-function BusinessCard({ business, index, onView }: { business: PublicBusiness; index: number; onView: () => void }) {
+export function BusinessCard({ business, index, onView }: { business: PublicBusiness; index: number; onView: () => void }) {
     const t = useTranslation();
     const amenities = (business.amenities ?? []).filter(amenity => supportedAmenities.includes(amenity));
     const price = startingPrice(business.football_fields ?? [], business.currency ?? 'EUR');
     const pitchCount = business.football_fields?.length || business.number_of_fields || 1;
+    const hours = openingHours(business.football_fields ?? []);
     return <article className="field-discovery-card">
         <div className="venue-cover light-cover" style={{ background: venueImages[index % venueImages.length] }}>
             <div className="venue-badges">
@@ -383,48 +369,161 @@ function BusinessCard({ business, index, onView }: { business: PublicBusiness; i
                 {business.operating_status && <span className={`operating-badge ${business.operating_status.is_open ? 'open' : 'closed'}`}><i />{business.operating_status.is_open ? t('openNow') : business.operating_status.opens_at ? `${t('closed')} · ${t('opensAt')} ${business.operating_status.opens_at}` : t('closed')}</span>}
             </div>
             {business.address && <p><MapPin size={15} /> {business.address}</p>}
-            {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={15} /> {business.phone}</a>}
-            <p><Trophy size={15} /> {pitchLabel(t, pitchCount)}</p>
+            <div className="venue-meta-grid">
+                {hours && <p><Clock3 size={15} /><span>{t('workingHours')}</span><strong>{hours}</strong></p>}
+                <p><Trophy size={15} /><span>{t('fields')}</span><strong>{pitchLabel(t, pitchCount)}</strong></p>
+            </div>
             {price && <p className="venue-price"><span>{t('startingAt')}</span><strong>{price}</strong></p>}
             {amenities.length > 0 && <AmenityList amenities={amenities} />}
-            <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
+            <div className="venue-card-actions">
+                <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
+                {business.phone && <a className="card-call-cta" href={phoneHref(business.phone)} onClick={() => trackPublicEvent('call_click', { organization_id: business.id, city_id: business.city?.id ?? null })}><Phone size={15} />{t('callToReserve')}</a>}
+            </div>
         </div>
     </article>;
 }
 
-function AvailabilitySection({ business, date, pitchAvailability }: {
+function AvailabilitySection({ business, date, pitchAvailability, now }: {
     business: PublicBusiness;
     date: string;
     pitchAvailability: Props['pitchAvailability'];
+    now: string;
 }) {
     const t = useTranslation();
+    const { locale } = usePage<SharedProps>().props;
+    const trackedViews = useRef(new Set<string>());
+    const [waitingSlot, setWaitingSlot] = useState<{
+        field: PublicField;
+        slot: Props['pitchAvailability'][number]['slots'][number];
+    } | null>(null);
+    const [joinedWaitingList, setJoinedWaitingList] = useState(false);
+    const form = useForm({
+        football_field_id: 0,
+        reservation_id: null as number | null,
+        starts_at: '',
+        ends_at: '',
+        customer_name: '',
+        phone: '',
+        note: '',
+    });
+    const openWaitingList = (field: PublicField, slot: Props['pitchAvailability'][number]['slots'][number]) => {
+        setWaitingSlot({ field, slot });
+        form.clearErrors();
+        form.setData({
+            football_field_id: field.id,
+            reservation_id: slot.reservation_id ?? null,
+            starts_at: slot.starts_at,
+            ends_at: slot.ends_at,
+            customer_name: '',
+            phone: '',
+            note: '',
+        });
+    };
+    useEffect(() => {
+        pitchAvailability.forEach(pitch => {
+            const fieldKey = `field:${pitch.field.id}:${date}`;
+            if (!trackedViews.current.has(fieldKey)) {
+                trackedViews.current.add(fieldKey);
+                trackPublicEvent('field_view', {
+                    organization_id: business.id,
+                    football_field_id: pitch.field.id,
+                    city_id: business.city?.id ?? pitch.field.city?.id ?? null,
+                    metadata: { date },
+                });
+            }
+
+            pitch.slots.forEach(slot => {
+                const slotKey = `slot:${pitch.field.id}:${slot.starts_at}:${slot.ends_at}`;
+                if (trackedViews.current.has(slotKey)) return;
+                trackedViews.current.add(slotKey);
+                trackPublicEvent('availability_slot_view', {
+                    organization_id: business.id,
+                    football_field_id: pitch.field.id,
+                    city_id: business.city?.id ?? pitch.field.city?.id ?? null,
+                    metadata: {
+                        date,
+                        start: slot.starts_at,
+                        end: slot.ends_at,
+                        status: slotStatusForAnalytics(slot.status),
+                    },
+                });
+            });
+        });
+    }, [business.city?.id, business.id, date, pitchAvailability]);
+    const submitWaitingList = (event: FormEvent<HTMLFormElement>) => {
+        event.preventDefault();
+        form.post('/waiting-list', {
+            preserveScroll: true,
+            onSuccess: () => {
+                setWaitingSlot(null);
+                setJoinedWaitingList(true);
+            },
+        });
+    };
+
     return <section className="availability-results focused" aria-labelledby="availability-results-heading">
         <div className="availability-header">
             <div>
                 <h2 id="availability-results-heading">{business.name} — {business.city?.name}</h2>
-                <p>{formatDate(date)}</p>
+                <p>{formatDate(date, locale)}</p>
             </div>
-            {business.phone && <a href={`tel:${business.phone.replaceAll(' ', '')}`}><Phone size={16} /> {business.phone}</a>}
+            <div className="availability-contact-actions">
+                <span>{t('callAfterCheckingAvailability')}</span>
+                {business.phone && <a href={phoneHref(business.phone)} onClick={() => trackPublicEvent('call_click', { organization_id: business.id, city_id: business.city?.id ?? null })}><Phone size={16} /> {business.phone}</a>}
+            </div>
         </div>
         <div className="pitch-availability-list">
+            {joinedWaitingList && <div className="waiting-list-success"><CheckCircle2 size={17} />{t('waitingListJoined')}</div>}
             {pitchAvailability.map((pitch, index) => <section className="pitch-slots" key={pitch.field.id}>
                 <div className="pitch-slots-header">
                     <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
                     {pitch.field.price_per_hour !== undefined && pitch.field.price_per_hour !== null && <span>{formatMoney(pitch.field.price_per_hour, business.currency ?? 'EUR')} / h</span>}
                 </div>
                 <div className="slot-card-grid compact">
-                    {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} />)}
+                    {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} now={now} onJoinWaitlist={() => openWaitingList(pitch.field, slot)} />)}
                 </div>
             </section>)}
         </div>
+        <Modal open={Boolean(waitingSlot)} title={t('joinWaitingList')} onClose={() => setWaitingSlot(null)}>
+            <form className="waiting-list-form" onSubmit={submitWaitingList}>
+                <p>{t('waitingListIntro')}</p>
+                {waitingSlot && <div className="waiting-slot-summary"><strong>{waitingSlot.field.name}</strong><span>{waitingSlot.slot.label}</span></div>}
+                <div className="form-grid">
+                    <Field label={t('customerName')} error={form.errors.customer_name} required><Input autoFocus value={form.data.customer_name} onChange={event => form.setData('customer_name', event.target.value)} /></Field>
+                    <Field label={t('phone')} error={form.errors.phone} required><Input inputMode="tel" autoComplete="tel" value={form.data.phone} onChange={event => form.setData('phone', sanitizePhoneInput(event.target.value))} /></Field>
+                    <Field label={t('optionalNote')} error={form.errors.note}><textarea className="input" value={form.data.note} onChange={event => form.setData('note', event.target.value)} /></Field>
+                </div>
+                <div className="form-actions"><Button type="button" variant="secondary" onClick={() => setWaitingSlot(null)}>{t('close')}</Button><Button disabled={form.processing}>{t('joinList')}</Button></div>
+            </form>
+        </Modal>
     </section>;
 }
 
-function TimeSlotCard({ slot }: { slot: Props['pitchAvailability'][number]['slots'][number] }) {
+function TimeSlotCard({ slot, now, onJoinWaitlist }: { slot: Props['pitchAvailability'][number]['slots'][number]; now: string; onJoinWaitlist: () => void }) {
     const t = useTranslation();
-    return <div className={`time-slot-card compact ${slot.status}`}>
+    const calculatedStatus = getSlotStatus({
+        selectedDate: slot.starts_at.slice(0, 10),
+        startTime: slot.starts_at.slice(11, 16),
+        endTime: slot.ends_at.slice(11, 16),
+        reservationStatus: slot.reservation_id ? 'reserved' : slot.status === 'closed' ? 'closed' : null,
+        timezone: slot.timezone ?? 'Europe/Belgrade',
+        now,
+    });
+    const isReserved = calculatedStatus === 'reserved';
+    const label = calculatedStatus === 'available'
+        ? t('available')
+        : isReserved
+            ? t('reserved')
+            : calculatedStatus === 'current'
+                ? t('currentSlot')
+                : calculatedStatus === 'closed'
+                    ? t('closed')
+                    : t('past');
+
+    return <div className={`time-slot-card compact ${calculatedStatus}`}>
         <strong>{slot.label}</strong>
-        <span>{slot.status === 'available' ? t('available') : slot.status === 'occupied' ? t('occupied') : t('past')}</span>
+        <span>{label}</span>
+        {isReserved && <button type="button" className="waitlist-slot-button" onClick={onJoinWaitlist}>{t('notifyMeIfFree')}</button>}
     </div>;
 }
 
@@ -455,6 +554,16 @@ function startingPrice(fields: PublicField[], currency: string) {
     return `${formatMoney(Math.min(...prices), currency)} / h`;
 }
 
+function openingHours(fields: PublicField[]) {
+    const field = fields.find(item => item.opening_time && item.closing_time);
+
+    if (!field?.opening_time || !field?.closing_time) {
+        return null;
+    }
+
+    return `${field.opening_time.slice(0, 5)} - ${field.closing_time.slice(0, 5)}`;
+}
+
 function formatMoney(value: string | number, currency: string) {
     return new Intl.NumberFormat(undefined, {
         style: 'currency',
@@ -463,69 +572,18 @@ function formatMoney(value: string | number, currency: string) {
     }).format(Number(value));
 }
 
-function today() {
-    return new Date().toISOString().slice(0, 10);
+function phoneHref(phone: string) {
+    return `tel:${phone.replace(/[^\d+]/g, '')}`;
 }
 
-function parseDate(date: string) {
-    return new Date(`${date}T12:00:00`);
+function sanitizePhoneInput(value: string) {
+    const hasLeadingPlus = value.trimStart().startsWith('+');
+    const withoutPluses = value.replace(/\+/g, '');
+    const readablePhone = withoutPluses.replace(/[^\d ]/g, '').replace(/\s{2,}/g, ' ');
+
+    return hasLeadingPlus ? `+${readablePhone.trimStart()}` : readablePhone;
 }
 
-function startOfMonth(date: Date) {
-    return new Date(date.getFullYear(), date.getMonth(), 1, 12);
-}
-
-function addMonths(date: Date, amount: number) {
-    return new Date(date.getFullYear(), date.getMonth() + amount, 1, 12);
-}
-
-function toDateInput(date: Date) {
-    const year = date.getFullYear();
-    const month = String(date.getMonth() + 1).padStart(2, '0');
-    const day = String(date.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-}
-
-function sameDay(left: Date, right: Date) {
-    return left.getFullYear() === right.getFullYear()
-        && left.getMonth() === right.getMonth()
-        && left.getDate() === right.getDate();
-}
-
-function buildCalendarDays(month: Date) {
-    const firstDay = startOfMonth(month);
-    const mondayOffset = (firstDay.getDay() + 6) % 7;
-    const gridStart = new Date(firstDay);
-    gridStart.setDate(firstDay.getDate() - mondayOffset);
-
-    return Array.from({ length: 42 }, (_, index) => {
-        const date = new Date(gridStart);
-        date.setDate(gridStart.getDate() + index);
-
-        return {
-            date,
-            key: toDateInput(date),
-            currentMonth: date.getMonth() === month.getMonth(),
-        };
-    });
-}
-
-function buildWeekdayLabels() {
-    const monday = new Date(2024, 0, 1, 12);
-
-    return Array.from({ length: 7 }, (_, index) => {
-        const date = new Date(monday);
-        date.setDate(monday.getDate() + index);
-
-        return new Intl.DateTimeFormat(undefined, { weekday: 'short' }).format(date);
-    });
-}
-
-function formatDate(date: string) {
-    return new Intl.DateTimeFormat(undefined, {
-        weekday: 'long',
-        day: '2-digit',
-        month: 'long',
-        year: 'numeric',
-    }).format(new Date(`${date}T12:00:00`));
+function formatDate(date: string, locale: string) {
+    return formatDateLabel(date, locale);
 }

@@ -47,7 +47,7 @@ class RolePermissionTest extends TestCase
         $this->actingAs($owner)->delete("/fields/{$field->id}")->assertForbidden();
     }
 
-    public function test_only_assigned_employee_can_add_customer_notes(): void
+    public function test_owner_and_assigned_employee_can_add_customer_notes(): void
     {
         $organization = Organization::factory()->create();
         $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
@@ -71,7 +71,7 @@ class RolePermissionTest extends TestCase
             'currency' => 'EUR',
         ]);
 
-        $this->actingAs($owner)->post("/customers/{$customer->id}/notes", ['note' => 'Owner note'])->assertForbidden();
+        $this->actingAs($owner)->post("/customers/{$customer->id}/notes", ['note' => 'Owner note'])->assertRedirect();
         $this->actingAs($otherEmployee)->post("/customers/{$customer->id}/notes", ['note' => 'Unassigned note'])->assertForbidden();
         $this->actingAs($employee)->post("/customers/{$customer->id}/notes", ['note' => 'Reliable customer'])->assertRedirect();
 
@@ -81,7 +81,7 @@ class RolePermissionTest extends TestCase
             'note' => 'Reliable customer',
         ]);
 
-        $note = CustomerNote::query()->firstOrFail();
+        $note = CustomerNote::query()->where('user_id', $employee->id)->firstOrFail();
         $this->actingAs($owner)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Owner edit'])->assertForbidden();
         $this->actingAs($otherEmployee)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Other edit'])->assertForbidden();
         $this->actingAs($employee)->put("/customers/{$customer->id}/notes/{$note->id}", ['note' => 'Updated private note'])->assertRedirect();
@@ -149,7 +149,7 @@ class RolePermissionTest extends TestCase
 
         $this->actingAs($employee)->patch("/reservations/{$reservation->id}/complete")->assertRedirect();
         $this->assertDatabaseHas('reservations', ['id' => $reservation->id, 'status' => 'completed']);
-        $this->assertDatabaseCount('reservation_slots', 0);
+        $this->assertDatabaseCount('reservation_slots', 1);
     }
 
     public function test_employee_can_update_own_profile_but_owner_cannot_open_employee_profile(): void

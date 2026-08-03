@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Enums\FieldStatus;
 use App\Models\Concerns\BelongsToOrganization;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -32,6 +33,22 @@ class FootballField extends Model
     protected function casts(): array
     {
         return ['status' => FieldStatus::class, 'price_per_hour' => 'decimal:2'];
+    }
+
+    public function scopePublicReady(Builder $query): Builder
+    {
+        return $query
+            ->where('status', FieldStatus::Active)
+            ->where(function (Builder $scheduleQuery) {
+                $scheduleQuery
+                    ->where(fn (Builder $fieldSchedule) => $fieldSchedule
+                        ->whereNotNull('opening_time')
+                        ->whereNotNull('closing_time'))
+                    ->orWhereHas('operatingHours', fn (Builder $hours) => $hours
+                        ->where('is_closed', false)
+                        ->whereNotNull('opening_time')
+                        ->whereNotNull('closing_time'));
+            });
     }
 
     public function city(): BelongsTo

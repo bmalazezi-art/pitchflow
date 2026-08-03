@@ -20,10 +20,7 @@ class EmployeeInvitation extends Notification implements ShouldQueue
 
     public function toMail(object $notifiable): MailMessage
     {
-        $url = route('password.reset', [
-            'token' => $this->token,
-            'email' => $notifiable->getEmailForPasswordReset(),
-        ]);
+        $url = route('employee.invite.show', ['token' => $this->token]);
 
         return (new MailMessage)
             ->subject(__('messages.employee_invitation_subject'))

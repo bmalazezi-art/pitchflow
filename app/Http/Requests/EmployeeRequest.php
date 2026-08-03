@@ -20,8 +20,8 @@ class EmployeeRequest extends FormRequest
         return [
             'first_name' => ['required', 'string', 'max:60'],
             'last_name' => ['required', 'string', 'max:60'],
-            'email' => ['required', 'email', 'max:255', Rule::unique('users')->ignore($employeeId)],
-            'phone' => ['nullable', 'string', 'max:32'],
+            'email' => ['nullable', 'email', 'max:255', Rule::unique('users')->whereNull('deleted_at')->ignore($employeeId)],
+            'phone' => ['required', 'string', 'max:32'],
             'preferred_language' => ['required', 'in:en,sq'],
             'field_ids' => ['required', 'array'],
             'field_ids.*' => ['integer'],

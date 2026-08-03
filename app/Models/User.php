@@ -14,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\URL;
 
 /**
  * @property int $id
@@ -28,9 +30,10 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     use HasFactory, Notifiable, SoftDeletes;
 
     protected $fillable = [
-        'organization_id', 'name', 'email', 'password', 'role', 'phone',
+        'organization_id', 'name', 'email', 'password', 'role', 'phone', 'phone_normalized',
         'preferred_language', 'email_verified_at', 'last_login_at', 'status',
-        'permissions', 'invited_at', 'invitation_accepted_at',
+        'permissions', 'invited_at', 'invitation_token_hash', 'invitation_expires_at',
+        'invitation_accepted_at',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -46,6 +49,7 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'email_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'invited_at' => 'datetime',
+            'invitation_expires_at' => 'datetime',
             'invitation_accepted_at' => 'datetime',
             'permissions' => 'array',
             'password' => 'hashed',
@@ -99,6 +103,21 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
 
     public function sendEmailVerificationNotification(): void
     {
+        if (app()->environment(['local', 'development', 'testing'])) {
+            Log::info('PitchFlow email verification link', [
+                'user_id' => $this->id,
+                'email' => $this->getEmailForVerification(),
+                'url' => URL::temporarySignedRoute(
+                    'verification.verify',
+                    now()->addMinutes((int) config('auth.verification.expire', 60)),
+                    [
+                        'id' => $this->getKey(),
+                        'hash' => sha1($this->getEmailForVerification()),
+                    ],
+                ),
+            ]);
+        }
+
         $this->notify(new QueuedVerifyEmail);
     }
 }

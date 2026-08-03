@@ -7,7 +7,12 @@ use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\Organization;
 use App\Models\User;
+use App\Notifications\BusinessApplicationReceived;
+use App\Notifications\BusinessApproved;
+use App\Notifications\BusinessRejected;
+use App\Notifications\QueuedVerifyEmail;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Notification;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -17,6 +22,7 @@ class OrganizationRegistrationTest extends TestCase
 
     public function test_registration_creates_an_isolated_pending_organization_and_owner(): void
     {
+        Notification::fake();
         $city = City::factory()->create();
 
         $response = $this->post('/register', [
@@ -48,6 +54,8 @@ class OrganizationRegistrationTest extends TestCase
         $owner = User::query()->where('email', 'owner@example.com')->firstOrFail();
         $this->assertSame($organization->id, $owner->organization_id);
         $this->assertSame(UserRole::Owner, $owner->role);
+        Notification::assertSentTo($owner, BusinessApplicationReceived::class);
+        Notification::assertSentTo($owner, QueuedVerifyEmail::class);
         $this->assertDatabaseCount('football_fields', 2);
         $this->assertDatabaseCount('operating_hours', 14);
         $this->assertDatabaseHas('football_fields', ['price_per_hour' => 35, 'opening_time' => '12:00']);
@@ -66,5 +74,72 @@ class OrganizationRegistrationTest extends TestCase
                 ->where('organizations.data.0.status', OrganizationStatus::Pending->value));
 
         $this->assertFalse(Organization::query()->eligibleForPublicDirectory()->whereKey($organization)->exists());
+    }
+
+    public function test_owner_is_notified_when_business_is_approved_or_rejected(): void
+    {
+        Notification::fake();
+
+        $superAdmin = User::factory()->create(['role' => UserRole::SuperAdmin, 'organization_id' => null]);
+        $approvedOrganization = Organization::factory()->create(['status' => OrganizationStatus::Pending, 'approved_at' => null]);
+        $approvedOwner = User::factory()->for($approvedOrganization)->create([
+            'role' => UserRole::Owner,
+            'email' => 'approved-owner@example.com',
+            'preferred_language' => 'en',
+        ]);
+        $rejectedOrganization = Organization::factory()->create(['status' => OrganizationStatus::Pending, 'approved_at' => null]);
+        $rejectedOwner = User::factory()->for($rejectedOrganization)->create([
+            'role' => UserRole::Owner,
+            'email' => 'rejected-owner@example.com',
+            'preferred_language' => 'sq',
+        ]);
+
+        $this->actingAs($superAdmin)->patch("/admin/organizations/{$approvedOrganization->id}", [
+            'status' => 'approved',
+        ])->assertRedirect();
+
+        $this->actingAs($superAdmin)->patch("/admin/organizations/{$rejectedOrganization->id}", [
+            'status' => 'rejected',
+            'rejection_reason' => 'Missing business details.',
+        ])->assertRedirect();
+
+        Notification::assertSentTo($approvedOwner, BusinessApproved::class);
+        Notification::assertSentTo($rejectedOwner, BusinessRejected::class);
+        $this->assertSame(OrganizationStatus::Approved, $approvedOrganization->refresh()->status);
+        $this->assertSame(OrganizationStatus::Rejected, $rejectedOrganization->refresh()->status);
+    }
+
+    public function test_approved_owner_can_access_workspace_without_email_verification_for_mvp(): void
+    {
+        $organization = Organization::factory()->create(['status' => OrganizationStatus::Approved]);
+        $owner = User::factory()->for($organization)->create([
+            'role' => UserRole::Owner,
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($owner)->get('/dashboard')->assertOk();
+    }
+
+    public function test_unverified_user_can_change_email_and_receive_new_verification_link(): void
+    {
+        Notification::fake();
+
+        $organization = Organization::factory()->create(['status' => OrganizationStatus::Pending]);
+        $owner = User::factory()->for($organization)->create([
+            'role' => UserRole::Owner,
+            'email' => 'old-owner@example.com',
+            'email_verified_at' => null,
+        ]);
+
+        $this->actingAs($owner)->patch('/email', ['email' => 'new-owner@example.com'])
+            ->assertRedirect()
+            ->assertSessionHas('success');
+
+        $this->assertDatabaseHas('users', [
+            'id' => $owner->id,
+            'email' => 'new-owner@example.com',
+            'email_verified_at' => null,
+        ]);
+        Notification::assertSentTo($owner->refresh(), QueuedVerifyEmail::class);
     }
 }

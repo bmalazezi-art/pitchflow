@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
  * @property string $phone
  * @property string $phone_normalized
  * @property ReliabilityStatus $reliability_status
+ * @property bool $reliability_status_manual
  * @property int $reliability_score
  */
 class Customer extends Model
@@ -25,7 +26,7 @@ class Customer extends Model
 
     protected $fillable = [
         'organization_id', 'preferred_field_id', 'name', 'phone', 'phone_normalized',
-        'reliability_status', 'reliability_score', 'total_reservations', 'completed_reservations',
+        'reliability_status', 'reliability_status_manual', 'reliability_score', 'total_reservations', 'completed_reservations',
         'cancelled_reservations', 'late_cancellations', 'no_shows', 'last_visit_at',
     ];
 
@@ -33,6 +34,7 @@ class Customer extends Model
     {
         return [
             'reliability_status' => ReliabilityStatus::class,
+            'reliability_status_manual' => 'boolean',
             'reliability_score' => 'integer',
             'last_visit_at' => 'datetime',
         ];

@@ -42,7 +42,9 @@ class SearchController extends Controller
         return response()->json([
             'customers' => $canViewCustomers ? Customer::query()->forOrganization($organizationId)
                 ->when($fieldIds !== null, fn ($query) => $query->whereHas('reservations', fn ($reservationQuery) => $reservationQuery->whereIn('football_field_id', $fieldIds)))
-                ->where(fn ($query) => $query->where('name', 'like', "%{$q}%")->orWhere('phone', 'like', "%{$q}%"))
+                ->where(fn ($query) => $query->where('name', 'like', "%{$q}%")
+                    ->orWhere('phone', 'like', "%{$q}%")
+                    ->orWhere('phone_normalized', 'like', "%{$q}%"))
                 ->limit(5)->get(['id', 'name', 'phone', 'reliability_status']) : [],
             'reservations' => Reservation::query()->forOrganization($organizationId)
                 ->when($fieldIds !== null, fn ($query) => $query->whereIn('football_field_id', $fieldIds))

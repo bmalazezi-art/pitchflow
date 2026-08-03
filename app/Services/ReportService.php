@@ -2,11 +2,14 @@
 
 namespace App\Services;
 
+use App\Enums\OrganizationStatus;
 use App\Enums\PaymentStatus;
 use App\Enums\ReservationStatus;
 use App\Models\ActivityLog;
 use App\Models\Organization;
 use App\Models\Reservation;
+use App\Models\ReservationCorrectionRequest;
+use App\Models\WaitingListRequest;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Collection;
@@ -91,6 +94,7 @@ class ReportService
                 ->latest('created_at')
                 ->limit(8)
                 ->get(['id', 'organization_id', 'user_id', 'action', 'description', 'created_at']),
+            'readiness' => $this->readiness($organization),
         ];
     }
 
@@ -98,31 +102,99 @@ class ReportService
     {
         $reservations = Reservation::query()
             ->forOrganization($organization->id)
-            ->with('footballField:id,name')
+            ->with(['footballField:id,name', 'cancelledByUser:id,name'])
             ->whereBetween('starts_at', [$from->utc(), $to->utc()])
             ->get();
 
-        $totalHours = $reservations
-            ->whereNotIn('status', [ReservationStatus::Cancelled, ReservationStatus::LateCancelled])
+        $countableReservations = $reservations->whereNotIn('status', [
+            ReservationStatus::Cancelled,
+            ReservationStatus::LateCancelled,
+            ReservationStatus::Voided,
+        ]);
+        $activeReservations = $reservations->whereIn('status', [
+            ReservationStatus::Pending,
+            ReservationStatus::Confirmed,
+            ReservationStatus::Completed,
+        ]);
+        $totalHours = $countableReservations
             ->sum(fn (Reservation $reservation) => $reservation->starts_at->diffInMinutes($reservation->ends_at) / 60);
         $availableHours = $this->capacityHours($organization, $from, $to);
+        $paymentStats = [
+            'paid' => $this->paymentBucket($activeReservations, PaymentStatus::Paid),
+            'partial' => $this->paymentBucket($activeReservations, PaymentStatus::Partial),
+            'unpaid' => $this->paymentBucket($activeReservations, PaymentStatus::Unpaid),
+        ];
+        $cancelledReservations = $reservations->whereIn('status', [
+            ReservationStatus::Cancelled,
+            ReservationStatus::LateCancelled,
+            ReservationStatus::NoShow,
+            ReservationStatus::Voided,
+        ]);
+        $correctionRequests = ReservationCorrectionRequest::query()
+            ->forOrganization($organization->id)
+            ->whereBetween('created_at', [$from->utc(), $to->utc()]);
+        $correctedReservations = ReservationCorrectionRequest::query()
+            ->forOrganization($organization->id)
+            ->where('status', 'resolved')
+            ->whereBetween('reviewed_at', [$from->utc(), $to->utc()]);
+        $waitingListRequests = WaitingListRequest::query()
+            ->forOrganization($organization->id)
+            ->whereBetween('created_at', [$from->utc(), $to->utc()]);
+        $missingPriceCount = $activeReservations
+            ->filter(fn (Reservation $reservation) => (float) $reservation->price <= 0)
+            ->count();
 
         return [
-            'reservation_count' => $reservations->count(),
-            'collected_revenue' => (float) $reservations
+            'reservation_count' => $countableReservations->count(),
+            'collected_revenue' => (float) $activeReservations
                 ->whereIn('payment_status', [PaymentStatus::Paid, PaymentStatus::Partial])
                 ->sum('paid_amount'),
-            'booked_revenue' => (float) $reservations->sum('price'),
+            'booked_revenue' => (float) $activeReservations->sum('price'),
             'occupancy_rate' => round(min(100, ($totalHours / $availableHours) * 100), 1),
-            'walk_ins' => $reservations->where('is_walk_in', true)->count(),
+            'walk_ins' => $countableReservations->where('is_walk_in', true)->count(),
             'no_shows' => $reservations->where('status', ReservationStatus::NoShow)->count(),
             'late_cancellations' => $reservations->where('status', ReservationStatus::LateCancelled)->count(),
-            'paid_reservations' => $reservations->where('payment_status', PaymentStatus::Paid)->count(),
-            'partial_reservations' => $reservations->where('payment_status', PaymentStatus::Partial)->count(),
-            'unpaid_reservations' => $reservations->where('payment_status', PaymentStatus::Unpaid)->count(),
-            'most_booked_field' => $this->mostBookedField($reservations),
-            'peak_hours' => $reservations->groupBy(fn (Reservation $reservation) => $reservation->starts_at->setTimezone(Timezones::resolve($organization->timezone))->format('H:00'))
+            'total_cancellations' => $cancelledReservations->count(),
+            'correction_requests' => (clone $correctionRequests)->count(),
+            'corrected_reservations' => (clone $correctedReservations)->count(),
+            'waiting_list_requests' => (clone $waitingListRequests)->count(),
+            'notified_waiting_list_requests' => (clone $waitingListRequests)->where('status', 'notified')->count(),
+            'paid_cancelled_revenue' => (float) $cancelledReservations
+                ->whereIn('payment_status', [PaymentStatus::Paid, PaymentStatus::Partial])
+                ->sum('paid_amount'),
+            'cancellations_by_reason' => $cancelledReservations
+                ->groupBy(fn (Reservation $reservation) => $reservation->cancellation_reason ?: 'unknown')
+                ->map->count()
+                ->sortDesc(),
+            'cancellations_by_employee' => $cancelledReservations
+                ->groupBy(fn (Reservation $reservation) => $reservation->cancelledByUser?->name ?: 'Unknown')
+                ->map->count()
+                ->sortDesc(),
+            'paid_reservations' => $paymentStats['paid']['count'],
+            'partial_reservations' => $paymentStats['partial']['count'],
+            'unpaid_reservations' => $paymentStats['unpaid']['count'],
+            'payment_stats' => $paymentStats,
+            'unpaid_booking_count' => $activeReservations
+                ->whereIn('payment_status', [PaymentStatus::Unpaid, PaymentStatus::Partial])
+                ->count(),
+            'missing_price_reservation_count' => $missingPriceCount,
+            'revenue_warning' => $reservations->isNotEmpty() && (float) $activeReservations->sum('price') <= 0
+                ? 'Reservations found, but no price was saved for them.'
+                : null,
+            'most_booked_field' => $this->mostBookedField($countableReservations),
+            'peak_hours' => $countableReservations->groupBy(fn (Reservation $reservation) => $reservation->starts_at->setTimezone(Timezones::resolve($organization->timezone))->format('H:00'))
                 ->map->count()->sortDesc()->take(8),
+        ];
+    }
+
+    private function paymentBucket(Collection $reservations, PaymentStatus $status): array
+    {
+        $bucket = $reservations->where('payment_status', $status);
+
+        return [
+            'count' => $bucket->count(),
+            'paid_total' => (float) $bucket->sum('paid_amount'),
+            'booked_total' => (float) $bucket->sum('price'),
         ];
     }
 
@@ -144,6 +216,54 @@ class ReportService
     private function mostBookedField(Collection $reservations): ?string
     {
         return $reservations->groupBy('football_field_id')->sortByDesc->count()->first()?->first()?->footballField?->name;
+    }
+
+    private function readiness(Organization $organization): array
+    {
+        $activeFields = $organization->footballFields()
+            ->where('status', 'active')
+            ->count();
+        $employeeCount = $organization->users()
+            ->where('role', 'employee')
+            ->where('status', 'active')
+            ->count();
+        $hasContact = filled($organization->phone) && filled($organization->email);
+        $hasLocation = filled($organization->city_id) && filled($organization->address);
+        $isPublic = $organization->status === OrganizationStatus::Approved && $activeFields > 0;
+
+        $items = [
+            [
+                'key' => 'businessProfile',
+                'complete' => $hasContact && $hasLocation,
+                'href' => '/settings/organization',
+            ],
+            [
+                'key' => 'activeFields',
+                'complete' => $activeFields > 0,
+                'href' => '/fields',
+            ],
+            [
+                'key' => 'employeesReady',
+                'complete' => $employeeCount > 0,
+                'href' => '/employees',
+            ],
+            [
+                'key' => 'publicVisibilityReady',
+                'complete' => $isPublic,
+                'href' => '/settings/organization',
+            ],
+        ];
+
+        return [
+            'complete_count' => collect($items)->where('complete', true)->count(),
+            'total_count' => count($items),
+            'items' => $items,
+            'warnings' => collect($items)
+                ->reject(fn (array $item) => $item['complete'])
+                ->pluck('key')
+                ->values()
+                ->all(),
+        ];
     }
 
     private function capacityHours(

@@ -4,13 +4,16 @@ namespace App\Services;
 
 use App\Enums\FieldStatus;
 use App\Enums\PaymentStatus;
+use App\Enums\ReliabilityStatus;
 use App\Enums\ReservationStatus;
 use App\Exceptions\ReservationConflictException;
 use App\Models\Customer;
 use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\Reservation;
+use App\Models\ReservationCorrectionRequest;
 use App\Models\ReservationSlot;
+use App\Models\User;
 use App\Support\Timezones;
 use Carbon\CarbonImmutable;
 use Illuminate\Database\QueryException;
@@ -39,21 +42,18 @@ class ReservationService
             $this->ensureValidRange($startsAt, $endsAt);
             $this->ensureWithinOperatingHours($field, $startsAt, $endsAt);
 
-            $normalizedPhone = $this->phones->normalize($data['customer_phone']);
-            $customer = Customer::withTrashed()->firstOrNew([
-                'organization_id' => $organization->id,
-                'phone_normalized' => $normalizedPhone,
-            ]);
-            $customer->fill([
-                'name' => $data['customer_name'],
-                'phone' => $data['customer_phone'],
-            ]);
-            $customer->deleted_at = null;
-            $customer->save();
+            $customer = $this->customerFromPayload($organization, $data);
+            $this->ensureCustomerBookable($customer);
 
             $status = ReservationStatus::from($data['status'] ?? ReservationStatus::Confirmed->value);
             if (! in_array($status, [ReservationStatus::Pending, ReservationStatus::Confirmed], true)) {
                 throw new ReservationConflictException(__('messages.invalid_reservation_status'));
+            }
+            $price = $this->reservationPrice($field, $startsAt, $endsAt, $data['price'] ?? null);
+            $paymentStatus = PaymentStatus::from($data['payment_status'] ?? PaymentStatus::Unpaid->value);
+            $paidAmount = (float) ($data['paid_amount'] ?? 0);
+            if ($paymentStatus === PaymentStatus::Paid && $paidAmount <= 0) {
+                $paidAmount = $price;
             }
             $reservation = Reservation::create([
                 ...$data,
@@ -62,7 +62,9 @@ class ReservationService
                 'starts_at' => $startsAt,
                 'ends_at' => $endsAt,
                 'status' => $status,
-                'price' => $data['price'] ?? (float) $field->price_per_hour * ($startsAt->diffInMinutes($endsAt) / 60),
+                'payment_status' => $paymentStatus,
+                'price' => $price,
+                'paid_amount' => $paidAmount,
                 'currency' => $organization->currency,
                 'created_by' => $actorId,
                 'updated_by' => $actorId,
@@ -99,20 +101,14 @@ class ReservationService
             $this->ensureValidRange($startsAt, $endsAt);
             $this->ensureWithinOperatingHours($field, $startsAt, $endsAt);
 
-            $customer = $reservation->customer;
-            if (isset($data['customer_phone']) && $this->phones->normalize($data['customer_phone']) !== $customer->phone_normalized) {
-                $customer = Customer::query()->firstOrCreate(
-                    [
-                        'organization_id' => $organization->id,
-                        'phone_normalized' => $this->phones->normalize($data['customer_phone']),
-                    ],
-                    ['name' => $data['customer_name'], 'phone' => $data['customer_phone']],
-                );
-            } elseif (isset($data['customer_name'], $data['customer_phone'])) {
-                $customer->update(['name' => $data['customer_name'], 'phone' => $data['customer_phone']]);
+            $previousCustomer = $reservation->customer;
+            $customer = isset($data['customer_name'], $data['customer_phone'])
+                ? $this->customerFromPayload($organization, $data)
+                : $previousCustomer;
+            if ($previousCustomer->isNot($customer)) {
+                $this->ensureCustomerBookable($customer);
             }
 
-            $reservation->slots()->delete();
             $nextStatus = ReservationStatus::from($data['status'] ?? $reservation->status->value);
             $this->ensureStatusTransition($reservation->status, $nextStatus);
             $reservation->fill([
@@ -125,10 +121,14 @@ class ReservationService
                 'updated_by' => $actorId,
             ])->save();
 
+            $reservation->slots()->delete();
             if ($reservation->status->blocksAvailability()) {
                 $this->lockSlots($reservation);
             }
 
+            if ($previousCustomer->isNot($customer)) {
+                $this->reliability->recalculate($previousCustomer);
+            }
             $this->reliability->recalculate($customer);
             $this->activity->log('reservation_updated', $reservation);
 
@@ -136,27 +136,144 @@ class ReservationService
         });
     }
 
-    public function cancel(Reservation $reservation, Organization $organization, int $actorId, ?string $reason): Reservation
+    public function cancel(Reservation $reservation, Organization $organization, int $actorId, ?string $reason, ?string $note = null): Reservation
     {
-        return DB::transaction(function () use ($reservation, $organization, $actorId, $reason) {
+        return DB::transaction(function () use ($reservation, $organization, $actorId, $reason, $note) {
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
-            $this->ensureCancellable($reservation, $reason);
-            $cutoff = $reservation->starts_at->subMinutes($organization->cancellation_window_minutes);
-            $status = now()->greaterThan($cutoff)
-                ? ReservationStatus::LateCancelled
-                : ReservationStatus::Cancelled;
+            $this->ensureCancellable($reservation, $reason, $note);
+            $previousStatus = $reservation->status;
+            $status = ReservationStatus::Cancelled;
 
             $reservation->slots()->delete();
             $reservation->forceFill([
                 'status' => $status,
                 'cancellation_reason' => $reason,
+                'previous_status' => $previousStatus->value,
+                'cancellation_note' => $note,
                 'cancelled_by' => $actorId,
+                'cancelled_by_user_id' => $actorId,
                 'cancelled_at' => now(),
                 'updated_by' => $actorId,
             ])->save();
 
             $this->reliability->recalculate($reservation->customer);
-            $this->activity->log('reservation_cancelled', $reservation, properties: ['status' => $status->value]);
+            $this->activity->log($status === ReservationStatus::NoShow ? 'marked_no_show' : 'reservation_cancelled', $reservation, properties: [
+                'actor_role' => request()->user()?->role?->value,
+                'old_status' => $previousStatus->value,
+                'new_status' => $status->value,
+                'reason' => $reason,
+                'note' => $note,
+            ]);
+
+            return $reservation->refresh();
+        });
+    }
+
+    public function requestCorrection(Reservation $reservation, User $actor, string $reason, ?string $note = null, ?string $requestedAction = null): ReservationCorrectionRequest
+    {
+        return DB::transaction(function () use ($reservation, $actor, $reason, $note, $requestedAction) {
+            $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
+
+            if ($reservation->status !== ReservationStatus::Completed) {
+                throw new ReservationConflictException(__('messages.correction_only_completed'));
+            }
+
+            if ($requestedAction && ! in_array($requestedAction, ['reopen', 'cancel', 'no_show'], true)) {
+                throw new ReservationConflictException(__('messages.invalid_correction_action'));
+            }
+
+            if ($requestedAction === 'cancel' && blank($note)) {
+                throw new ReservationConflictException(__('messages.correction_cancel_note_required'));
+            }
+
+            $request = ReservationCorrectionRequest::query()->create([
+                'organization_id' => $reservation->organization_id,
+                'reservation_id' => $reservation->id,
+                'requested_by_user_id' => $actor->id,
+                'reason' => $reason,
+                'requested_action' => $requestedAction,
+                'note' => $note,
+                'status' => 'pending',
+            ]);
+
+            $this->activity->log('correction_requested', $reservation, properties: [
+                'actor_role' => $actor->role->value,
+                'old_status' => $reservation->status->value,
+                'new_status' => $reservation->status->value,
+                'reason' => $reason,
+                'requested_action' => $requestedAction,
+                'note' => $note,
+            ]);
+
+            return $request;
+        });
+    }
+
+    public function reviewCorrection(ReservationCorrectionRequest $request, User $actor, string $action, string $reason): Reservation
+    {
+        return DB::transaction(function () use ($request, $actor, $action, $reason) {
+            $request = ReservationCorrectionRequest::query()
+                ->with('reservation.customer')
+                ->lockForUpdate()
+                ->findOrFail($request->id);
+
+            if ($request->status !== 'pending') {
+                throw new ReservationConflictException(__('messages.correction_already_reviewed'));
+            }
+
+            $reservation = Reservation::query()->lockForUpdate()->findOrFail($request->reservation_id);
+            $oldStatus = $reservation->status;
+            $newStatus = match ($action) {
+                'reopen' => ReservationStatus::Confirmed,
+                'cancel' => ReservationStatus::Cancelled,
+                'no_show' => ReservationStatus::NoShow,
+                'void' => ReservationStatus::Voided,
+                'ignore' => $reservation->status,
+                default => throw new ReservationConflictException(__('messages.invalid_correction_action')),
+            };
+
+            if ($action !== 'ignore') {
+                $reservation->slots()->delete();
+                $reservation->forceFill([
+                    'status' => $newStatus,
+                    'previous_status' => $oldStatus->value,
+                    'cancellation_reason' => in_array($action, ['cancel', 'no_show', 'void'], true) ? "correction_{$action}" : $reservation->cancellation_reason,
+                    'cancellation_note' => in_array($action, ['cancel', 'no_show', 'void'], true) ? $reason : $reservation->cancellation_note,
+                    'cancelled_by' => in_array($action, ['cancel', 'no_show', 'void'], true) ? $actor->id : $reservation->cancelled_by,
+                    'cancelled_by_user_id' => in_array($action, ['cancel', 'no_show', 'void'], true) ? $actor->id : $reservation->cancelled_by_user_id,
+                    'cancelled_at' => in_array($action, ['cancel', 'no_show', 'void'], true) ? now() : $reservation->cancelled_at,
+                    'updated_by' => $actor->id,
+                ])->save();
+
+                if ($newStatus->blocksAvailability()) {
+                    $this->lockSlots($reservation);
+                }
+
+                $this->reliability->recalculate($reservation->customer);
+            }
+
+            $request->forceFill([
+                'status' => $action === 'ignore' ? 'ignored' : 'resolved',
+                'review_action' => $action,
+                'review_reason' => $reason,
+                'reviewed_by_user_id' => $actor->id,
+                'reviewed_at' => now(),
+            ])->save();
+
+            $this->activity->log(match ($action) {
+                'reopen' => 'reservation_reopened',
+                'void' => 'reservation_voided',
+                'no_show' => 'marked_no_show',
+                'cancel' => 'reservation_cancelled',
+                default => 'correction_ignored',
+            }, $reservation, properties: [
+                'actor_role' => $actor->role->value,
+                'old_status' => $oldStatus->value,
+                'new_status' => $newStatus->value,
+                'reason' => $reason,
+                'note' => $request->note,
+                'correction_request_id' => $request->id,
+            ]);
 
             return $reservation->refresh();
         });
@@ -190,6 +307,7 @@ class ReservationService
                 'status' => ReservationStatus::Completed,
                 'updated_by' => $actorId,
             ])->save();
+            $this->lockSlots($reservation);
             $this->reliability->recalculate($reservation->customer);
             $this->activity->log('reservation_completed', $reservation);
 
@@ -252,6 +370,30 @@ class ReservationService
         }
     }
 
+    private function customerFromPayload(Organization $organization, array $data): Customer
+    {
+        $normalizedPhone = $this->phones->normalize($data['customer_phone']);
+        $customer = Customer::withTrashed()->firstOrNew([
+            'organization_id' => $organization->id,
+            'phone_normalized' => $normalizedPhone,
+        ]);
+        $customer->fill([
+            'name' => $data['customer_name'],
+            'phone' => $data['customer_phone'],
+        ]);
+        $customer->deleted_at = null;
+        $customer->save();
+
+        return $customer;
+    }
+
+    private function ensureCustomerBookable(Customer $customer): void
+    {
+        if ($customer->reliability_status === ReliabilityStatus::HighRisk) {
+            throw new ReservationConflictException(__('messages.blocked_customer_reservation_forbidden'));
+        }
+    }
+
     private function utcRange(Organization $organization, array $data): array
     {
         return [
@@ -294,14 +436,22 @@ class ReservationService
         }
     }
 
-    private function ensureCancellable(Reservation $reservation, ?string $reason): void
+    private function ensureCancellable(Reservation $reservation, ?string $reason, ?string $note): void
     {
         if ($reservation->status === ReservationStatus::Completed) {
             throw new ReservationConflictException(__('messages.completed_reservation_cancel_forbidden'));
         }
 
+        if (in_array($reservation->status, [ReservationStatus::Cancelled, ReservationStatus::LateCancelled, ReservationStatus::NoShow, ReservationStatus::Voided], true)) {
+            throw new ReservationConflictException(__('messages.invalid_reservation_status'));
+        }
+
         if (blank($reason)) {
             throw new ReservationConflictException(__('messages.past_reservation_cancel_reason_required'));
+        }
+
+        if ($reason === 'other' && blank($note)) {
+            throw new ReservationConflictException(__('messages.cancellation_other_note_required'));
         }
     }
 
@@ -330,5 +480,19 @@ class ReservationService
         if (! $this->schedule->contains($field, $startsAt, $endsAt)) {
             throw new ReservationConflictException(__('messages.outside_operating_hours'));
         }
+    }
+
+    private function reservationPrice(FootballField $field, CarbonImmutable $startsAt, CarbonImmutable $endsAt, mixed $explicitPrice = null): float
+    {
+        if ($explicitPrice !== null && (float) $explicitPrice >= 0) {
+            return round((float) $explicitPrice, 2);
+        }
+
+        $hourlyPrice = (float) $field->price_per_hour;
+        if ($hourlyPrice <= 0) {
+            throw new ReservationConflictException(__('messages.missing_field_price'));
+        }
+
+        return round($hourlyPrice * ($startsAt->diffInMinutes($endsAt) / 60), 2);
     }
 }
