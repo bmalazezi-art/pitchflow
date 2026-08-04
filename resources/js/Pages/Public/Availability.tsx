@@ -484,7 +484,7 @@ function AvailabilitySection({ business, date, pitchAvailability, now }: {
                 </div>
             </section>)}
         </div>
-        <Modal open={Boolean(waitingSlot)} title={t('joinWaitingList')} onClose={() => setWaitingSlot(null)}>
+        <Modal open={Boolean(waitingSlot)} title={t('joinWaitingList')} onClose={() => setWaitingSlot(null)} className="waiting-list-modal">
             <form className="waiting-list-form" onSubmit={submitWaitingList}>
                 <p>{t('waitingListIntro')}</p>
                 {waitingSlot && <div className="waiting-slot-summary"><strong>{waitingSlot.field.name}</strong><span>{waitingSlot.slot.label}</span></div>}

@@ -38,11 +38,11 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
     return <select className="input" {...props} />;
 }
 
-export function Modal({ open, title, onClose, children }: { open: boolean; title: string; onClose: () => void; children: ReactNode }) {
+export function Modal({ open, title, onClose, children, className }: { open: boolean; title: string; onClose: () => void; children: ReactNode; className?: string }) {
     const t = useTranslation();
     if (!open) return null;
     return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
-        <section className="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <section className={clsx('modal', className)} role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <header><h2 id="modal-title">{title}</h2><button className="icon-btn" onClick={onClose} aria-label={t('close')}><X size={20} /></button></header>
             {children}
         </section>
