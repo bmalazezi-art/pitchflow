@@ -65,6 +65,6 @@ class LoginRateLimitTest extends TestCase
             'email' => 'owner@example.test',
             'password' => 'wrong-password',
         ])->assertRedirect()
-            ->assertSessionHasErrors(['email' => __('auth.failed')]);
+            ->assertSessionHasErrors(['email' => __('auth.password')]);
     }
 }

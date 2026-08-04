@@ -60,7 +60,20 @@ class LoginSecurityTest extends TestCase
             'email' => $user->email,
             'password' => 'wrong-password',
         ])->assertRedirect('/login')
-            ->assertSessionHasErrors(['email']);
+            ->assertSessionHasErrors(['email' => __('auth.password')]);
+
+        $this->assertGuest();
+    }
+
+    public function test_wrong_email_with_valid_password_gets_no_account_message(): void
+    {
+        $this->createSuperAdmin();
+
+        $this->from('/login')->post('/login', [
+            'email' => 'missing@example.test',
+            'password' => 'CorrectPassword123!',
+        ])->assertRedirect('/login')
+            ->assertSessionHasErrors(['email' => __('auth.no_account')]);
 
         $this->assertGuest();
     }
@@ -88,7 +101,7 @@ class LoginSecurityTest extends TestCase
                 'password' => 'definitely-wrong',
             ])
             ->assertRedirect('/login')
-            ->assertSessionHasErrors(['email']);
+            ->assertSessionHasErrors(['email' => __('auth.no_account')]);
 
         $this->assertGuest();
     }

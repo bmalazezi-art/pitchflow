@@ -45,9 +45,14 @@ class AuthenticatedSessionController extends Controller
 
         $user = $this->userForLogin($login);
 
-        if (! $user || ! $user->password || ! Hash::check($password, $user->password)) {
+        if (! $user) {
             RateLimiter::hit($this->throttleKey($request), 60);
-            throw ValidationException::withMessages(['email' => __('auth.failed')]);
+            throw ValidationException::withMessages(['email' => __('auth.no_account')]);
+        }
+
+        if (! $user->password || ! Hash::check($password, $user->password)) {
+            RateLimiter::hit($this->throttleKey($request), 60);
+            throw ValidationException::withMessages(['email' => __('auth.password')]);
         }
 
         RateLimiter::clear($this->throttleKey($request));
