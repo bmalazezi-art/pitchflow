@@ -34,7 +34,9 @@
 }
 
 * { box-sizing: border-box; }
-body { margin: 0; min-width: 320px; min-height: 100vh; background: #f5f7fa; color: var(--text); }
+html, body, #app { width: 100%; max-width: 100%; }
+html { overflow-x: clip; }
+body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; background: #f5f7fa; color: var(--text); }
 .dark body { background: #111317; }
 button, input, select, textarea { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -1300,6 +1302,44 @@ textarea.input { min-height: 90px; resize: vertical; }
     .card-cta, .card-call-cta { white-space: normal; }
 }
 
+@media (max-width: 640px) {
+    html, body, #app { max-width: 100%; overflow-x: clip; }
+    .public-page, .public-home, .public-fields-page, .auth-shell, .auth-form, .auth-card, .modal { max-width: 100%; }
+    input, textarea, select,
+    .input,
+    .public-input input,
+    .public-input select,
+    .calendar-trigger,
+    .language-selector-trigger,
+    .auth-form .input,
+    .auth-form select,
+    .auth-form textarea,
+    .price-input-group .input {
+        font-size: 16px !important;
+    }
+    .public-nav { min-height: 0; padding: 5px 10px 7px; gap: 3px; flex-wrap: wrap; align-items: center; }
+    .public-nav .brand { width: 100%; height: 30px; padding: 0; gap: 7px; flex: 0 0 100%; }
+    .public-nav .brand-mark { width: 28px; height: 28px; flex-basis: 28px; }
+    .public-nav .brand strong { max-width: 180px; font-size: 18px; }
+    .public-nav-actions { width: 100%; flex: 0 0 100%; justify-content: space-between; gap: 4px; }
+    .public-nav .btn { min-height: 38px; padding: 0 8px; }
+    .public-theme-toggle { width: 38px; height: 38px; flex-basis: 38px; }
+    .public-language-selector .language-selector-trigger { min-height: 38px; padding: 0 8px; }
+    .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 180; min-width: 156px; max-width: calc(100vw - 24px); }
+    .language-selector-menu button { min-height: 42px; font-size: 16px; }
+    .auth-shell { min-height: 100dvh; }
+    .auth-form { min-height: 100dvh; padding: 18px 14px; justify-content: flex-start; }
+    .auth-form .brand { margin-bottom: 14px; }
+    .auth-card { padding: 20px 16px; border-radius: 12px; }
+    .auth-card h1, .auth-form h1 { margin: 12px 0 7px; font-size: 30px; }
+    .auth-card > p, .auth-form > p { margin-bottom: 18px; font-size: 14px; line-height: 1.45; }
+    .auth-form form { gap: 14px; }
+    .auth-form .field-label > span { font-size: 13px; }
+    .auth-form .input, .auth-form .price-input-group { min-height: 46px; }
+    .auth-form .price-input-group .input { min-height: 44px; }
+    .auth-submit { min-height: 46px; font-size: 16px; }
+}
+
 @media (max-width: 580px) {
     input, textarea, select,
     .input,
@@ -1396,10 +1436,10 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-input { min-height: 56px; }
     .time-slot-card { min-height: 112px; }
     .schedule-row { grid-template-columns: 1fr 1fr; }
-    .public-nav { min-height: 0; padding: 7px 10px; gap: 5px; }
+    .public-nav { min-height: 0; padding: 5px 10px 7px; gap: 3px; }
     .public-nav .brand { padding-left: 0; }
     .public-nav-actions { gap: 4px; }
-    .language-selector-trigger { min-height: 34px; padding: 0 8px; }
+    .language-selector-trigger { min-height: 38px; padding: 0 8px; }
     .language-selector-menu { right: auto; left: 0; max-width: calc(100vw - 24px); }
     .public-nav .btn-secondary { display: inline-flex; }
     .public-nav .btn { min-height: 38px; padding: 0 8px; }
