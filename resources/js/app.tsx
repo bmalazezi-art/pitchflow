@@ -48,12 +48,32 @@ const verifyProtectedSession = async () => {
     }
 };
 
-window.addEventListener('pageshow', () => {
+const queueProtectedSessionCheck = () => {
+    window.setTimeout(() => {
+        void verifyProtectedSession();
+    }, 0);
+};
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted && isProtectedPath(window.location.pathname)) {
+        window.location.reload();
+        return;
+    }
+
     void verifyProtectedSession();
+});
+
+window.addEventListener('popstate', queueProtectedSessionCheck);
+
+document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+        void verifyProtectedSession();
+    }
 });
 
 router.on('navigate', (event) => {
     syncAuthenticatedState(event.detail.page.props);
+    void verifyProtectedSession();
 });
 
 createInertiaApp({
