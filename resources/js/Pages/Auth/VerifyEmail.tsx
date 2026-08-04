@@ -27,6 +27,6 @@ export default function VerifyEmail({ email, canOpenDashboard }: { email: string
             </Field>
             <Button type="submit" variant="secondary" disabled={form.processing}>{t('updateEmail')}</Button>
         </form>
-        <Button type="button" variant="secondary" onClick={logoutAndReplace}>{t('logout')}</Button>
+        <Button type="button" variant="secondary" onClick={() => logoutAndReplace()}>{t('logout')}</Button>
     </AuthLayout>;
 }

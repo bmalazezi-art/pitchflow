@@ -10,7 +10,7 @@ class SlotStatusServiceTest extends TestCase
 {
     public function test_it_calculates_past_current_future_and_reserved_slots_with_full_datetimes(): void
     {
-        $service = new SlotStatusService();
+        $service = new SlotStatusService;
         $now = CarbonImmutable::parse('2026-07-26 14:34', 'Europe/Belgrade');
 
         $this->assertSame('past', $service->getSlotStatus('2026-07-26', '12:00', '13:00', null, 'Europe/Belgrade', $now));
@@ -22,7 +22,7 @@ class SlotStatusServiceTest extends TestCase
 
     public function test_it_handles_overnight_slot_end_times(): void
     {
-        $service = new SlotStatusService();
+        $service = new SlotStatusService;
         $now = CarbonImmutable::parse('2026-07-26 14:34', 'Europe/Belgrade');
 
         $this->assertSame('available', $service->getSlotStatus('2026-07-26', '23:00', '00:00', null, 'Europe/Belgrade', $now));

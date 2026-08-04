@@ -157,7 +157,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('checkAvailabilityTitle')} />
-        <PublicNav locale={locale} dark={dark} setLocale={setLocale} setDark={setDark} />
+        <PublicNav dark={dark} setLocale={setLocale} setDark={setDark} />
         {flash.success && <div className="public-flash success">{flash.success}</div>}
         <main className="public-home">
             <section className="public-hero light">
@@ -293,8 +293,7 @@ export function PublicFooter() {
     return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:pitchflowks@hotmail.com">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://www.facebook.com/profile.php?id=61593008453044" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
 }
 
-export function PublicNav({ locale, dark, setLocale, setDark }: {
-    locale: 'en' | 'sq';
+export function PublicNav({ dark, setLocale, setDark }: {
     dark: boolean;
     setLocale: (locale: 'en' | 'sq') => void;
     setDark: (dark: boolean) => void;

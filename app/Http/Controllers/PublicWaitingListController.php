@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Enums\ReservationStatus;
 use App\Models\FootballField;
+use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\WaitingListRequest;
 use App\Support\Timezones;
@@ -32,7 +33,7 @@ class PublicWaitingListController extends Controller
         $field = FootballField::query()
             ->with('organization:id,timezone,status')
             ->publicReady()
-            ->whereHas('organization', fn ($query) => $query->eligibleForPublicDirectory())
+            ->whereHas('organization', fn ($query) => Organization::constrainEligibleForPublicDirectory($query))
             ->findOrFail($validated['football_field_id']);
         $timezone = Timezones::resolve($field->organization->timezone);
         $startsAt = CarbonImmutable::parse($validated['starts_at'], $timezone);
@@ -58,7 +59,7 @@ class PublicWaitingListController extends Controller
         WaitingListRequest::query()->create([
             'organization_id' => $field->organization_id,
             'football_field_id' => $field->id,
-            'reservation_id' => $reservation?->id,
+            'reservation_id' => $reservation->id,
             'date' => $startsAt->toDateString(),
             'start_time' => $startsAt->format('H:i:s'),
             'end_time' => $endsAt->format('H:i:s'),

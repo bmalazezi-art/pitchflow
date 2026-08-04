@@ -55,11 +55,13 @@ class BusinessRegistrationNotifier
 
     private function ownerFor(Organization $organization): ?User
     {
-        return $organization->users()
+        $owner = $organization->users()
             ->where('role', 'owner')
             ->whereNotNull('email')
             ->orderBy('id')
             ->first();
+
+        return $owner instanceof User ? $owner : null;
     }
 
     private function notify(User $owner, object $notification, string $subject): void

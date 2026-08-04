@@ -35,6 +35,7 @@ class FootballField extends Model
         return ['status' => FieldStatus::class, 'price_per_hour' => 'decimal:2'];
     }
 
+    /** @param Builder<FootballField> $query */
     public function scopePublicReady(Builder $query): Builder
     {
         return $query

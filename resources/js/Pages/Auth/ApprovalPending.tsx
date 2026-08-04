@@ -12,6 +12,6 @@ export default function ApprovalPending() {
     return <AuthLayout><Head title={t('applicationStatus')} /><Badge value={status} /><h1 style={{ marginTop: 16 }}>{t('applicationStatus')}: {status.replace('_', ' ')}</h1>
         <p>{status === 'pending' ? t('approvalPendingIntro') : t('approvalIntro')}</p>
         {status === 'approved' && <Button onClick={() => router.visit('/dashboard')}>{t('openDashboard')}</Button>}
-        <Button variant="secondary" onClick={logoutAndReplace}>{t('logout')}</Button>
+        <Button variant="secondary" onClick={() => logoutAndReplace()}>{t('logout')}</Button>
     </AuthLayout>;
 }

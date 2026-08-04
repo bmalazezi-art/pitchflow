@@ -343,7 +343,7 @@ class ReservationController extends Controller
             return null;
         }
 
-        $fieldName = $reservation->footballField?->name
+        $fieldName = $reservation->footballField->name
             ?? FootballField::query()->whereKey($reservation->football_field_id)->value('name')
             ?? __('messages.field');
 

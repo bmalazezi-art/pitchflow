@@ -138,7 +138,7 @@ class ReservationService
 
     public function cancel(Reservation $reservation, Organization $organization, int $actorId, ?string $reason, ?string $note = null): Reservation
     {
-        return DB::transaction(function () use ($reservation, $organization, $actorId, $reason, $note) {
+        return DB::transaction(function () use ($reservation, $actorId, $reason, $note) {
             $reservation = Reservation::query()->lockForUpdate()->findOrFail($reservation->id);
             $this->ensureCancellable($reservation, $reason, $note);
             $previousStatus = $reservation->status;
@@ -157,7 +157,7 @@ class ReservationService
             ])->save();
 
             $this->reliability->recalculate($reservation->customer);
-            $this->activity->log($status === ReservationStatus::NoShow ? 'marked_no_show' : 'reservation_cancelled', $reservation, properties: [
+            $this->activity->log('reservation_cancelled', $reservation, properties: [
                 'actor_role' => request()->user()?->role?->value,
                 'old_status' => $previousStatus->value,
                 'new_status' => $status->value,

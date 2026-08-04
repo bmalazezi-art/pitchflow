@@ -257,7 +257,7 @@ class ResetDemoData extends Command
     }
 
     /**
-     * @param array<int, FootballField> $fields
+     * @param  array<int, FootballField>  $fields
      * @return array<int, Customer>
      */
     private function createCustomersFor(Organization $organization, array $fields): array
@@ -303,7 +303,7 @@ class ResetDemoData extends Command
     }
 
     /**
-     * @param array<int, array{organization: Organization, fields: array<int, FootballField>, customers: array<int, Customer>}> $demo
+     * @param  array<int, array{organization: Organization, fields: array<int, FootballField>, customers: array<int, Customer>}>  $demo
      */
     private function createReservations(array $demo): void
     {

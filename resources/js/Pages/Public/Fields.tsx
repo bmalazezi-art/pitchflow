@@ -69,7 +69,7 @@ export default function Fields({ cities, businesses, filters }: Props) {
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={t('allFootballFields')} />
-        <PublicNav locale={locale} dark={dark} setLocale={setLocale} setDark={setDark} />
+        <PublicNav dark={dark} setLocale={setLocale} setDark={setDark} />
         <main className="public-fields-page">
             <section className="public-directory-hero">
                 <button type="button" className="legal-back" onClick={() => router.get('/')}><ChevronLeft size={16} />{t('backToHome')}</button>

@@ -126,7 +126,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
 
     useEffect(() => {
         if (currentLocalDate !== metrics.today_date) {
-            router.reload({ preserveScroll: true });
+            router.reload();
         }
     }, [currentLocalDate, metrics.today_date]);
 

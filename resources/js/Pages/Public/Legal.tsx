@@ -19,7 +19,7 @@ export default function Legal({ document }: { document: 'privacy' | 'terms' }) {
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>
         <Head title={title} />
-        <PublicNav locale={locale} dark={dark} setLocale={switchLocale} setDark={setDark} />
+        <PublicNav dark={dark} setLocale={switchLocale} setDark={setDark} />
         <main className="public-legal-page">
             <Link href="/" className="legal-back"><ArrowLeft size={17} />{t('backToHome')}</Link>
             <header>

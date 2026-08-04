@@ -51,28 +51,50 @@ class Organization extends Model
         ];
     }
 
+    /** @param Builder<Organization> $query */
     public function scopePubliclyDiscoverable(Builder $query, int $cityId): Builder
     {
-        return $this->scopeEligibleForPublicDirectory($query)
+        return self::constrainEligibleForPublicDirectory($query)
             ->where('city_id', $cityId)
-            ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
-                ->publicReady()
+            ->whereHas('footballFields', fn (Builder $fieldQuery) => self::constrainPublicReadyField($fieldQuery)
                 ->where(fn (Builder $cityQuery) => $cityQuery
                     ->where('city_id', $cityId)
                     ->orWhereNull('city_id')));
     }
 
+    /** @param Builder<Organization> $query */
     public function scopeEligibleForPublicDirectory(Builder $query): Builder
+    {
+        return self::constrainEligibleForPublicDirectory($query);
+    }
+
+    public static function constrainEligibleForPublicDirectory(Builder $query): Builder
     {
         return $query
             ->where('status', OrganizationStatus::Approved)
             ->whereNotNull('city_id')
             ->whereNotNull('phone')
             ->where('phone', '!=', '')
-            ->whereHas('footballFields', fn (Builder $fieldQuery) => $fieldQuery
-                ->publicReady());
+            ->whereHas('footballFields', fn (Builder $fieldQuery) => self::constrainPublicReadyField($fieldQuery));
     }
 
+    public static function constrainPublicReadyField(Builder $query): Builder
+    {
+        return $query
+            ->where('status', FieldStatus::Active)
+            ->where(function (Builder $scheduleQuery) {
+                $scheduleQuery
+                    ->where(fn (Builder $fieldSchedule) => $fieldSchedule
+                        ->whereNotNull('opening_time')
+                        ->whereNotNull('closing_time'))
+                    ->orWhereHas('operatingHours', fn (Builder $hours) => $hours
+                        ->where('is_closed', false)
+                        ->whereNotNull('opening_time')
+                        ->whereNotNull('closing_time'));
+            });
+    }
+
+    /** @param Builder<Organization> $query */
     public function scopeInPublicDirectoryOrder(Builder $query, ?CarbonImmutable $at = null): Builder
     {
         $at ??= CarbonImmutable::now();
@@ -101,6 +123,7 @@ class Organization extends Model
         return $this->belongsTo(City::class);
     }
 
+    /** @return HasMany<User, $this> */
     public function users(): HasMany
     {
         return $this->hasMany(User::class);
@@ -112,11 +135,13 @@ class Organization extends Model
         return $this->hasMany(FootballField::class);
     }
 
+    /** @return HasMany<Customer, $this> */
     public function customers(): HasMany
     {
         return $this->hasMany(Customer::class);
     }
 
+    /** @return HasMany<Reservation, $this> */
     public function reservations(): HasMany
     {
         return $this->hasMany(Reservation::class);
@@ -128,21 +153,25 @@ class Organization extends Model
         return $this->hasMany(Subscription::class);
     }
 
+    /** @return HasOne<Subscription, $this> */
     public function latestSubscription(): HasOne
     {
         return $this->hasOne(Subscription::class)->latestOfMany();
     }
 
+    /** @return HasMany<OrganizationAdminNote, $this> */
     public function adminNotes(): HasMany
     {
         return $this->hasMany(OrganizationAdminNote::class);
     }
 
+    /** @return HasMany<OrganizationStatusHistory, $this> */
     public function statusHistories(): HasMany
     {
         return $this->hasMany(OrganizationStatusHistory::class);
     }
 
+    /** @return HasMany<SupportRequest, $this> */
     public function supportRequests(): HasMany
     {
         return $this->hasMany(SupportRequest::class);

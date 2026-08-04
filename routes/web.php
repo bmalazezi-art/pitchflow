@@ -1,7 +1,7 @@
 <?php
 
-use App\Http\Controllers\Admin\CityController as AdminCityController;
 use App\Http\Controllers\Admin\AuditLogController as AdminAuditLogController;
+use App\Http\Controllers\Admin\CityController as AdminCityController;
 use App\Http\Controllers\Admin\OrganizationController as AdminOrganizationController;
 use App\Http\Controllers\Admin\PlatformAnalyticsController;
 use App\Http\Controllers\Admin\SupportRequestController as AdminSupportRequestController;
@@ -19,10 +19,10 @@ use App\Http\Controllers\FootballFieldController;
 use App\Http\Controllers\LocaleController;
 use App\Http\Controllers\OrganizationSettingsController;
 use App\Http\Controllers\ProfileController;
-use App\Http\Controllers\PublicAvailabilityController;
 use App\Http\Controllers\PublicAnalyticsEventController;
-use App\Http\Controllers\PublicWaitingListController;
+use App\Http\Controllers\PublicAvailabilityController;
 use App\Http\Controllers\PublicFieldListingController;
+use App\Http\Controllers\PublicWaitingListController;
 use App\Http\Controllers\ReportController;
 use App\Http\Controllers\ReservationController;
 use App\Http\Controllers\SearchController;

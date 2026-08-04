@@ -23,6 +23,7 @@ use Illuminate\Support\Carbon;
  * @property PaymentStatus $payment_status
  * @property-read Customer $customer
  * @property-read FootballField $footballField
+ * @property-read User|null $cancelledByUser
  */
 class Reservation extends Model
 {

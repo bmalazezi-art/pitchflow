@@ -17,8 +17,8 @@ use App\Services\SubscriptionService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Validation\Rule;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -113,7 +113,7 @@ class OrganizationController extends Controller
         ]);
 
         $token = Str::random(64);
-        $organization = DB::transaction(function () use ($data, $request, $activity, $subscriptions, $phones, $token) {
+        $organization = DB::transaction(function () use ($data, $activity, $subscriptions, $phones, $token) {
             $status = OrganizationStatus::from($data['status']);
             $organization = Organization::query()->create([
                 'city_id' => $data['city_id'],
@@ -322,7 +322,7 @@ class OrganizationController extends Controller
         return [
             'is_public' => collect($items)->every('complete'),
             'items' => $items,
-            'warnings' => collect($items)->reject('complete')->pluck('key')->values(),
+            'warnings' => collect($items)->reject(fn (array $item) => $item['complete'])->pluck('key')->values(),
         ];
     }
 

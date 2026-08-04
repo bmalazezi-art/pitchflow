@@ -41,7 +41,7 @@ export default function EmployeeDashboard({ metrics }: { metrics: EmployeeMetric
     const today = new Intl.DateTimeFormat(localeCode, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${metrics.today_date}T12:00:00`));
     useEffect(() => {
         if (currentLocalDate !== metrics.today_date) {
-            router.reload({ preserveScroll: true });
+            router.reload();
         }
     }, [currentLocalDate, metrics.today_date]);
     const activityLabel = (action: string) => ({

@@ -104,12 +104,12 @@ class PublicAvailabilityController extends Controller
 
         $activePublicFields = FootballField::query()
             ->publicReady()
-            ->whereHas('organization', fn ($query) => $query->eligibleForPublicDirectory());
+            ->whereHas('organization', fn ($query) => Organization::constrainEligibleForPublicDirectory($query));
         $statistics = [
             'football_fields' => (clone $activePublicFields)->count(),
             'cities' => City::query()
                 ->where('is_active', true)
-                ->whereHas('organizations', fn ($query) => $query->eligibleForPublicDirectory())
+                ->whereHas('organizations', fn ($query) => Organization::constrainEligibleForPublicDirectory($query))
                 ->count(),
             'registered_businesses' => Organization::query()->count(),
             'verified_businesses' => Organization::query()->where('status', OrganizationStatus::Approved)->count(),

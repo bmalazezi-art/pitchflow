@@ -60,19 +60,19 @@ class PlatformAnalyticsService
 
     private function mostSearchedCities(CarbonImmutable $from, CarbonImmutable $to): Collection
     {
-        return AnalyticsEvent::query()
-            ->select('city_id', DB::raw('COUNT(*) as search_count'))
-            ->with('city:id,name')
-            ->where('event_type', 'availability_search')
-            ->whereNotNull('city_id')
-            ->whereBetween('created_at', [$from, $to])
-            ->groupBy('city_id')
+        return DB::table('analytics_events')
+            ->join('cities', 'cities.id', '=', 'analytics_events.city_id')
+            ->select('analytics_events.city_id', 'cities.name as city_name', DB::raw('COUNT(*) as search_count'))
+            ->where('analytics_events.event_type', 'availability_search')
+            ->whereNotNull('analytics_events.city_id')
+            ->whereBetween('analytics_events.created_at', [$from, $to])
+            ->groupBy('analytics_events.city_id', 'cities.name')
             ->orderByDesc('search_count')
             ->limit(10)
             ->get()
-            ->map(fn (AnalyticsEvent $event) => [
-                'city_id' => $event->city_id,
-                'city_name' => $event->city?->name ?? 'Unknown',
+            ->map(fn (object $event) => [
+                'city_id' => (int) $event->city_id,
+                'city_name' => (string) $event->city_name,
                 'search_count' => (int) $event->search_count,
             ]);
     }
