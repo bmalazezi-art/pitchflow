@@ -3,7 +3,6 @@
 namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
-use App\Http\Requests\Auth\LoginRequest;
 use App\Models\User;
 use App\Services\ActivityLogger;
 use App\Services\PhoneNormalizer;
@@ -26,11 +25,16 @@ class AuthenticatedSessionController extends Controller
         return Inertia::render('Auth/Login');
     }
 
-    public function store(LoginRequest $request, ActivityLogger $activity): RedirectResponse
+    public function store(Request $request, ActivityLogger $activity): RedirectResponse
     {
+        $this->logoutExistingSessionBeforeLoginAttempt($request);
         $this->ensureIsNotRateLimited($request);
 
-        $credentials = $request->validated();
+        $credentials = $request->validate([
+            'email' => ['bail', 'required', 'string', 'max:255'],
+            'password' => ['bail', 'required', 'string'],
+            'remember' => ['sometimes', 'boolean'],
+        ]);
         $login = trim((string) $credentials['email']);
         $password = (string) $credentials['password'];
 
@@ -68,7 +72,7 @@ class AuthenticatedSessionController extends Controller
         return redirect()->intended($destination);
     }
 
-    private function ensureIsNotRateLimited(LoginRequest $request): void
+    private function ensureIsNotRateLimited(Request $request): void
     {
         if (! RateLimiter::tooManyAttempts($this->throttleKey($request), $this->maxLoginAttempts())) {
             return;
@@ -79,7 +83,7 @@ class AuthenticatedSessionController extends Controller
         ]);
     }
 
-    private function throttleKey(LoginRequest $request): string
+    private function throttleKey(Request $request): string
     {
         return Str::lower(trim((string) $request->input('email'))).'|'.$request->ip();
     }
@@ -87,6 +91,17 @@ class AuthenticatedSessionController extends Controller
     private function maxLoginAttempts(): int
     {
         return app()->environment('local') ? 10 : 5;
+    }
+
+    private function logoutExistingSessionBeforeLoginAttempt(Request $request): void
+    {
+        if (! Auth::guard('web')->check()) {
+            return;
+        }
+
+        Auth::guard('web')->logout();
+        $request->session()->invalidate();
+        $request->session()->regenerateToken();
     }
 
     private function userForLogin(string $login): ?User

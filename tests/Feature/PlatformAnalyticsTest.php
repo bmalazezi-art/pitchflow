@@ -8,6 +8,7 @@ use App\Models\City;
 use App\Models\FootballField;
 use App\Models\Organization;
 use App\Models\User;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Validation\ValidationException;
 use Inertia\Testing\AssertableInertia as Assert;
@@ -77,6 +78,8 @@ class PlatformAnalyticsTest extends TestCase
 
     public function test_platform_analytics_report_counts_public_activity(): void
     {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-05 12:00:00', 'Europe/Belgrade'));
+
         $city = City::factory()->create(['name' => 'Ferizaj']);
         $organization = Organization::factory()->for($city)->create(['name' => 'Arena']);
         $field = FootballField::factory()->for($organization)->create(['name' => 'Arena 1']);
@@ -100,5 +103,7 @@ class PlatformAnalyticsTest extends TestCase
                 ->where('analytics.most_searched_cities.0.city_name', 'Ferizaj')
                 ->where('analytics.most_viewed_businesses.0.business_name', 'Arena')
                 ->where('analytics.most_clicked_fields.0.field_name', 'Arena 1'));
+
+        CarbonImmutable::setTestNow();
     }
 }

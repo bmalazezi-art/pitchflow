@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
@@ -74,6 +75,49 @@ class LoginSecurityTest extends TestCase
         ])->assertRedirect(route('admin.organizations'));
 
         $this->assertAuthenticatedAs($user);
+    }
+
+    public function test_random_login_attempt_while_already_authenticated_logs_out_and_fails(): void
+    {
+        $user = $this->createSuperAdmin();
+
+        $this->actingAs($user)
+            ->from('/login')
+            ->post('/login', [
+                'email' => 'random-person@example.test',
+                'password' => 'definitely-wrong',
+            ])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors(['email']);
+
+        $this->assertGuest();
+    }
+
+    public function test_empty_login_attempt_while_already_authenticated_logs_out_and_fails(): void
+    {
+        $user = $this->createSuperAdmin();
+
+        $this->actingAs($user)
+            ->from('/login')
+            ->post('/login', [
+                'email' => '',
+                'password' => '',
+            ])
+            ->assertRedirect('/login')
+            ->assertSessionHasErrors(['email', 'password']);
+
+        $this->assertGuest();
+    }
+
+    public function test_no_demo_quick_or_impersonation_login_routes_exist(): void
+    {
+        $dangerousRouteNames = collect(Route::getRoutes())->map(fn ($route) => implode(' ', [
+            $route->uri(),
+            $route->getName() ?? '',
+            $route->getActionName(),
+        ]))->filter(fn (string $route) => preg_match('/(demo|quick|impersonat).*login|login.*(demo|quick|impersonat)/i', $route));
+
+        $this->assertCount(0, $dangerousRouteNames, $dangerousRouteNames->implode("\n"));
     }
 
     private function createSuperAdmin(): User
