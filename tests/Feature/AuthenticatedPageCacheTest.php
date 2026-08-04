@@ -32,9 +32,14 @@ class AuthenticatedPageCacheTest extends TestCase
     {
         $user = User::factory()->create(['role' => UserRole::Owner]);
 
-        $this->actingAs($user)
+        $response = $this->actingAs($user)
             ->post(route('logout'))
-            ->assertRedirect(route('login'));
+            ->assertRedirect(route('login'))
+            ->assertHeader('Pragma', 'no-cache')
+            ->assertHeader('Expires', '0')
+            ->assertHeader('Clear-Site-Data', '"cache"');
+
+        $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
 
         $this->assertGuest();
 

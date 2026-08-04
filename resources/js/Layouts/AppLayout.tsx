@@ -55,6 +55,16 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         localStorage.setItem('theme', dark ? 'dark' : 'light');
     }, [dark]);
 
+    useEffect(() => {
+        if (! auth.user) {
+            window.location.replace('/login');
+        }
+    }, [auth.user]);
+
+    if (! auth.user) {
+        return null;
+    }
+
     const nav = auth.user?.role === 'super_admin'
         ? [
             { label: t('organizations'), href: '/admin/organizations', icon: Building2 },

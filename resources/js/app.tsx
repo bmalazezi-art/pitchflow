@@ -2,10 +2,15 @@ import '../css/app.css';
 import { createInertiaApp, router } from '@inertiajs/react';
 import { resolvePageComponent } from 'laravel-vite-plugin/inertia-helpers';
 import { createRoot } from 'react-dom/client';
+import { LOGGED_OUT_STORAGE_KEY } from './lib/logout';
 
 const syncAuthenticatedState = (pageProps: unknown) => {
     const props = pageProps as { auth?: { user?: unknown } };
     document.body.dataset.authenticated = props.auth?.user ? 'true' : 'false';
+
+    if (props.auth?.user) {
+        sessionStorage.removeItem(LOGGED_OUT_STORAGE_KEY);
+    }
 };
 
 const protectedPathPrefixes = [
@@ -27,6 +32,12 @@ const isProtectedPath = (path: string) =>
 
 const verifyProtectedSession = async () => {
     if (! isProtectedPath(window.location.pathname)) {
+        return;
+    }
+
+    if (sessionStorage.getItem(LOGGED_OUT_STORAGE_KEY) === '1') {
+        document.body.style.visibility = 'hidden';
+        window.location.replace('/login');
         return;
     }
 
@@ -55,7 +66,7 @@ const queueProtectedSessionCheck = () => {
 };
 
 window.addEventListener('pageshow', (event) => {
-    if (event.persisted && isProtectedPath(window.location.pathname)) {
+    if (event.persisted) {
         window.location.reload();
         return;
     }
