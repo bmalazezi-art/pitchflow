@@ -29,8 +29,8 @@ export default function Login() {
             <h1>{t('login')}</h1>
             <p>{t('accessWorkspace')}</p>
         <form onSubmit={(e) => { e.preventDefault(); form.post('/login'); }}>
-            <Field label={t('emailOrPhone')} error={form.errors.email} required><Input type="text" autoComplete="username" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} /></Field>
-            <Field label={t('password')} error={form.errors.password} required><Input type="password" autoComplete="current-password" value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} /></Field>
+            <Field label={t('emailOrPhone')} error={form.errors.email} required><Input type="text" autoComplete="username" required value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} /></Field>
+            <Field label={t('password')} error={form.errors.password} required><Input type="password" autoComplete="current-password" required value={form.data.password} onChange={(e) => form.setData('password', e.target.value)} /></Field>
             <div className="auth-form-options">
                 <label><input type="checkbox" checked={form.data.remember} onChange={(e) => form.setData('remember', e.target.checked)} /> {t('rememberMe')}</label>
                 <Link href="/forgot-password">{t('forgotPassword')}</Link>

@@ -30,9 +30,18 @@ class AuthenticatedSessionController extends Controller
     {
         $this->ensureIsNotRateLimited($request);
 
-        $user = $this->userForLogin((string) $request->input('email'));
+        $credentials = $request->validated();
+        $login = trim((string) $credentials['email']);
+        $password = (string) $credentials['password'];
 
-        if (! $user || ! $user->password || ! Hash::check((string) $request->input('password'), $user->password)) {
+        if ($login === '' || $password === '') {
+            RateLimiter::hit($this->throttleKey($request), 60);
+            throw ValidationException::withMessages(['email' => __('auth.failed')]);
+        }
+
+        $user = $this->userForLogin($login);
+
+        if (! $user || ! $user->password || ! Hash::check($password, $user->password)) {
             RateLimiter::hit($this->throttleKey($request), 60);
             throw ValidationException::withMessages(['email' => __('auth.failed')]);
         }
@@ -83,6 +92,10 @@ class AuthenticatedSessionController extends Controller
     private function userForLogin(string $login): ?User
     {
         $login = trim($login);
+
+        if ($login === '') {
+            return null;
+        }
 
         if (filter_var($login, FILTER_VALIDATE_EMAIL)) {
             return User::query()->where('email', $login)->first();
