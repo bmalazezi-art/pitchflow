@@ -4,12 +4,13 @@ import { useEffect, useState } from 'react';
 import AppLayout from '../../Layouts/AppLayout';
 import { Badge, Button, Drawer, EmptyState, Field, Input, PageHeader, Pagination, SearchInput, Select } from '../../Components/UI';
 import { localeCode } from '../../lib/dateControls';
-import { useTranslation } from '../../lib/i18n';
+import { useLocale, useTranslation } from '../../lib/i18n';
 import type { Paginated, SharedProps } from '../../types';
 
 export default function Customers({ customers, filters, fields }: { customers: Paginated<any>; filters: { search?: string }; fields: Array<{ id: number; name: string }> }) {
     const t = useTranslation();
-    const { auth, locale } = usePage<SharedProps>().props;
+    const { auth } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const formatterLocale = localeCode(locale);
     const canManageCustomers = auth.user?.role === 'owner' || auth.user?.role === 'employee';
     const [search, setSearch] = useState(filters.search ?? '');

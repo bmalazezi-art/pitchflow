@@ -2,14 +2,15 @@ import { Link, router, usePage } from '@inertiajs/react';
 import { Activity, BarChart3, Bell, Building2, CalendarDays, Check, ChevronDown, CircleUserRound, CreditCard, LayoutDashboard, LogOut, Menu, Moon, Search, Settings, Sun, Users, X } from 'lucide-react';
 import { useEffect, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
-import { useTranslation } from '../lib/i18n';
+import { setClientLocale, useLocale, useTranslation } from '../lib/i18n';
 import { logoutAndReplace } from '../lib/logout';
 import type { SharedProps } from '../types';
 import GlobalSearch from '../Components/GlobalSearch';
 
 export default function AppLayout({ children, title }: { children: ReactNode; title: string }) {
-    const { auth, flash, locale, notifications = [], notification_unread_count = 0 } = usePage<SharedProps>().props;
+    const { auth, flash, notifications = [], notification_unread_count = 0 } = usePage<SharedProps>().props;
     const t = useTranslation();
+    const locale = useLocale();
     const [open, setOpen] = useState(false);
     const [dark, setDark] = useState(() => localStorage.getItem('theme') === 'dark');
     const [searchOpen, setSearchOpen] = useState(false);
@@ -47,8 +48,8 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     const switchLocale = (nextLocale: 'en' | 'sq') => {
         if (nextLocale === locale) return;
         setLanguageOpen(false);
-        localStorage.setItem('locale', nextLocale);
-        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
+        setClientLocale(nextLocale);
+        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false, replace: true });
     };
     const handleLogout = () => logoutAndReplace({
         onStart: () => setLoggingOut(true),

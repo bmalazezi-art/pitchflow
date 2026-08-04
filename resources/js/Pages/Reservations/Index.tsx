@@ -5,7 +5,7 @@ import AppLayout from '../../Layouts/AppLayout';
 import { Badge, Button, Drawer, EmptyState, Field, Modal, PageHeader, Pagination, SearchInput, Select } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
 import { addDays, formatCalendarDate, formatDateLabel, localeCode, todayIso, type RangePeriod } from '../../lib/dateControls';
-import { useTranslation } from '../../lib/i18n';
+import { useLocale, useTranslation } from '../../lib/i18n';
 import type { Paginated, SharedProps } from '../../types';
 
 type Filters = {
@@ -45,7 +45,8 @@ const reviewActions = [
 
 export default function Reservations({ reservations, correctionRequests = [], filters, summary, timezone }: { reservations: Paginated<any>; correctionRequests?: any[]; filters: Filters; summary: Summary; timezone: string }) {
     const t = useTranslation();
-    const { auth, locale } = usePage<SharedProps>().props;
+    const { auth } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const formatterLocale = localeCode(locale);
     const canManageReservations = auth.user?.role === 'employee';
     const [search, setSearch] = useState(filters.search ?? '');

@@ -10,9 +10,7 @@ import AppLayout from '../Layouts/AppLayout';
 import { PageHeader, Select } from './UI';
 import { SingleDateNavigator } from './DateControls';
 import { useTodayDate } from '../hooks/useTodayDate';
-import { useTranslation } from '../lib/i18n';
-import { usePage } from '@inertiajs/react';
-import type { SharedProps } from '../types';
+import { useLocale, useTranslation } from '../lib/i18n';
 import type { CalendarProps } from '../Pages/Reservations/Calendar';
 
 const reservationColor = (reservation: any, fields: any[]) => {
@@ -27,7 +25,7 @@ const reservationColor = (reservation: any, fields: any[]) => {
 
 export default function OwnerCalendar({ reservations, fields, timezone, selectedField, initialDate }: CalendarProps) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const today = useTodayDate();
     const dateWasExplicit = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('from') || new URLSearchParams(window.location.search).has('to'));
     const [fieldFilter, setFieldFilter] = useState<number | 'all'>(selectedField ?? 'all');

@@ -1,13 +1,12 @@
-import { Head, router, usePage } from '@inertiajs/react';
+import { Head, router } from '@inertiajs/react';
 import { useEffect, useState, type FormEvent } from 'react';
 import { ChevronLeft, MapPin, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
 import { trackPublicEvent } from '../../lib/analytics';
 import { useTodayDate } from '../../hooks/useTodayDate';
-import { useTranslation } from '../../lib/i18n';
+import { setClientLocale, useLocale, useTranslation } from '../../lib/i18n';
 import { zonedNowInput } from '../../lib/slotStatus';
-import type { SharedProps } from '../../types';
 import { BusinessCard, PublicFooter, PublicNav, type PublicBusiness } from './Availability';
 
 interface Props {
@@ -18,7 +17,7 @@ interface Props {
 
 export default function Fields({ cities, businesses, filters }: Props) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const today = useTodayDate();
     const dateWasExplicit = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date');
     const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
@@ -45,9 +44,9 @@ export default function Fields({ cities, businesses, filters }: Props) {
 
     const setLocale = (nextLocale: 'en' | 'sq') => {
         if (nextLocale === locale) return;
-        localStorage.setItem('locale', nextLocale);
+        setClientLocale(nextLocale);
         trackPublicEvent('language_switch', { metadata: { locale: nextLocale, source: 'public_fields' } });
-        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
+        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false, replace: true });
     };
     const submit = (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();

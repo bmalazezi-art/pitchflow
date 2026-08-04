@@ -1,21 +1,20 @@
-import { Head, Link, router, usePage } from '@inertiajs/react';
+import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { PublicNav } from './Availability';
-import { useTranslation } from '../../lib/i18n';
-import type { SharedProps } from '../../types';
+import { setClientLocale, useLocale, useTranslation } from '../../lib/i18n';
 
 export default function Legal({ document }: { document: 'privacy' | 'terms' }) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
     const title = document === 'privacy' ? t('privacyPolicy') : t('terms');
     const content = legalContent[locale][document];
 
     useEffect(() => localStorage.setItem('public-theme', dark ? 'dark' : 'light'), [dark]);
     const switchLocale = (nextLocale: 'en' | 'sq') => {
-        localStorage.setItem('locale', nextLocale);
-        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
+        setClientLocale(nextLocale);
+        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false, replace: true });
     };
 
     return <div className={`public-page ${dark ? 'public-dark' : ''}`}>

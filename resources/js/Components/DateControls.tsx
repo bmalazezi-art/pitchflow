@@ -1,11 +1,9 @@
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { usePage } from '@inertiajs/react';
 import { Button } from './UI';
-import { useTranslation } from '../lib/i18n';
+import { useLocale, useTranslation } from '../lib/i18n';
 import { addDays, formatCalendarDate, formatDateLabel, formatMonthYear, shiftMonths, startOfWeek, toDateInput, weekdayLabels, type RangePeriod } from '../lib/dateControls';
 import { useTodayDate } from '../hooks/useTodayDate';
-import type { SharedProps } from '../types';
 
 type QuickDateMode = 'today' | 'tomorrow' | 'week';
 
@@ -24,7 +22,7 @@ export function DatePicker({
     showShortcuts?: boolean;
 }) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const today = useTodayDate();
     const selectedDate = localDate(value);
     const [open, setOpen] = useState(false);
@@ -150,7 +148,7 @@ export function DateRangePeriodPicker({
     onApply: (payload: { period: RangePeriod; from?: string; to?: string }) => void;
 }) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const [draftFrom, setDraftFrom] = useState(from);
     const [draftTo, setDraftTo] = useState(to);
     const [draftPeriod, setDraftPeriod] = useState<RangePeriod>(period);

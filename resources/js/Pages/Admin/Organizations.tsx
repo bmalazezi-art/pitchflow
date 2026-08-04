@@ -4,7 +4,7 @@ import { Building2, CheckCircle2, CircleDollarSign, Clock3, Copy, Eye, EyeOff, M
 import AppLayout from '../../Layouts/AppLayout';
 import { Badge, Button, Drawer, EmptyState, Field, Input, Modal, PageHeader, Pagination, PriceInput, Select } from '../../Components/UI';
 import type { Paginated, SharedProps } from '../../types';
-import { useTranslation } from '../../lib/i18n';
+import { useLocale, useTranslation } from '../../lib/i18n';
 
 interface OrganizationRow {
     id: number;
@@ -40,8 +40,8 @@ interface Filters { search: string; status: string; city: number | string; subsc
 
 export default function Organizations({ organizations, summary, filters, cities, plans }: { organizations: Paginated<OrganizationRow>; summary: Record<string, number>; filters: Filters; cities: Array<{ id: number; name: string }>; plans: string[] }) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
     const { flash } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const [details, setDetails] = useState<OrganizationRow | null>(null);
     const [editing, setEditing] = useState<OrganizationRow | null>(null);
     const [creating, setCreating] = useState(false);

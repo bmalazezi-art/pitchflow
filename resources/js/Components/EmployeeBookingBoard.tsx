@@ -8,7 +8,7 @@ import { Badge, Button, Drawer, Field, Input, Modal, Select } from './UI';
 import { SingleDateNavigator } from './DateControls';
 import { formatCalendarDate, toDateInput } from '../lib/dateControls';
 import { useTodayDate } from '../hooks/useTodayDate';
-import { useTranslation } from '../lib/i18n';
+import { useLocale, useTranslation } from '../lib/i18n';
 import { getSlotStatus, isSlotBlockedByReservation } from '../lib/slotStatus';
 import type { SharedProps } from '../types';
 
@@ -167,7 +167,8 @@ const formatDate = (date: string, locale: string, options: Intl.DateTimeFormatOp
 
 export default function EmployeeBookingBoard({ reservations, fields, timezone, selectedField, selectedReservation, initialDate }: BookingBoardProps) {
     const t = useTranslation();
-    const { locale, flash } = usePage<SharedProps>().props;
+    const { flash } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const browserToday = useTodayDate();
     const today = timezone === 'Europe/Belgrade' || timezone === 'Europe/Pristina' ? browserToday : zonedParts(new Date(), timezone).date;
     const dateWasExplicit = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('from') || new URLSearchParams(window.location.search).has('to'));

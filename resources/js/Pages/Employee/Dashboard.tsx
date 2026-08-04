@@ -2,7 +2,7 @@ import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarCheck, CalendarDays, CalendarPlus, CheckCircle2, ChevronRight, Clock3, CreditCard, MessageSquareText, Pencil, Search, Trophy, UserPlus, UserRound, XCircle } from 'lucide-react';
 import AppLayout from '../../Layouts/AppLayout';
 import { Badge } from '../../Components/UI';
-import { useTranslation } from '../../lib/i18n';
+import { useLocale, useTranslation } from '../../lib/i18n';
 import { useTodayDate } from '../../hooks/useTodayDate';
 import type { SharedProps } from '../../types';
 import { useEffect } from 'react';
@@ -32,7 +32,8 @@ interface EmployeeMetrics {
 
 export default function EmployeeDashboard({ metrics }: { metrics: EmployeeMetrics }) {
     const t = useTranslation();
-    const { auth, locale } = usePage<SharedProps>().props;
+    const { auth } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const currentLocalDate = useTodayDate();
     const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
     const formatTime = (value: string) => new Intl.DateTimeFormat(localeCode, { hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone }).format(new Date(value));

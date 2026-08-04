@@ -20,7 +20,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import AppLayout from '../Layouts/AppLayout';
 import { Badge } from '../Components/UI';
 import { Button, Field, Modal } from '../Components/UI';
-import { useTranslation } from '../lib/i18n';
+import { useLocale, useTranslation } from '../lib/i18n';
 import { useTodayDate } from '../hooks/useTodayDate';
 import type { SharedProps } from '../types';
 
@@ -105,7 +105,8 @@ function ReadinessPanel({ readiness }: { readiness: DashboardMetrics['readiness'
 
 export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     const t = useTranslation();
-    const { auth, locale } = usePage<SharedProps>().props;
+    const { auth } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const currentLocalDate = useTodayDate();
     const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
     const firstName = auth.user?.name.split(' ')[0] ?? '';

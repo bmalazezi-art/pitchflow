@@ -6,7 +6,7 @@ import { DatePicker } from '../../Components/DateControls';
 import { slotStatusForAnalytics, trackPublicEvent } from '../../lib/analytics';
 import { formatDateLabel, todayIso } from '../../lib/dateControls';
 import { useTodayDate } from '../../hooks/useTodayDate';
-import { useTranslation } from '../../lib/i18n';
+import { setClientLocale, useLocale, useTranslation } from '../../lib/i18n';
 import { getSlotStatus, zonedNowInput, type SlotStatus } from '../../lib/slotStatus';
 import type { SharedProps } from '../../types';
 
@@ -61,7 +61,8 @@ const venueImages = [
 
 export default function Availability({ cities, businesses, recentBusinesses, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
-    const { locale, flash } = usePage<SharedProps>().props;
+    const { flash } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const today = useTodayDate();
     const selectedCity = cities.find(city => city.id === Number(filters.city));
     const dateWasExplicit = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date');
@@ -108,9 +109,9 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
 
     const setLocale = (nextLocale: 'en' | 'sq') => {
         if (nextLocale === locale) return;
-        localStorage.setItem('locale', nextLocale);
+        setClientLocale(nextLocale);
         trackPublicEvent('language_switch', { metadata: { locale: nextLocale } });
-        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
+        router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false, replace: true });
     };
     const navigate = (overrides: Partial<Props['filters']>) => router.get('/', {
         city: overrides.city ?? filters.city ?? undefined,
@@ -299,12 +300,13 @@ export function PublicNav({ locale, dark, setLocale, setDark }: {
     setDark: (dark: boolean) => void;
 }) {
     const t = useTranslation();
+    const activeLocale = useLocale();
     const [languageOpen, setLanguageOpen] = useState(false);
     const languageOptions = [
         { code: 'en' as const, short: 'EN', label: 'English', flag: '🇬🇧' },
         { code: 'sq' as const, short: 'SQ', label: 'Shqip', flag: '🇦🇱' },
     ];
-    const activeLanguage = languageOptions.find(option => option.code === locale) ?? languageOptions[1];
+    const activeLanguage = languageOptions.find(option => option.code === activeLocale) ?? languageOptions[1];
     const chooseLanguage = (nextLocale: 'en' | 'sq') => {
         setLanguageOpen(false);
         setLocale(nextLocale);
@@ -317,8 +319,8 @@ export function PublicNav({ locale, dark, setLocale, setDark }: {
                     <span aria-hidden="true">{activeLanguage.flag}</span><strong>{activeLanguage.short}</strong><ChevronDown size={14} />
                 </button>
                 {languageOpen && <div className="language-selector-menu">
-                    {languageOptions.map(option => <button key={option.code} type="button" className={locale === option.code ? 'active' : ''} onClick={() => chooseLanguage(option.code)}>
-                        <span aria-hidden="true">{option.flag}</span><strong>{option.label}</strong>{locale === option.code && <Check size={15} />}
+                    {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onClick={() => chooseLanguage(option.code)}>
+                        <span aria-hidden="true">{option.flag}</span><strong>{option.label}</strong>{activeLocale === option.code && <Check size={15} />}
                     </button>)}
                 </div>}
             </div>
@@ -401,7 +403,7 @@ function AvailabilitySection({ business, date, pitchAvailability, now }: {
     now: string;
 }) {
     const t = useTranslation();
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     const trackedViews = useRef(new Set<string>());
     const [waitingSlot, setWaitingSlot] = useState<{
         field: PublicField;

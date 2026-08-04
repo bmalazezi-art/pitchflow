@@ -1,5 +1,10 @@
 import { usePage } from '@inertiajs/react';
+import { useEffect, useState } from 'react';
 import type { SharedProps } from '../types';
+
+export type Locale = 'en' | 'sq';
+export const LOCALE_STORAGE_KEY = 'locale';
+export const LOCALE_CHANGED_EVENT = 'pitchflow:locale-changed';
 
 const messages = {
     en: {
@@ -540,7 +545,62 @@ const messages = {
     },
 } as const;
 
+const isLocale = (value: unknown): value is Locale => value === 'en' || value === 'sq';
+
+export function storedLocale(): Locale | null {
+    if (typeof window === 'undefined') {
+        return null;
+    }
+
+    const value = window.localStorage.getItem(LOCALE_STORAGE_KEY);
+
+    return isLocale(value) ? value : null;
+}
+
+export function setClientLocale(locale: Locale) {
+    if (typeof window === 'undefined') {
+        return;
+    }
+
+    window.localStorage.setItem(LOCALE_STORAGE_KEY, locale);
+    window.dispatchEvent(new CustomEvent<{ locale: Locale }>(LOCALE_CHANGED_EVENT, { detail: { locale } }));
+}
+
+export function useLocale(): Locale {
+    const { locale: serverLocale } = usePage<SharedProps>().props;
+    const [locale, setLocale] = useState<Locale>(() => storedLocale() ?? serverLocale ?? 'sq');
+
+    useEffect(() => {
+        const nextLocale = storedLocale() ?? serverLocale ?? 'sq';
+        setLocale(nextLocale);
+    }, [serverLocale]);
+
+    useEffect(() => {
+        const handleLocaleChange = (event: Event) => {
+            const locale = (event as CustomEvent<{ locale?: unknown }>).detail?.locale;
+            if (isLocale(locale)) {
+                setLocale(locale);
+            }
+        };
+        const handleStorage = (event: StorageEvent) => {
+            if (event.key === LOCALE_STORAGE_KEY && isLocale(event.newValue)) {
+                setLocale(event.newValue);
+            }
+        };
+
+        window.addEventListener(LOCALE_CHANGED_EVENT, handleLocaleChange);
+        window.addEventListener('storage', handleStorage);
+
+        return () => {
+            window.removeEventListener(LOCALE_CHANGED_EVENT, handleLocaleChange);
+            window.removeEventListener('storage', handleStorage);
+        };
+    }, []);
+
+    return locale;
+}
+
 export function useTranslation() {
-    const { locale } = usePage<SharedProps>().props;
+    const locale = useLocale();
     return (key: keyof typeof messages.en) => messages[locale]?.[key] ?? messages.en[key];
 }
