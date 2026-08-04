@@ -13,7 +13,7 @@
     @vite(['resources/css/app.css', 'resources/js/app.tsx'])
     @inertiaHead
 </head>
-<body>
+<body data-authenticated="{{ auth()->check() ? 'true' : 'false' }}">
     @inertia
 </body>
 </html>

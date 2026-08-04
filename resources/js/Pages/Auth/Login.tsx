@@ -1,5 +1,6 @@
 import { Head, Link, useForm } from '@inertiajs/react';
 import { LogIn, ShieldCheck } from 'lucide-react';
+import { useEffect } from 'react';
 import AuthLayout from '../../Layouts/AuthLayout';
 import { Button, Field, Input } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
@@ -7,6 +8,20 @@ import { useTranslation } from '../../lib/i18n';
 export default function Login() {
     const t = useTranslation();
     const form = useForm({ email: '', password: '', remember: false });
+
+    useEffect(() => {
+        const clearPassword = (event?: PageTransitionEvent) => {
+            if (! event || event.persisted) {
+                form.setData('password', '');
+            }
+        };
+
+        clearPassword();
+        window.addEventListener('pageshow', clearPassword);
+
+        return () => window.removeEventListener('pageshow', clearPassword);
+    }, []);
+
     return <AuthLayout><Head title={t('login')} />
         <Link href="/" className="auth-back-home">← {t('backToHome')}</Link>
         <div className="auth-card auth-login-card">

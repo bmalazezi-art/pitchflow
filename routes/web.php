@@ -38,6 +38,17 @@ Route::post('/waiting-list', [PublicWaitingListController::class, 'store'])->nam
 Route::get('/privacy', fn () => Inertia::render('Public/Legal', ['document' => 'privacy']))->name('privacy');
 Route::get('/terms', fn () => Inertia::render('Public/Legal', ['document' => 'terms']))->name('terms');
 Route::post('/locale', LocaleController::class)->name('locale.update');
+Route::get('/auth/status', function () {
+    $response = auth()->check()
+        ? response()->noContent()
+        : response()->json(['authenticated' => false], 401);
+
+    return $response->withHeaders([
+        'Cache-Control' => 'no-store, no-cache, must-revalidate, max-age=0',
+        'Pragma' => 'no-cache',
+        'Expires' => '0',
+    ]);
+})->name('auth.status');
 Route::get('/employee/invite/{token}', [EmployeeInvitationController::class, 'show'])
     ->middleware('throttle:20,1')->name('employee.invite.show');
 Route::post('/employee/invite/{token}', [EmployeeInvitationController::class, 'store'])
@@ -54,7 +65,7 @@ Route::middleware('guest')->group(function () {
     Route::post('/reset-password', [NewPasswordController::class, 'store'])->name('password.store');
 });
 
-Route::middleware('auth')->group(function () {
+Route::middleware(['auth', 'no.cache.auth'])->group(function () {
     Route::post('/logout', [AuthenticatedSessionController::class, 'destroy'])->name('logout');
     Route::get('/verify-email', [EmailVerificationController::class, 'notice'])->name('verification.notice');
     Route::get('/verify-email/{id}/{hash}', [EmailVerificationController::class, 'verify'])

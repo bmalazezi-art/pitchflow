@@ -3,6 +3,7 @@
 use App\Console\Commands\ResetDemoData;
 use App\Http\Middleware\EnsureOrganizationApproved;
 use App\Http\Middleware\HandleInertiaRequests;
+use App\Http\Middleware\NoCacheForAuthenticatedPages;
 use App\Http\Middleware\SecurityHeaders;
 use App\Http\Middleware\SetLocale;
 use Illuminate\Foundation\Application;
@@ -27,6 +28,7 @@ return Application::configure(basePath: dirname(__DIR__))
             SecurityHeaders::class,
         ]);
         $middleware->alias([
+            'no.cache.auth' => NoCacheForAuthenticatedPages::class,
             'organization.approved' => EnsureOrganizationApproved::class,
         ]);
     })
