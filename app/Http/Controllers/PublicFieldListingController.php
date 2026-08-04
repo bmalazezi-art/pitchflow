@@ -24,6 +24,7 @@ class PublicFieldListingController extends Controller
         ]);
         $cityId = isset($filters['city']) ? (int) $filters['city'] : null;
         $search = trim((string) ($filters['search'] ?? ''));
+        $selectedDate = $filters['date'] ?? CarbonImmutable::now('Europe/Belgrade')->toDateString();
         $activeFields = fn ($query) => $query
             ->where('status', FieldStatus::Active)
             ->when($cityId, fn ($fieldQuery) => $fieldQuery
@@ -62,7 +63,7 @@ class PublicFieldListingController extends Controller
             'filters' => [
                 'city' => $cityId,
                 'search' => $search,
-                'date' => $filters['date'] ?? now()->toDateString(),
+                'date' => $selectedDate,
             ],
         ]);
     }

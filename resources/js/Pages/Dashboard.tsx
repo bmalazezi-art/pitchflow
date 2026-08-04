@@ -1,4 +1,4 @@
-import { Head, Link, useForm, usePage } from '@inertiajs/react';
+import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import {
     Activity,
     ArrowUpRight,
@@ -15,12 +15,13 @@ import {
     WalletCards,
     type LucideIcon,
 } from 'lucide-react';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts';
 import AppLayout from '../Layouts/AppLayout';
 import { Badge } from '../Components/UI';
 import { Button, Field, Modal } from '../Components/UI';
 import { useTranslation } from '../lib/i18n';
+import { useTodayDate } from '../hooks/useTodayDate';
 import type { SharedProps } from '../types';
 
 interface DashboardReservation {
@@ -105,6 +106,7 @@ function ReadinessPanel({ readiness }: { readiness: DashboardMetrics['readiness'
 export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     const t = useTranslation();
     const { auth, locale } = usePage<SharedProps>().props;
+    const currentLocalDate = useTodayDate();
     const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
     const firstName = auth.user?.name.split(' ')[0] ?? '';
     const organizationName = auth.organization?.name ?? 'PitchFlow';
@@ -114,12 +116,18 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     }).format(new Date()));
     const greeting = localHour < 12 ? t('goodMorning') : localHour < 18 ? t('goodAfternoon') : t('goodEvening');
     const todayLabel = new Intl.DateTimeFormat(localeCode, {
-        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric', timeZone: 'UTC',
-    }).format(new Date(`${metrics.today_date}T12:00:00Z`));
+        weekday: 'long', day: 'numeric', month: 'long', year: 'numeric',
+    }).format(new Date(`${metrics.today_date}T12:00:00`));
     const peakEntries = Object.entries(metrics.peak_hours);
     const [supportOpen, setSupportOpen] = useState(false);
     const supportForm = useForm({ message: '' });
     const peakMaximum = Math.max(...peakEntries.map(([, count]) => count), 1);
+
+    useEffect(() => {
+        if (currentLocalDate !== metrics.today_date) {
+            router.reload({ preserveScroll: true });
+        }
+    }, [currentLocalDate, metrics.today_date]);
 
     const formatTime = (date: string) => new Intl.DateTimeFormat(localeCode, {
         hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone,
@@ -209,7 +217,7 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
                     <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('thisWeek')}</span><h2>{t('weeklyReservations')}</h2></div></div>
                     <div className="dashboard-chart"><ResponsiveContainer width="100%" height="100%"><BarChart data={metrics.weekly} margin={{ top: 8, right: 6, left: -22, bottom: 0 }}>
                         <CartesianGrid stroke="var(--border)" strokeDasharray="3 3" vertical={false} />
-                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} tickFormatter={(value) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', timeZone: 'UTC' }).format(new Date(`${value}T12:00:00Z`))} />
+                        <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} tickFormatter={(value) => new Intl.DateTimeFormat(localeCode, { weekday: 'short' }).format(new Date(`${value}T12:00:00`))} />
                         <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: 'var(--muted)', fontSize: 12 }} />
                         <Tooltip cursor={{ fill: 'var(--surface-2)' }} contentStyle={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--surface)', color: 'var(--text)' }} />
                         <Bar dataKey="count" name={t('reservations')} fill="var(--blue)" radius={[5, 5, 0, 0]} maxBarSize={44} />

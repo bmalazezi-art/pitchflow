@@ -1,15 +1,21 @@
 export type RangePeriod = 'today' | 'yesterday' | 'this_week' | 'last_week' | 'this_month' | 'custom';
 
-const dateFromIso = (date: string) => new Date(`${date}T12:00:00Z`);
+const dateFromIso = (date: string) => new Date(`${date}T12:00:00`);
 const pad = (value: number) => String(value).padStart(2, '0');
 const sqMonths = ['Janar', 'Shkurt', 'Mars', 'Prill', 'Maj', 'Qershor', 'Korrik', 'Gusht', 'Shtator', 'Tetor', 'Nëntor', 'Dhjetor'];
 const sqMonthsShort = ['Jan', 'Shku', 'Mar', 'Pri', 'Maj', 'Qer', 'Kor', 'Gus', 'Sht', 'Tet', 'Nën', 'Dhj'];
 const sqWeekdaysFull = ['E diel', 'E hënë', 'E martë', 'E mërkurë', 'E enjte', 'E premte', 'E shtunë'];
 const sqWeekdaysShort = ['Die', 'Hën', 'Mar', 'Mër', 'Enj', 'Pre', 'Sht'];
 
-export const isoDate = (date: Date) => date.toISOString().slice(0, 10);
 export const toDateInput = (date: Date) => `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+export const isoDate = (date: Date) => toDateInput(date);
 export const todayIso = () => toDateInput(new Date());
+export const millisecondsUntilNextLocalMidnight = (date = new Date()) => {
+    const nextMidnight = new Date(date);
+    nextMidnight.setHours(24, 0, 0, 0);
+
+    return Math.max(1000, nextMidnight.getTime() - date.getTime());
+};
 
 export const addDays = (date: string, days: number) => {
     const value = dateFromIso(date);

@@ -4,6 +4,7 @@ import { ChevronLeft, MapPin, Search, ShieldCheck } from 'lucide-react';
 import { Button } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
 import { trackPublicEvent } from '../../lib/analytics';
+import { useTodayDate } from '../../hooks/useTodayDate';
 import { useTranslation } from '../../lib/i18n';
 import { zonedNowInput } from '../../lib/slotStatus';
 import type { SharedProps } from '../../types';
@@ -18,10 +19,13 @@ interface Props {
 export default function Fields({ cities, businesses, filters }: Props) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
+    const today = useTodayDate();
+    const dateWasExplicit = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date');
     const [dark, setDark] = useState(() => localStorage.getItem('public-theme') === 'dark');
     const [draftCity, setDraftCity] = useState(filters.city ? String(filters.city) : '');
     const [draftSearch, setDraftSearch] = useState(filters.search ?? '');
     const [draftDate, setDraftDate] = useState(filters.date);
+    const [dateManuallySelected, setDateManuallySelected] = useState(dateWasExplicit);
 
     useEffect(() => {
         localStorage.setItem('public-theme', dark ? 'dark' : 'light');
@@ -31,7 +35,13 @@ export default function Fields({ cities, businesses, filters }: Props) {
         setDraftCity(filters.city ? String(filters.city) : '');
         setDraftSearch(filters.search ?? '');
         setDraftDate(filters.date);
+        setDateManuallySelected(typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date'));
     }, [filters.city, filters.date, filters.search]);
+    useEffect(() => {
+        if (!dateManuallySelected) {
+            setDraftDate(today);
+        }
+    }, [dateManuallySelected, today]);
 
     const setLocale = (nextLocale: 'en' | 'sq') => {
         if (nextLocale === locale) return;
@@ -84,7 +94,7 @@ export default function Fields({ cities, businesses, filters }: Props) {
                         <Search size={18} />
                         <input value={draftSearch} onChange={event => setDraftSearch(event.target.value)} placeholder={t('searchFieldsPlaceholder')} />
                     </label>
-                    <DatePicker value={draftDate} onChange={setDraftDate} />
+                    <DatePicker value={draftDate} onChange={value => { setDateManuallySelected(value !== today); setDraftDate(value); }} />
                     <Button type="submit" className="availability-submit"><Search size={17} />{t('apply')}</Button>
                 </form>
                 {(filters.city || filters.search) && <button type="button" className="public-clear-link" onClick={clear}>{t('clearFilters')}</button>}

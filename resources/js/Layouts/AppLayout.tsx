@@ -16,6 +16,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
     const [notificationsOpen, setNotificationsOpen] = useState(false);
     const [userMenuOpen, setUserMenuOpen] = useState(false);
     const [languageOpen, setLanguageOpen] = useState(false);
+    const [loggingOut, setLoggingOut] = useState(false);
     const employeePermissions = auth.user?.permissions ?? ['create_reservations', 'edit_reservations', 'cancel_reservations', 'view_customers', 'add_customer_notes', 'view_calendar', 'view_assigned_fields'];
     const can = (permission: string) => employeePermissions.includes(permission);
     const roleLabel = auth.user?.role === 'super_admin' ? t('superAdmin') : auth.user?.role === 'owner' ? t('owner') : t('employee');
@@ -49,6 +50,11 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         localStorage.setItem('locale', nextLocale);
         router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false });
     };
+    const handleLogout = () => logoutAndReplace({
+        onStart: () => setLoggingOut(true),
+        onCancel: () => setLoggingOut(false),
+        onError: () => setLoggingOut(false),
+    });
 
     useEffect(() => {
         document.documentElement.classList.toggle('dark', dark);
@@ -135,7 +141,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
                             <div className="user-dropdown-header"><strong>{auth.user?.name}</strong><span>{roleLabel}</span></div>
                             <Link href="/profile" onClick={() => setUserMenuOpen(false)}>{t('profile')}</Link>
                             {settingsHref && <Link href={settingsHref} onClick={() => setUserMenuOpen(false)}>{t('settings')}</Link>}
-                            <button className="logout-item" onClick={logoutAndReplace}><LogOut size={16} />{t('logout')}</button>
+                            <button className="logout-item" onClick={handleLogout} disabled={loggingOut} aria-busy={loggingOut}><LogOut size={16} />{loggingOut ? t('loggingOut') : t('logout')}</button>
                         </div>}
                     </div>
                 </div>

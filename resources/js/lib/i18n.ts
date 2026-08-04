@@ -5,7 +5,7 @@ const messages = {
     en: {
         dashboard: 'Dashboard', calendar: 'Calendar', reservations: 'Reservations', customers: 'Customers',
         fields: 'Football Fields', employees: 'Employees', reports: 'Reports', settings: 'Settings',
-        organizations: 'Organizations', logout: 'Log out', search: 'Search', save: 'Save', cancel: 'Cancel',
+        organizations: 'Organizations', logout: 'Log out', loggingOut: 'Logging out...', search: 'Search', save: 'Save', cancel: 'Cancel',
         superAdmin: 'Super Admin',
         copy: 'Copy', copied: 'Copied',
         delete: 'Delete', edit: 'Edit', add: 'Add', close: 'Close', name: 'Name', email: 'Email',
@@ -273,7 +273,7 @@ const messages = {
     sq: {
         dashboard: 'Paneli', calendar: 'Kalendari', reservations: 'Rezervimet', customers: 'Klientët',
         fields: 'Fushat e Futbollit', employees: 'Punonjësit', reports: 'Raportet', settings: 'Cilësimet',
-        organizations: 'Organizatat', logout: 'Dil', search: 'Kërko', save: 'Ruaj', cancel: 'Anulo',
+        organizations: 'Organizatat', logout: 'Dil', loggingOut: 'Duke dalë...', search: 'Kërko', save: 'Ruaj', cancel: 'Anulo',
         superAdmin: 'Super Admin',
         copy: 'Kopjo', copied: 'U kopjua',
         delete: 'Fshi', edit: 'Ndrysho', add: 'Shto', close: 'Mbyll', name: 'Emri', email: 'Email',

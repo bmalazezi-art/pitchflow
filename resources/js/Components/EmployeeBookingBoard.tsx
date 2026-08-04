@@ -6,7 +6,8 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { Badge, Button, Drawer, Field, Input, Modal, Select } from './UI';
 import { SingleDateNavigator } from './DateControls';
-import { formatCalendarDate } from '../lib/dateControls';
+import { formatCalendarDate, toDateInput } from '../lib/dateControls';
+import { useTodayDate } from '../hooks/useTodayDate';
 import { useTranslation } from '../lib/i18n';
 import { getSlotStatus, isSlotBlockedByReservation } from '../lib/slotStatus';
 import type { SharedProps } from '../types';
@@ -110,17 +111,17 @@ const sanitizePhoneInput = (value: string) => {
     return hasLeadingPlus ? `+${readablePhone.trimStart()}` : readablePhone;
 };
 const addDays = (date: string, days: number) => {
-    const value = new Date(`${date}T12:00:00Z`);
-    value.setUTCDate(value.getUTCDate() + days);
-    return value.toISOString().slice(0, 10);
+    const value = new Date(`${date}T12:00:00`);
+    value.setDate(value.getDate() + days);
+    return toDateInput(value);
 };
 const startOfWeek = (date: string) => {
-    const value = new Date(`${date}T12:00:00Z`);
-    const offset = (value.getUTCDay() + 6) % 7;
-    value.setUTCDate(value.getUTCDate() - offset);
-    return value.toISOString().slice(0, 10);
+    const value = new Date(`${date}T12:00:00`);
+    const offset = (value.getDay() + 6) % 7;
+    value.setDate(value.getDate() - offset);
+    return toDateInput(value);
 };
-const dayOfWeek = (date: string) => new Date(`${date}T12:00:00Z`).getUTCDay();
+const dayOfWeek = (date: string) => new Date(`${date}T12:00:00`).getDay();
 
 const zonedParts = (value: string | Date, timezone: string) => {
     const parts = new Intl.DateTimeFormat('en-CA', {
@@ -159,7 +160,7 @@ const scheduleFor = (field: BoardField, date: string): ScheduleWindow[] => {
 };
 
 const formatDate = (date: string, locale: string, options: Intl.DateTimeFormatOptions = {}) => formatCalendarDate(
-    new Date(`${date}T12:00:00Z`),
+    new Date(`${date}T12:00:00`),
     locale,
     { weekday: 'long', day: 'numeric', month: 'long', ...options },
 );
@@ -167,10 +168,13 @@ const formatDate = (date: string, locale: string, options: Intl.DateTimeFormatOp
 export default function EmployeeBookingBoard({ reservations, fields, timezone, selectedField, selectedReservation, initialDate }: BookingBoardProps) {
     const t = useTranslation();
     const { locale, flash } = usePage<SharedProps>().props;
-    const today = zonedParts(new Date(), timezone).date;
+    const browserToday = useTodayDate();
+    const today = timezone === 'Europe/Belgrade' || timezone === 'Europe/Pristina' ? browserToday : zonedParts(new Date(), timezone).date;
+    const dateWasExplicit = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('from') || new URLSearchParams(window.location.search).has('to'));
     const initialReservation = selectedReservation ? reservations.find(item => item.id === selectedReservation) ?? null : null;
     const initialFieldIndex = Math.max(0, fields.findIndex(field => field.id === (selectedField ?? initialReservation?.football_field_id)));
     const [selectedDate, setSelectedDate] = useState(initialReservation ? zonedParts(initialReservation.starts_at, timezone).date : initialDate ?? today);
+    const [dateManuallySelected, setDateManuallySelected] = useState(Boolean(initialReservation) || dateWasExplicit);
     const [view, setView] = useState<'today' | 'tomorrow' | 'week'>('today');
     const [mobileFieldIndex, setMobileFieldIndex] = useState(initialFieldIndex);
     const [drawerReservation, setDrawerReservation] = useState<BoardReservation | null>(initialReservation);
@@ -191,6 +195,11 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
         const fresh = reservations.find(reservation => reservation.id === drawerReservationId);
         if (fresh) setDrawerReservation(fresh);
     }, [drawerReservationId, reservations]);
+    useEffect(() => {
+        if (dateManuallySelected) return;
+        setSelectedDate(today);
+        loadDateRange(today, view);
+    }, [dateManuallySelected, today]);
 
     const schedules = useMemo(() => new Map(fields.map(field => [field.id, scheduleFor(field, selectedDate)])), [fields, selectedDate]);
     const slots = useMemo(() => {
@@ -227,6 +236,7 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
     });
 
     const selectBoardDate = (date: string, nextView: 'today' | 'tomorrow' | 'week' = view) => {
+        setDateManuallySelected(date !== today || nextView !== 'today');
         setView(nextView);
         setSelectedDate(date);
         loadDateRange(date, nextView);
@@ -361,7 +371,10 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                 <button className="board-refresh" onClick={() => router.reload({ only: ['reservations', 'fields'] })} title={t('refreshBoard')} aria-label={t('refreshBoard')}><RefreshCw size={17} /></button>
             </div>
 
-            {view === 'week' && <div className="board-week-strip">{weekDates.map(date => <button key={date} className={selectedDate === date ? 'active' : ''} onClick={() => selectBoardDate(date, 'week')}><span>{formatCalendarDate(new Date(`${date}T12:00:00Z`), locale, { weekday: 'short' })}</span><strong>{new Date(`${date}T12:00:00Z`).getUTCDate()}</strong></button>)}</div>}
+            {view === 'week' && <div className="board-week-strip">{weekDates.map(date => {
+                const localDate = new Date(`${date}T12:00:00`);
+                return <button key={date} className={selectedDate === date ? 'active' : ''} onClick={() => selectBoardDate(date, 'week')}><span>{formatCalendarDate(localDate, locale, { weekday: 'short' })}</span><strong>{localDate.getDate()}</strong></button>;
+            })}</div>}
             <p className="board-grid-helper">{t('boardGridHelp')}</p>
 
             {!fields.length ? <div className="board-empty"><CalendarDays size={28} /><h2>{t('noAssignedFields')}</h2><p>{t('assignedFieldsIntro')}</p></div> : <>

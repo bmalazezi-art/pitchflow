@@ -5,6 +5,7 @@ import { Button, Field, Input, Modal } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
 import { slotStatusForAnalytics, trackPublicEvent } from '../../lib/analytics';
 import { formatDateLabel, todayIso } from '../../lib/dateControls';
+import { useTodayDate } from '../../hooks/useTodayDate';
 import { useTranslation } from '../../lib/i18n';
 import { getSlotStatus, zonedNowInput, type SlotStatus } from '../../lib/slotStatus';
 import type { SharedProps } from '../../types';
@@ -61,9 +62,12 @@ const venueImages = [
 export default function Availability({ cities, businesses, recentBusinesses, statistics, selectedBusiness, pitchAvailability, filters }: Props) {
     const t = useTranslation();
     const { locale, flash } = usePage<SharedProps>().props;
+    const today = useTodayDate();
     const selectedCity = cities.find(city => city.id === Number(filters.city));
+    const dateWasExplicit = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date');
     const [draftCity, setDraftCity] = useState(filters.city ? String(filters.city) : '');
     const [draftDate, setDraftDate] = useState(filters.date);
+    const [dateManuallySelected, setDateManuallySelected] = useState(dateWasExplicit);
     const [nowInput, setNowInput] = useState(() => zonedNowInput('Europe/Belgrade'));
     const initialHomeEvent = useRef({
         city_id: filters.city ?? null,
@@ -90,7 +94,13 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
     useEffect(() => {
         setDraftCity(filters.city ? String(filters.city) : '');
         setDraftDate(filters.date);
+        setDateManuallySelected(typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('date'));
     }, [filters.city, filters.date]);
+    useEffect(() => {
+        if (!dateManuallySelected) {
+            setDraftDate(today);
+        }
+    }, [dateManuallySelected, today]);
     useEffect(() => {
         const interval = window.setInterval(() => setNowInput(zonedNowInput('Europe/Belgrade')), 30000);
         return () => window.clearInterval(interval);
@@ -132,6 +142,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
         });
         setDraftCity('');
         setDraftDate(todayIso());
+        setDateManuallySelected(false);
         router.get('/', {}, { preserveState: false, preserveScroll: false });
     };
     const viewBusiness = (business: PublicBusiness) => {
@@ -154,7 +165,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
                         <span className="hero-kicker"><Trophy size={16} /> {t('verifiedFields')}</span>
                         <h1>{t('checkAvailabilityTitle')}</h1>
                         <p>{t('availabilityHeroDescription')}</p>
-                        <SearchPanel cities={cities} city={draftCity} date={draftDate} setCity={setDraftCity} setDate={setDraftDate} onSubmit={submitSearch} />
+                        <SearchPanel cities={cities} city={draftCity} date={draftDate} setCity={setDraftCity} setDate={value => { setDateManuallySelected(value !== today); setDraftDate(value); }} onSubmit={submitSearch} />
                         <HeroTrustBadges />
                         <div className="availability-only-note"><ShieldCheck size={17} /><span><strong>{t('availabilityOnly')}</strong>{t('reservationsDirect')}</span></div>
                     </div>

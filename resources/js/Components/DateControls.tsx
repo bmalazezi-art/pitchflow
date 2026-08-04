@@ -3,13 +3,14 @@ import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { usePage } from '@inertiajs/react';
 import { Button } from './UI';
 import { useTranslation } from '../lib/i18n';
-import { addDays, formatCalendarDate, formatDateLabel, formatMonthYear, shiftMonths, startOfWeek, todayIso, toDateInput, weekdayLabels, type RangePeriod } from '../lib/dateControls';
+import { addDays, formatCalendarDate, formatDateLabel, formatMonthYear, shiftMonths, startOfWeek, toDateInput, weekdayLabels, type RangePeriod } from '../lib/dateControls';
+import { useTodayDate } from '../hooks/useTodayDate';
 import type { SharedProps } from '../types';
 
 type QuickDateMode = 'today' | 'tomorrow' | 'week';
 
 const localDate = (date: string) => new Date(`${date}T12:00:00`);
-const dateFromIso = (date: string) => new Date(`${date}T12:00:00Z`);
+const dateFromIso = (date: string) => new Date(`${date}T12:00:00`);
 
 export function DatePicker({
     value,
@@ -24,6 +25,7 @@ export function DatePicker({
 }) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
+    const today = useTodayDate();
     const selectedDate = localDate(value);
     const [open, setOpen] = useState(false);
     const triggerRef = useRef<HTMLButtonElement>(null);
@@ -32,6 +34,10 @@ export function DatePicker({
     const calendarDays = useMemo(() => buildCalendarDays(visibleMonth), [visibleMonth]);
     const monthLabel = formatMonthYear(visibleMonth, locale);
     const weekdays = useMemo(() => weekdayLabels(locale), [locale]);
+
+    useEffect(() => {
+        setVisibleMonth(startOfMonth(selectedDate));
+    }, [value]);
 
     useEffect(() => {
         if (!open || !triggerRef.current) return;
@@ -72,8 +78,8 @@ export function DatePicker({
         </button>
         {open && <div className="calendar-popover pf-date-popover" style={{ top: popoverPosition.top, left: popoverPosition.left }} role="dialog" aria-label={ariaLabel ?? t('chooseDate')}>
             {showShortcuts && <div className="pf-date-popover-actions">
-                <button type="button" onClick={() => selectDate(localDate(todayIso()))}>{t('today')}</button>
-                <button type="button" onClick={() => selectDate(localDate(addDays(todayIso(), 1)))}>{t('tomorrow')}</button>
+                <button type="button" onClick={() => selectDate(localDate(today))}>{t('today')}</button>
+                <button type="button" onClick={() => selectDate(localDate(addDays(today, 1)))}>{t('tomorrow')}</button>
             </div>}
             <div className="calendar-month">
                 <button type="button" aria-label={t('previousMonth')} onClick={() => setVisibleMonth(addMonths(visibleMonth, -1))}><ChevronLeft size={18} /></button>
@@ -85,7 +91,7 @@ export function DatePicker({
                 {calendarDays.map(day => <button
                     type="button"
                     key={day.key}
-                    className={['calendar-day', day.currentMonth ? '' : 'outside', sameDay(day.date, selectedDate) ? 'selected' : '', sameDay(day.date, localDate(todayIso())) ? 'today' : ''].filter(Boolean).join(' ')}
+                    className={['calendar-day', day.currentMonth ? '' : 'outside', sameDay(day.date, selectedDate) ? 'selected' : '', sameDay(day.date, localDate(today)) ? 'today' : ''].filter(Boolean).join(' ')}
                     onClick={() => selectDate(day.date)}
                 >
                     {day.date.getDate()}
@@ -109,10 +115,11 @@ export function SingleDateNavigator({
     showWeek?: boolean;
 }) {
     const t = useTranslation();
+    const today = useTodayDate();
     const quickModes: QuickDateMode[] = showWeek ? ['today', 'tomorrow', 'week'] : ['today', 'tomorrow'];
     const moveDays = mode === 'week' ? 7 : 1;
     const chooseMode = (nextMode: QuickDateMode) => {
-        const nextDate = nextMode === 'tomorrow' ? addDays(todayIso(), 1) : nextMode === 'week' ? startOfWeek(todayIso()) : todayIso();
+        const nextDate = nextMode === 'tomorrow' ? addDays(today, 1) : nextMode === 'week' ? startOfWeek(today) : today;
         onModeChange?.(nextMode);
         onChange(nextDate, nextMode);
     };

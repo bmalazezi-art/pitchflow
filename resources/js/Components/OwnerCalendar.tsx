@@ -5,11 +5,11 @@ import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
 import { CalendarDays, SlidersHorizontal } from 'lucide-react';
-import { useCallback, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import AppLayout from '../Layouts/AppLayout';
 import { PageHeader, Select } from './UI';
 import { SingleDateNavigator } from './DateControls';
-import { todayIso } from '../lib/dateControls';
+import { useTodayDate } from '../hooks/useTodayDate';
 import { useTranslation } from '../lib/i18n';
 import { usePage } from '@inertiajs/react';
 import type { SharedProps } from '../types';
@@ -28,8 +28,11 @@ const reservationColor = (reservation: any, fields: any[]) => {
 export default function OwnerCalendar({ reservations, fields, timezone, selectedField, initialDate }: CalendarProps) {
     const t = useTranslation();
     const { locale } = usePage<SharedProps>().props;
+    const today = useTodayDate();
+    const dateWasExplicit = typeof window !== 'undefined' && (new URLSearchParams(window.location.search).has('from') || new URLSearchParams(window.location.search).has('to'));
     const [fieldFilter, setFieldFilter] = useState<number | 'all'>(selectedField ?? 'all');
-    const [selectedDate, setSelectedDate] = useState(initialDate ?? todayIso());
+    const [selectedDate, setSelectedDate] = useState(initialDate ?? today);
+    const [dateManuallySelected, setDateManuallySelected] = useState(dateWasExplicit);
     const isMobileViewport = typeof window !== 'undefined' && window.innerWidth < 768;
     const [view, setView] = useState<'dayGridMonth' | 'timeGridWeek' | 'timeGridDay'>(isMobileViewport ? 'timeGridDay' : 'timeGridWeek');
     const [quickMode, setQuickMode] = useState<'today' | 'tomorrow' | 'week'>(isMobileViewport ? 'today' : 'week');
@@ -46,6 +49,11 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
             borderColor: reservationColor(reservation, fields),
             extendedProps: { reservation },
         })), [fieldFilter, fields, reservations]);
+    useEffect(() => {
+        if (dateManuallySelected) return;
+        setSelectedDate(today);
+        calendarRef.current?.getApi().changeView(view, today);
+    }, [dateManuallySelected, today, view]);
     const handleDatesSet = useCallback((info: { startStr: string; endStr: string }) => {
         setSelectedDate(info.startStr.slice(0, 10));
         if (!didMountCalendar.current) {
@@ -66,6 +74,7 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
     }, [fieldFilter]);
     const selectDate = (date: string, mode: 'today' | 'tomorrow' | 'week' = quickMode) => {
         const nextView = mode === 'week' ? 'timeGridWeek' : 'timeGridDay';
+        setDateManuallySelected(date !== today || mode !== 'today');
         setQuickMode(mode);
         setView(nextView);
         setSelectedDate(date);

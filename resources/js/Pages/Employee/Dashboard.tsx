@@ -1,9 +1,11 @@
-import { Head, Link, usePage } from '@inertiajs/react';
+import { Head, Link, router, usePage } from '@inertiajs/react';
 import { CalendarCheck, CalendarDays, CalendarPlus, CheckCircle2, ChevronRight, Clock3, CreditCard, MessageSquareText, Pencil, Search, Trophy, UserPlus, UserRound, XCircle } from 'lucide-react';
 import AppLayout from '../../Layouts/AppLayout';
 import { Badge } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
+import { useTodayDate } from '../../hooks/useTodayDate';
 import type { SharedProps } from '../../types';
+import { useEffect } from 'react';
 
 interface OperationalReservation {
     id: number;
@@ -31,10 +33,16 @@ interface EmployeeMetrics {
 export default function EmployeeDashboard({ metrics }: { metrics: EmployeeMetrics }) {
     const t = useTranslation();
     const { auth, locale } = usePage<SharedProps>().props;
+    const currentLocalDate = useTodayDate();
     const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
     const formatTime = (value: string) => new Intl.DateTimeFormat(localeCode, { hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone }).format(new Date(value));
     const formatDateTime = (value: string) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone }).format(new Date(value));
-    const today = new Intl.DateTimeFormat(localeCode, { weekday: 'long', day: 'numeric', month: 'long', timeZone: 'UTC' }).format(new Date(`${metrics.today_date}T12:00:00Z`));
+    const today = new Intl.DateTimeFormat(localeCode, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${metrics.today_date}T12:00:00`));
+    useEffect(() => {
+        if (currentLocalDate !== metrics.today_date) {
+            router.reload({ preserveScroll: true });
+        }
+    }, [currentLocalDate, metrics.today_date]);
     const activityLabel = (action: string) => ({
         reservation_created: t('activityReservationCreated'), reservation_updated: t('activityReservationUpdated'),
         reservation_cancelled: t('activityReservationCancelled'), reservation_completed: t('reservationCompleted'),

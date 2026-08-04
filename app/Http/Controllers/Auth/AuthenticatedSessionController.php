@@ -130,9 +130,8 @@ class AuthenticatedSessionController extends Controller
         return $matches->count() === 1 ? $matches->first() : null;
     }
 
-    public function destroy(Request $request, ActivityLogger $activity): RedirectResponse
+    public function destroy(Request $request): RedirectResponse
     {
-        $activity->log('logout');
         Auth::guard('web')->logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();

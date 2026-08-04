@@ -26,6 +26,7 @@ class PublicAvailabilityController extends Controller
         $pitchAvailability = [];
         $cityId = $request->integer('city');
         $clientNow = $request->input('client_now');
+        $selectedDate = (string) $request->input('date', CarbonImmutable::now('Europe/Belgrade')->toDateString());
         $activeFields = fn ($query) => $query
             ->where('status', FieldStatus::Active)
             ->where(fn ($cityQuery) => $cityQuery
@@ -131,7 +132,7 @@ class PublicAvailabilityController extends Controller
             if ($business) {
                 $pitchAvailability = $business->footballFields->map(fn (FootballField $field) => [
                     'field' => $field,
-                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString()), $clientNow),
+                    'slots' => $availability->slots($field, $selectedDate, $clientNow),
                 ])->values();
             }
         } elseif ($request->filled(['city', 'field'])) {
@@ -154,7 +155,7 @@ class PublicAvailabilityController extends Controller
                 $business = $field->organization->load('city:id,name');
                 $pitchAvailability = [[
                     'field' => $field,
-                    'slots' => $availability->slots($field, $request->input('date', now()->toDateString()), $clientNow),
+                    'slots' => $availability->slots($field, $selectedDate, $clientNow),
                 ]];
             }
         }
@@ -170,7 +171,7 @@ class PublicAvailabilityController extends Controller
             'filters' => [
                 'city' => $request->integer('city') ?: null,
                 'business' => $request->integer('business') ?: null,
-                'date' => $request->input('date', now()->toDateString()),
+                'date' => $selectedDate,
                 'client_now' => $clientNow,
             ],
         ]);
