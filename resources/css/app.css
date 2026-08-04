@@ -1271,17 +1271,17 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 
 @media (max-width: 760px) {
-    .public-nav { min-height: 0; padding: 5px 10px 7px; gap: 4px; flex-wrap: wrap; align-items: center; }
-    .public-nav .brand { width: 100%; height: 30px; padding: 0; gap: 7px; flex: 0 0 100%; }
+    .public-nav { min-height: 0; padding: 7px 10px; gap: 5px; flex-wrap: nowrap; align-items: center; }
+    .public-nav .brand { width: auto; height: 38px; padding: 0; gap: 7px; flex: 1 1 auto; }
     .public-nav .brand-mark { width: 28px; height: 28px; flex: 0 0 28px; border-radius: 8px; font-size: 14px; }
-    .public-nav .brand strong { max-width: 180px; font-size: 18px; }
-    .public-nav-actions { width: 100%; flex: 0 0 100%; justify-content: space-between; gap: 4px; }
+    .public-nav .brand strong { max-width: 116px; font-size: 18px; }
+    .public-nav-actions { width: auto; min-width: 0; flex: 0 1 auto; justify-content: flex-end; gap: 4px; }
     .public-nav .btn-secondary { display: inline-flex; }
-    .public-nav .btn { min-width: 0; min-height: 38px; padding: 0 10px; white-space: nowrap; }
+    .public-nav .btn { min-width: 0; min-height: 38px; padding: 0 8px; white-space: nowrap; }
     .public-nav .btn-primary { max-width: none; overflow: hidden; text-overflow: ellipsis; }
     .public-theme-toggle { width: 38px; height: 38px; flex: 0 0 38px; }
     .public-language-selector { position: relative; }
-    .public-language-selector .language-selector-trigger { min-height: 38px; padding: 0 9px; gap: 6px; }
+    .public-language-selector .language-selector-trigger { min-height: 38px; padding: 0 8px; gap: 5px; }
     .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 120; width: max-content; min-width: 156px; max-width: calc(100vw - 24px); }
     .public-directory-hero, .field-discovery, .availability-results, .public-content-section { width: min(100% - 24px, 1200px); max-width: calc(100vw - 24px); }
     .public-directory-hero { padding-top: 24px; }
@@ -1301,6 +1301,17 @@ textarea.input { min-height: 90px; resize: vertical; }
 }
 
 @media (max-width: 580px) {
+    input, textarea, select,
+    .input,
+    .public-input input,
+    .public-input select,
+    .calendar-trigger,
+    .auth-form .input,
+    .auth-form select,
+    .auth-form textarea,
+    .price-input-group .input {
+        font-size: 16px !important;
+    }
     main { padding: 16px; }
     .topbar { padding: 0 12px; }
     .org-title strong { max-width: 150px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -1385,17 +1396,17 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-input { min-height: 56px; }
     .time-slot-card { min-height: 112px; }
     .schedule-row { grid-template-columns: 1fr 1fr; }
-    .public-nav { min-height: 0; padding: 5px 10px 7px; gap: 4px; }
+    .public-nav { min-height: 0; padding: 7px 10px; gap: 5px; }
     .public-nav .brand { padding-left: 0; }
     .public-nav-actions { gap: 4px; }
     .language-selector-trigger { min-height: 34px; padding: 0 8px; }
     .language-selector-menu { right: auto; left: 0; max-width: calc(100vw - 24px); }
     .public-nav .btn-secondary { display: inline-flex; }
-    .public-nav .btn { min-height: 38px; padding: 0 9px; }
+    .public-nav .btn { min-height: 38px; padding: 0 8px; }
     .public-input, .calendar-trigger, .availability-submit { min-height: 50px; border-radius: 10px; }
     .calendar-trigger { padding: 0 11px; font-size: 13px; }
     .modal-backdrop { padding: 16px 12px; align-items: center; }
-    .waiting-list-modal { width: min(100%, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 15px; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 12px; }
+    .waiting-list-modal { width: min(100%, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 16px; overflow: hidden; display: grid; grid-template-rows: auto minmax(0, 1fr); border-radius: 12px; }
     .waiting-list-modal > header { margin-bottom: 10px; }
     .waiting-list-modal h2 { font-size: 18px; line-height: 1.2; }
     .waiting-list-modal .icon-btn { width: 34px; height: 34px; }
@@ -1406,11 +1417,11 @@ textarea.input { min-height: 90px; resize: vertical; }
     .waiting-slot-summary span { font-size: 12px; }
     .waiting-list-form .form-grid { gap: 10px; }
     .waiting-list-form .field-label { gap: 5px; font-size: 14px; }
-    .waiting-list-form .input { min-height: 42px; padding: 8px 10px; border-radius: 8px; font-size: 14px; }
-    .waiting-list-form textarea.input { min-height: 84px; }
+    .waiting-list-form .input { min-height: 44px; padding: 8px 10px; border-radius: 8px; font-size: 16px !important; }
+    .waiting-list-form textarea.input { min-height: 88px; }
     .waiting-list-form .form-actions { position: sticky; bottom: 0; z-index: 2; margin: 0 -2px -2px; padding-top: 8px; display: grid; grid-template-columns: 1fr 1fr; gap: 8px; background: var(--surface); }
     .public-dark .waiting-list-form .form-actions { background: #111827; }
-    .waiting-list-form .form-actions .btn { min-height: 42px; width: 100%; padding: 0 10px; font-size: 13px; }
+    .waiting-list-form .form-actions .btn { min-height: 44px; width: 100%; padding: 0 10px; font-size: 16px; }
     .public-legal-page { width: min(100% - 24px, 980px); padding: 26px 0 52px; }
     .public-legal-page > header { margin-top: 18px; padding: 24px 18px; border-radius: 14px; }
     .public-legal-page h1 { font-size: 34px; }
@@ -1426,20 +1437,21 @@ textarea.input { min-height: 90px; resize: vertical; }
 @media (max-width: 420px) {
     .dashboard-kpi-grid { grid-template-columns: 1fr; }
     .readiness-list { grid-template-columns: 1fr; }
-    .public-nav .brand { height: 30px; }
-    .public-nav .brand strong { max-width: 104px; font-size: 17px; }
+    .public-nav .brand { height: 38px; }
+    .public-nav .brand strong { max-width: 94px; font-size: 17px; }
     .public-nav .brand-mark { width: 27px; height: 27px; flex-basis: 27px; }
     .public-language-selector .language-selector-trigger { padding: 0 8px; }
-    .public-nav .btn { min-height: 36px; padding: 0 8px; font-size: 12px; }
+    .public-nav .btn { min-height: 38px; padding: 0 7px; font-size: 12px; }
     .public-nav .btn-primary { max-width: 112px; }
     .public-theme-toggle { width: 36px; height: 36px; flex-basis: 36px; }
     .venue-card-body h3 { font-size: 22px; }
 }
 
 @media (max-width: 360px) {
+    .public-nav { flex-wrap: wrap; padding: 5px 10px 7px; }
     .public-nav .brand strong { display: inline; max-width: 96px; }
-    .public-nav .brand { flex: 0 0 100%; }
-    .public-nav-actions { margin-left: 0; gap: 4px; }
+    .public-nav .brand { width: 100%; height: 30px; flex: 0 0 100%; }
+    .public-nav-actions { width: 100%; margin-left: 0; justify-content: space-between; gap: 4px; }
     .public-language-selector .language-selector-trigger { padding: 0 7px; }
     .public-nav .btn { padding: 0 7px; font-size: 11px; }
     .public-theme-toggle { width: 36px; height: 36px; flex-basis: 36px; }

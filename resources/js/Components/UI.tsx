@@ -40,6 +40,17 @@ export function Select(props: React.SelectHTMLAttributes<HTMLSelectElement>) {
 
 export function Modal({ open, title, onClose, children, className }: { open: boolean; title: string; onClose: () => void; children: ReactNode; className?: string }) {
     const t = useTranslation();
+    useEffect(() => {
+        if (!open) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [open]);
+
     if (!open) return null;
     return <div className="modal-backdrop" role="presentation" onMouseDown={(event) => event.target === event.currentTarget && onClose()}>
         <section className={clsx('modal', className)} role="dialog" aria-modal="true" aria-labelledby="modal-title">
