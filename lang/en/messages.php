@@ -19,6 +19,7 @@ return [
     'blocked_customer_reservation_forbidden' => 'This customer is marked as blocked. Review the customer profile before creating a new reservation.',
     'too_many_login_attempts' => 'Too many login attempts. Please wait a minute and try again.',
     'reset_link_sent' => 'If the account exists, a password reset link has been sent.',
+    'password_reset_temporarily_unavailable' => 'Password reset is temporarily unavailable. Please contact PitchFlow support or the platform administrator to reset your password.',
     'employee_password_reset_owner_help' => 'If you are an employee without an email, please contact your business owner to reset your password.',
     'verification_sent' => 'A new verification link has been sent.',
     'email_updated_verification_sent' => 'Email address updated. A new verification link has been sent.',

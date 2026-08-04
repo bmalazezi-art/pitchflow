@@ -19,6 +19,7 @@ return [
     'blocked_customer_reservation_forbidden' => 'Ky klient është shënuar si i bllokuar. Kontrolloni profilin e klientit para se të krijoni rezervim të ri.',
     'too_many_login_attempts' => 'Shumë përpjekje për hyrje. Ju lutemi prisni një minutë dhe provoni përsëri.',
     'reset_link_sent' => 'Nëse llogaria ekziston, lidhja për rivendosjen e fjalëkalimit është dërguar.',
+    'password_reset_temporarily_unavailable' => 'Rivendosja e fjalëkalimit është përkohësisht e padisponueshme. Ju lutemi kontaktoni mbështetjen e PitchFlow ose administratorin e platformës për ta rivendosur fjalëkalimin.',
     'employee_password_reset_owner_help' => 'Nëse jeni punonjës pa email, ju lutemi kontaktoni pronarin e biznesit për të rivendosur fjalëkalimin.',
     'verification_sent' => 'Një lidhje e re verifikimi është dërguar.',
     'email_updated_verification_sent' => 'Adresa e emailit u përditësua. Një lidhje e re verifikimi është dërguar.',

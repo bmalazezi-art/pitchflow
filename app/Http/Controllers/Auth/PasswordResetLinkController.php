@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Facades\Log;
 use Inertia\Inertia;
 use Inertia\Response;
+use Throwable;
 
 class PasswordResetLinkController extends Controller
 {
@@ -37,10 +38,21 @@ class PasswordResetLinkController extends Controller
         }
 
         if ($user?->email) {
-            $token = Password::broker()->createToken($user);
-            $resetUrl = route('password.reset', ['token' => $token, 'email' => $user->email]);
-
             if ($this->mailSendingDisabled()) {
+                if (! $this->localResetLinkFallbackEnabled()) {
+                    Log::warning('PitchFlow password reset unavailable because mail is disabled outside local mode.', [
+                        'user_id' => $user->id,
+                        'email' => $user->email,
+                        'mailer' => config('mail.default'),
+                        'environment' => app()->environment(),
+                    ]);
+
+                    return back()->with('success', __('messages.password_reset_temporarily_unavailable'));
+                }
+
+                $token = Password::broker()->createToken($user);
+                $resetUrl = route('password.reset', ['token' => $token, 'email' => $user->email]);
+
                 Log::info('PitchFlow password reset link', [
                     'user_id' => $user->id,
                     'email' => $user->email,
@@ -53,7 +65,19 @@ class PasswordResetLinkController extends Controller
                     ->with('reset_url', $resetUrl);
             }
 
-            $user->sendPasswordResetNotification($token);
+            try {
+                $token = Password::broker()->createToken($user);
+                $user->sendPasswordResetNotification($token);
+            } catch (Throwable $exception) {
+                Log::error('PitchFlow password reset email failed.', [
+                    'user_id' => $user->id,
+                    'email' => $user->email,
+                    'mailer' => config('mail.default'),
+                    'message' => $exception->getMessage(),
+                ]);
+
+                return back()->with('success', __('messages.password_reset_temporarily_unavailable'));
+            }
         }
 
         return back()->with('success', __('messages.reset_link_sent'));
@@ -61,7 +85,11 @@ class PasswordResetLinkController extends Controller
 
     private function mailSendingDisabled(): bool
     {
-        return app()->environment(['local', 'development', 'testing'])
-            || in_array(config('mail.default'), ['log', 'array'], true);
+        return in_array(config('mail.default'), ['log', 'array'], true);
+    }
+
+    private function localResetLinkFallbackEnabled(): bool
+    {
+        return config('app.env') === 'local';
     }
 }
