@@ -2,6 +2,7 @@ import { Head, router, useForm, usePage } from '@inertiajs/react';
 import AuthLayout from '../../Layouts/AuthLayout';
 import { Button, Field, Input } from '../../Components/UI';
 import { useTranslation } from '../../lib/i18n';
+import { logoutAndReplace } from '../../lib/logout';
 import type { SharedProps } from '../../types';
 
 export default function VerifyEmail({ email, canOpenDashboard }: { email: string; canOpenDashboard: boolean }) {
@@ -26,6 +27,6 @@ export default function VerifyEmail({ email, canOpenDashboard }: { email: string
             </Field>
             <Button type="submit" variant="secondary" disabled={form.processing}>{t('updateEmail')}</Button>
         </form>
-        <Button type="button" variant="secondary" onClick={() => router.post('/logout')}>{t('logout')}</Button>
+        <Button type="button" variant="secondary" onClick={logoutAndReplace}>{t('logout')}</Button>
     </AuthLayout>;
 }

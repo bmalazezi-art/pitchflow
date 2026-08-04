@@ -3,6 +3,7 @@ import AuthLayout from '../../Layouts/AuthLayout';
 import { Button, Badge } from '../../Components/UI';
 import type { SharedProps } from '../../types';
 import { useTranslation } from '../../lib/i18n';
+import { logoutAndReplace } from '../../lib/logout';
 
 export default function ApprovalPending() {
     const { auth } = usePage<SharedProps>().props;
@@ -11,6 +12,6 @@ export default function ApprovalPending() {
     return <AuthLayout><Head title={t('applicationStatus')} /><Badge value={status} /><h1 style={{ marginTop: 16 }}>{t('applicationStatus')}: {status.replace('_', ' ')}</h1>
         <p>{status === 'pending' ? t('approvalPendingIntro') : t('approvalIntro')}</p>
         {status === 'approved' && <Button onClick={() => router.visit('/dashboard')}>{t('openDashboard')}</Button>}
-        <Button variant="secondary" onClick={() => router.post('/logout')}>{t('logout')}</Button>
+        <Button variant="secondary" onClick={logoutAndReplace}>{t('logout')}</Button>
     </AuthLayout>;
 }

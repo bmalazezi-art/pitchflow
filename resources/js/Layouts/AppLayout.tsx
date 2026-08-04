@@ -3,6 +3,7 @@ import { Activity, BarChart3, Bell, Building2, CalendarDays, Check, ChevronDown,
 import { useEffect, useState, type ReactNode } from 'react';
 import clsx from 'clsx';
 import { useTranslation } from '../lib/i18n';
+import { logoutAndReplace } from '../lib/logout';
 import type { SharedProps } from '../types';
 import GlobalSearch from '../Components/GlobalSearch';
 
@@ -124,7 +125,7 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
                             <div className="user-dropdown-header"><strong>{auth.user?.name}</strong><span>{roleLabel}</span></div>
                             <Link href="/profile" onClick={() => setUserMenuOpen(false)}>{t('profile')}</Link>
                             {settingsHref && <Link href={settingsHref} onClick={() => setUserMenuOpen(false)}>{t('settings')}</Link>}
-                            <button className="logout-item" onClick={() => router.post('/logout')}><LogOut size={16} />{t('logout')}</button>
+                            <button className="logout-item" onClick={logoutAndReplace}><LogOut size={16} />{t('logout')}</button>
                         </div>}
                     </div>
                 </div>
