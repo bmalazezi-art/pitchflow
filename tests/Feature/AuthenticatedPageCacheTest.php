@@ -37,7 +37,7 @@ class AuthenticatedPageCacheTest extends TestCase
             ->assertRedirect(route('login'))
             ->assertHeader('Pragma', 'no-cache')
             ->assertHeader('Expires', '0')
-            ->assertHeader('Clear-Site-Data', '"cache"');
+            ->assertHeaderMissing('Clear-Site-Data');
 
         $this->assertStringContainsString('no-store', $response->headers->get('Cache-Control', ''));
 

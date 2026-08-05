@@ -1,13 +1,9 @@
-import { router } from '@inertiajs/react';
-
 export const LOGGED_OUT_STORAGE_KEY = 'pitchflow:logged-out';
 
 let logoutInProgress = false;
 
 type LogoutOptions = {
     onStart?: () => void;
-    onCancel?: () => void;
-    onError?: () => void;
 };
 
 export const logoutAndReplace = (options: LogoutOptions = {}) => {
@@ -19,23 +15,18 @@ export const logoutAndReplace = (options: LogoutOptions = {}) => {
     options.onStart?.();
     sessionStorage.setItem(LOGGED_OUT_STORAGE_KEY, '1');
 
-    router.post('/logout', {}, {
-        preserveScroll: false,
-        preserveState: false,
-        replace: true,
-        onCancel: () => {
-            logoutInProgress = false;
-            sessionStorage.removeItem(LOGGED_OUT_STORAGE_KEY);
-            options.onCancel?.();
-        },
-        onError: () => {
-            logoutInProgress = false;
-            sessionStorage.removeItem(LOGGED_OUT_STORAGE_KEY);
-            options.onError?.();
-        },
-        onSuccess: () => {
-            window.history.replaceState(null, '', '/login');
-            window.location.replace('/login');
-        },
-    });
+    const token = document.querySelector<HTMLMetaElement>('meta[name="csrf-token"]')?.content ?? '';
+    const form = document.createElement('form');
+    const csrf = document.createElement('input');
+
+    form.method = 'POST';
+    form.action = '/logout';
+    form.style.display = 'none';
+    csrf.type = 'hidden';
+    csrf.name = '_token';
+    csrf.value = token;
+
+    form.appendChild(csrf);
+    document.body.appendChild(form);
+    form.submit();
 };

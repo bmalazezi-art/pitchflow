@@ -52,9 +52,10 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         router.post('/locale', { locale: nextLocale }, { preserveScroll: true, preserveState: false, replace: true });
     };
     const handleLogout = () => logoutAndReplace({
-        onStart: () => setLoggingOut(true),
-        onCancel: () => setLoggingOut(false),
-        onError: () => setLoggingOut(false),
+        onStart: () => {
+            setUserMenuOpen(false);
+            setLoggingOut(true);
+        },
     });
 
     useEffect(() => {
