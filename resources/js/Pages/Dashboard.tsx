@@ -131,10 +131,10 @@ export default function Dashboard({ metrics }: { metrics: DashboardMetrics }) {
     }, [currentLocalDate, metrics.today_date]);
 
     const formatTime = (date: string) => new Intl.DateTimeFormat(localeCode, {
-        hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone,
+        hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: metrics.timezone,
     }).format(new Date(date));
     const formatReservationDate = (date: string) => new Intl.DateTimeFormat(localeCode, {
-        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone,
+        weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: metrics.timezone,
     }).format(new Date(date));
     const relativeTime = (date: string) => {
         const seconds = Math.max(0, Math.round((Date.now() - new Date(date).getTime()) / 1000));

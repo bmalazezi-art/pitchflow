@@ -74,7 +74,7 @@ export default function Reservations({ reservations, correctionRequests = [], fi
     };
     const formatDate = (value: string) => formatCalendarDate(new Date(value), locale, { day: '2-digit', month: 'short', year: 'numeric' });
     const formatSelectedDate = (value: string) => formatDateLabel(value, locale);
-    const formatTime = (value: string) => new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', timeZone: timezone }).format(new Date(value));
+    const formatTime = (value: string) => new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: timezone }).format(new Date(value));
     const selectReservationDate = (date: string) => {
         setDateFilter('custom');
         setFrom(date);

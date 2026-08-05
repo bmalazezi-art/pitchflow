@@ -19,7 +19,7 @@ interface AuditLog {
 export default function AuditLogs({ logs, filters, actions }: { logs: Paginated<AuditLog>; filters: { search: string; action: string }; actions: string[] }) {
     const t = useTranslation();
     const update = (next: Partial<typeof filters>) => router.get('/admin/audit-logs', { ...filters, ...next }, { preserveState: true, replace: true });
-    const formatDate = (date: string) => new Date(date).toLocaleString();
+    const formatDate = (date: string) => new Intl.DateTimeFormat(undefined, { dateStyle: 'short', timeStyle: 'short', hourCycle: 'h23' }).format(new Date(date));
 
     return <AppLayout title={t('auditLogs')}><Head title={t('auditLogs')} /><div className="owner-page admin-organizations-page">
         <PageHeader eyebrow={t('superAdmin')} title={t('auditLogs')} description={t('auditLogsIntro')} />

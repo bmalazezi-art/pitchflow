@@ -18,7 +18,8 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
     const [step, setStep] = useState(1);
     const form = useForm({ name: '', email: '', owner_phone: '', password: '', password_confirmation: '', business_name: '', business_phone: '', city_id: '', business_address: '', preferred_language: 'en', number_of_fields: 1, starting_price_per_hour: '', opening_time: '12:00', closing_time: '01:00', amenities: [] as string[] });
     const stepFields = step === 1 ? ['name', 'email', 'owner_phone', 'password', 'password_confirmation'] : step === 2 ? ['business_name', 'business_phone', 'city_id', 'business_address'] : ['number_of_fields', 'starting_price_per_hour', 'opening_time', 'closing_time'];
-    const canContinue = stepFields.every(key => String(form.data[key as keyof typeof form.data] ?? '').trim() !== '');
+    const passwordsMismatch = form.data.password_confirmation.length > 0 && form.data.password !== form.data.password_confirmation;
+    const canContinue = stepFields.every(key => String(form.data[key as keyof typeof form.data] ?? '').trim() !== '') && (step !== 1 || !passwordsMismatch);
     const toggleAmenity = (key: string) => form.setData('amenities', form.data.amenities.includes(key) ? form.data.amenities.filter(item => item !== key) : [...form.data.amenities, key]);
     useEffect(() => {
         if (Object.keys(form.errors).length > 0) setStep(registrationStepForErrors(form.errors));
@@ -32,7 +33,18 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
         event.preventDefault();
 
         if (step < 3) {
+            if (step === 1 && form.data.password !== form.data.password_confirmation) {
+                form.setError('password_confirmation', t('passwordsDoNotMatch'));
+                return;
+            }
             if (canContinue) setStep(current => Math.min(current + 1, 3));
+            return;
+        }
+
+        if (form.processing) return;
+        if (form.data.password !== form.data.password_confirmation) {
+            form.setError('password_confirmation', t('passwordsDoNotMatch'));
+            setStep(1);
             return;
         }
 
@@ -53,8 +65,14 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
                 <Field label={t('email')} error={form.errors.email} required><Input type="email" autoComplete="email" value={form.data.email} onChange={e => form.setData('email', e.target.value)} /></Field>
                 <Field label={t('ownerPhone')} error={form.errors.owner_phone} required><Input type="tel" value={form.data.owner_phone} onChange={e => form.setData('owner_phone', e.target.value)} /></Field>
                 <div />
-                <Field label={t('password')} error={form.errors.password} required><Input type="password" autoComplete="new-password" value={form.data.password} onChange={e => form.setData('password', e.target.value)} /></Field>
-                <Field label={t('confirmPassword')} error={form.errors.password_confirmation} required><Input type="password" autoComplete="new-password" value={form.data.password_confirmation} onChange={e => form.setData('password_confirmation', e.target.value)} /></Field>
+                <Field label={t('password')} error={form.errors.password} required><Input type="password" autoComplete="new-password" value={form.data.password} onChange={e => {
+                    form.setData('password', e.target.value);
+                    if (form.errors.password_confirmation === t('passwordsDoNotMatch')) form.clearErrors('password_confirmation');
+                }} /></Field>
+                <Field label={t('confirmPassword')} error={form.errors.password_confirmation || (passwordsMismatch ? t('passwordsDoNotMatch') : undefined)} required><Input type="password" autoComplete="new-password" value={form.data.password_confirmation} onChange={e => {
+                    form.setData('password_confirmation', e.target.value);
+                    if (form.errors.password_confirmation === t('passwordsDoNotMatch')) form.clearErrors('password_confirmation');
+                }} /></Field>
             </div></section>}
             {step === 2 && <section><div className="step-title"><span>02</span><div><h2>{t('businessInformation')}</h2><p>{t('businessInformationHelp')}</p></div></div><div className="form-grid">
                 <Field label={t('businessName')} error={form.errors.business_name} required><Input autoFocus value={form.data.business_name} onChange={e => form.setData('business_name', e.target.value)} /></Field>
@@ -64,14 +82,14 @@ export default function Register({ cities }: { cities: Array<{ id: number; name:
                 <Field label={t('businessAddress')} error={form.errors.business_address} required><Input value={form.data.business_address} onChange={e => form.setData('business_address', e.target.value)} /></Field>
             </div></section>}
             {step === 3 && <section><div className="step-title"><span>03</span><div><h2>{t('fieldSetup')}</h2><p>{t('fieldSetupHelp')}</p></div></div><div className="form-grid">
-                <Field label={t('numberOfFields')} error={form.errors.number_of_fields} required><Input type="number" min={1} max={100} value={form.data.number_of_fields} onChange={e => form.setData('number_of_fields', Number(e.target.value))} /></Field>
+                <Field label={t('numberOfFields')} error={form.errors.number_of_fields} required><Input inputMode="numeric" pattern="[0-9]*" min={1} max={100} value={form.data.number_of_fields} onChange={e => form.setData('number_of_fields', Number(e.target.value.replace(/\D/g, '') || 0))} /></Field>
                 <Field label={t('startingHourlyPrice')} error={form.errors.starting_price_per_hour} required><PriceInput value={form.data.starting_price_per_hour} onChange={e => form.setData('starting_price_per_hour', e.target.value)} /></Field>
                 <Field label={t('openingTime')} error={form.errors.opening_time} required><Input type="time" value={form.data.opening_time} onChange={e => form.setData('opening_time', e.target.value)} /></Field>
                 <Field label={t('closingTime')} error={form.errors.closing_time} required><Input type="time" value={form.data.closing_time} onChange={e => form.setData('closing_time', e.target.value)} /></Field>
             </div><div className="amenity-section"><h3>{t('amenities')}</h3><div className="amenity-selector">{amenityKeys.map(key => <label key={key} className={form.data.amenities.includes(key) ? 'selected' : ''}><input type="checkbox" checked={form.data.amenities.includes(key)} onChange={() => toggleAmenity(key)} /><span>{form.data.amenities.includes(key) && <Check size={15} />}{t(key)}</span></label>)}</div></div>
             <div className="review-note"><Clock3 size={20} /><div><strong>{t('reviewBeforePublishing')}</strong><p>{t('reviewBeforePublishingHelp')}</p></div></div></section>}
 
-            <footer className="registration-actions"><div>{step > 1 && <Button type="button" variant="secondary" onClick={() => setStep(current => Math.max(current - 1, 1))}><ChevronLeft size={17} />{t('back')}</Button>}</div><div>{step < 3 ? <Button type="submit" disabled={!canContinue}>{t('continue')}<ChevronRight size={17} /></Button> : <Button type="submit" disabled={form.processing}>{t('submitApplication')}</Button>}</div></footer>
+            <footer className="registration-actions"><div>{step > 1 && <Button type="button" variant="secondary" disabled={form.processing} onClick={() => setStep(current => Math.max(current - 1, 1))}><ChevronLeft size={17} />{t('back')}</Button>}</div><div>{step < 3 ? <Button type="submit" disabled={!canContinue || form.processing}>{t('continue')}<ChevronRight size={17} /></Button> : <Button type="submit" disabled={form.processing}>{form.processing ? t('submitting') : t('submitApplication')}</Button>}</div></footer>
         </form><p className="registration-login">{t('alreadyHaveAccount')} <Link href="/login">{t('login')}</Link></p>
     </div></AuthLayout>;
 }

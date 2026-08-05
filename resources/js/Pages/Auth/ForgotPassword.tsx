@@ -28,7 +28,7 @@ export default function ForgotPassword() {
         </div>}
         <form onSubmit={(e) => { e.preventDefault(); form.post('/forgot-password'); }}>
             <Field label={t('emailOrPhone')} error={form.errors.email} required><Input type="text" autoComplete="username" placeholder="example@email.com or +383 44 123 456" value={form.data.email} onChange={(e) => form.setData('email', e.target.value)} /></Field>
-            <Button disabled={form.processing}>{t('sendResetLink')}</Button><Link href="/login">{t('backToLogin')}</Link>
+            <Button disabled={form.processing}>{form.processing ? t('processing') : t('sendResetLink')}</Button><Link href="/login">{t('backToLogin')}</Link>
         </form>
     </AuthLayout>;
 }

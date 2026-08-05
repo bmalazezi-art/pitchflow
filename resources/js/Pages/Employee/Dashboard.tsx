@@ -36,8 +36,8 @@ export default function EmployeeDashboard({ metrics }: { metrics: EmployeeMetric
     const locale = useLocale();
     const currentLocalDate = useTodayDate();
     const localeCode = locale === 'sq' ? 'sq-AL' : 'en-GB';
-    const formatTime = (value: string) => new Intl.DateTimeFormat(localeCode, { hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone }).format(new Date(value));
-    const formatDateTime = (value: string) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', timeZone: metrics.timezone }).format(new Date(value));
+    const formatTime = (value: string) => new Intl.DateTimeFormat(localeCode, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: metrics.timezone }).format(new Date(value));
+    const formatDateTime = (value: string) => new Intl.DateTimeFormat(localeCode, { weekday: 'short', day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23', timeZone: metrics.timezone }).format(new Date(value));
     const today = new Intl.DateTimeFormat(localeCode, { weekday: 'long', day: 'numeric', month: 'long' }).format(new Date(`${metrics.today_date}T12:00:00`));
     useEffect(() => {
         if (currentLocalDate !== metrics.today_date) {

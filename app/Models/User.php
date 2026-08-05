@@ -32,7 +32,7 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
     protected $fillable = [
         'organization_id', 'name', 'email', 'password', 'role', 'phone', 'phone_normalized',
         'preferred_language', 'email_verified_at', 'last_login_at', 'status',
-        'permissions', 'invited_at', 'invitation_token_hash', 'invitation_expires_at',
+        'permissions', 'invited_at', 'invitation_token_hash', 'invitation_token', 'invitation_expires_at',
         'invitation_accepted_at',
     ];
 
@@ -51,6 +51,7 @@ class User extends Authenticatable implements HasLocalePreference, MustVerifyEma
             'invited_at' => 'datetime',
             'invitation_expires_at' => 'datetime',
             'invitation_accepted_at' => 'datetime',
+            'invitation_token' => 'encrypted',
             'permissions' => 'array',
             'password' => 'hashed',
             'role' => UserRole::class,

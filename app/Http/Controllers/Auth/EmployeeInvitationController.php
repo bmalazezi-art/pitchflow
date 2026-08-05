@@ -50,6 +50,10 @@ class EmployeeInvitationController extends Controller
 
         $validated = $request->validate([
             'password' => ['required', 'confirmed', Password::defaults()],
+        ], [
+            'password.confirmed' => app()->getLocale() === 'sq'
+                ? 'Fjalëkalimet nuk përputhen.'
+                : 'Passwords do not match.',
         ]);
 
         $employee->forceFill([
@@ -58,6 +62,7 @@ class EmployeeInvitationController extends Controller
             'email_verified_at' => $employee->email_verified_at ?? now(),
             'invitation_accepted_at' => now(),
             'invitation_token_hash' => null,
+            'invitation_token' => null,
             'invitation_expires_at' => null,
         ])->save();
 

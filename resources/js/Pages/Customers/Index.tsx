@@ -26,8 +26,8 @@ export default function Customers({ customers, filters, fields }: { customers: P
         profile.setData({ name: customer.name, phone: customer.phone, preferred_field_id: customer.preferred_field_id ?? '', reliability_status: customer.reliability_status ?? 'reliable' });
     };
     const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat(formatterLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : t('noData');
-    const formatDateTime = (value?: string | null) => value ? new Intl.DateTimeFormat(formatterLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(value)) : t('noData');
-    const formatTimeRange = (reservation: any) => `${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit' }).format(new Date(reservation.starts_at))}–${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit' }).format(new Date(reservation.ends_at))}`;
+    const formatDateTime = (value?: string | null) => value ? new Intl.DateTimeFormat(formatterLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)) : t('noData');
+    const formatTimeRange = (reservation: any) => `${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reservation.starts_at))}–${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reservation.ends_at))}`;
     const reliabilityLabel = (status?: string | null) => status === 'high_risk' ? t('reliabilityBlocked') : status === 'needs_attention' ? t('reliabilityWatch') : t('reliabilityGood');
 
     useEffect(() => {

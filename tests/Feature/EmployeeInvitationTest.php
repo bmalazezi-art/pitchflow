@@ -52,6 +52,35 @@ class EmployeeInvitationTest extends TestCase
         $this->assertStringContainsString('/employee/invite/', session('invite_link'));
     }
 
+    public function test_pending_employee_invitation_reuses_still_valid_token(): void
+    {
+        $organization = Organization::factory()->create();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $field = FootballField::factory()->for($organization)->create();
+
+        $this->actingAs($owner)->post('/employees', [
+            'first_name' => 'Reusable',
+            'last_name' => 'Invite',
+            'email' => '',
+            'phone' => '+38344123999',
+            'preferred_language' => 'en',
+            'field_ids' => [$field->id],
+            'permissions' => [EmployeePermissions::VIEW_CALENDAR],
+        ])->assertSessionHas('invite_link');
+
+        $firstInviteLink = session('invite_link');
+        $employee = User::query()->where('phone_normalized', '+38344123999')->firstOrFail();
+        $firstTokenHash = $employee->invitation_token_hash;
+
+        $this->actingAs($owner)->post("/employees/{$employee->id}/resend-invitation")
+            ->assertRedirect()
+            ->assertSessionHas('invite_link', $firstInviteLink);
+
+        $employee->refresh();
+        $this->assertSame($firstTokenHash, $employee->invitation_token_hash);
+        $this->assertStringContainsString($employee->invitation_token, session('invite_link'));
+    }
+
     public function test_employee_accepts_invitation_by_creating_password_only(): void
     {
         $organization = Organization::factory()->create();

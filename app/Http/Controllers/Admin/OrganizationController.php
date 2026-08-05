@@ -143,6 +143,7 @@ class OrganizationController extends Controller
                 'preferred_language' => 'sq',
                 'invited_at' => now(),
                 'invitation_token_hash' => hash('sha256', $token),
+                'invitation_token' => $token,
                 'invitation_expires_at' => now()->addDays(7),
             ]);
 

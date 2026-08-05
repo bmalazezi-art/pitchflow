@@ -62,6 +62,7 @@ class EmployeeController extends Controller
                 'status' => 'invited',
                 'invited_at' => now(),
                 'invitation_token_hash' => hash('sha256', $token),
+                'invitation_token' => $token,
                 'invitation_expires_at' => now()->addDays(7),
             ]);
             $employee->assignedFields()->syncWithPivotValues($fieldIds, [
@@ -123,12 +124,17 @@ class EmployeeController extends Controller
         $this->authorize('update', $employee);
         abort_unless($employee->status === 'invited', 422, __('messages.employee_invitation_not_available'));
 
-        $token = Str::random(64);
-        $employee->forceFill([
-            'invited_at' => now(),
-            'invitation_token_hash' => hash('sha256', $token),
-            'invitation_expires_at' => now()->addDays(7),
-        ])->save();
+        $existingToken = $this->validInvitationToken($employee);
+        $token = $existingToken ?? Str::random(64);
+
+        if (! $existingToken) {
+            $employee->forceFill([
+                'invited_at' => now(),
+                'invitation_token_hash' => hash('sha256', $token),
+                'invitation_token' => $token,
+                'invitation_expires_at' => now()->addDays(7),
+            ])->save();
+        }
 
         $this->sendInvitationIfConfigured($employee, $token);
         $activity->log('employee_invitation_resent', $employee);
@@ -144,6 +150,7 @@ class EmployeeController extends Controller
         $token = Str::random(64);
         $employee->forceFill([
             'invitation_token_hash' => hash('sha256', $token),
+            'invitation_token' => $token,
             'invitation_expires_at' => now()->addDays(7),
         ])->save();
 
@@ -207,6 +214,17 @@ class EmployeeController extends Controller
         }
 
         return $response;
+    }
+
+    private function validInvitationToken(User $employee): ?string
+    {
+        if (blank($employee->invitation_token) || ! $employee->invitation_expires_at?->isFuture()) {
+            return null;
+        }
+
+        return hash('sha256', $employee->invitation_token) === $employee->invitation_token_hash
+            ? $employee->invitation_token
+            : null;
     }
 
     private function shouldShowInviteLink(User $employee): bool

@@ -35,7 +35,7 @@ export default function Login() {
                 <label><input type="checkbox" checked={form.data.remember} onChange={(e) => form.setData('remember', e.target.checked)} /> {t('rememberMe')}</label>
                 <Link href="/forgot-password">{t('forgotPassword')}</Link>
             </div>
-            <Button className="auth-submit" disabled={form.processing}><LogIn size={17} />{t('login')}</Button>
+            <Button className="auth-submit" disabled={form.processing}><LogIn size={17} />{form.processing ? t('processing') : t('login')}</Button>
             <div className="auth-switch-link">{t('ownFootballField')} <Link href="/register">{t('register')}</Link></div>
         </form>
         </div>

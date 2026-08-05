@@ -76,6 +76,34 @@ class OrganizationRegistrationTest extends TestCase
         $this->assertFalse(Organization::query()->eligibleForPublicDirectory()->whereKey($organization)->exists());
     }
 
+    public function test_registration_rejects_mismatched_owner_password_confirmation(): void
+    {
+        $city = City::factory()->create();
+
+        $this->from('/register')->post('/register', [
+            'name' => 'Owner Name',
+            'email' => 'owner@example.com',
+            'password' => 'StrongPassword123!',
+            'password_confirmation' => 'DifferentPassword123!',
+            'business_name' => 'Prishtina Arena',
+            'owner_phone' => '+38344111222',
+            'business_phone' => '+38344222333',
+            'city_id' => $city->id,
+            'business_address' => 'Main Street 1',
+            'number_of_fields' => 2,
+            'starting_price_per_hour' => 35,
+            'opening_time' => '12:00',
+            'closing_time' => '01:00',
+            'amenities' => ['parking', 'lighting'],
+            'preferred_language' => 'en',
+        ])->assertRedirect('/register')
+            ->assertSessionHasErrors(['password' => 'Passwords do not match.']);
+
+        $this->assertGuest();
+        $this->assertDatabaseMissing('users', ['email' => 'owner@example.com']);
+        $this->assertDatabaseMissing('organizations', ['name' => 'Prishtina Arena']);
+    }
+
     public function test_owner_is_notified_when_business_is_approved_or_rejected(): void
     {
         Notification::fake();

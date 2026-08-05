@@ -11,6 +11,7 @@ export default function CustomerShow({ customer, fields }: { customer: any; fiel
     const profile = useForm({ name: customer.name, phone: customer.phone, preferred_field_id: customer.preferred_field_id ?? '', reliability_status: customer.reliability_status ?? 'reliable' });
     const note = useForm({ note: '' });
     const reliabilityLabel = (status?: string | null) => status === 'high_risk' ? t('reliabilityBlocked') : status === 'needs_attention' ? t('reliabilityWatch') : t('reliabilityGood');
+    const formatTime = (value: string) => new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value));
 
     return <AppLayout title={customer.name}>
         <Head title={customer.name} />
@@ -34,7 +35,7 @@ export default function CustomerShow({ customer, fields }: { customer: any; fiel
                         <th>{t('field')}</th><th>{t('date')}</th><th>{t('time')}</th><th>{t('status')}</th><th>{t('payment')}</th><th>{t('bookingPrivateNote')}</th>
                     </tr></thead><tbody>{customer.reservations.map((reservation: any) => <tr key={reservation.id}>
                         <td>{reservation.football_field.name}</td><td>{new Date(reservation.starts_at).toLocaleDateString()}</td>
-                        <td>{new Date(reservation.starts_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}–{new Date(reservation.ends_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</td>
+                        <td>{formatTime(reservation.starts_at)}–{formatTime(reservation.ends_at)}</td>
                         <td><Badge value={reservation.status} /></td><td><Badge value={reservation.payment_status} /></td><td>{reservation.notes || t('noInternalNotes')}</td>
                     </tr>)}</tbody></table></div>}
             </section>

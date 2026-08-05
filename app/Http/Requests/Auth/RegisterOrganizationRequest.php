@@ -32,4 +32,13 @@ class RegisterOrganizationRequest extends FormRequest
             'preferred_language' => ['required', 'in:en,sq'],
         ];
     }
+
+    public function messages(): array
+    {
+        return [
+            'password.confirmed' => app()->getLocale() === 'sq'
+                ? 'Fjalëkalimet nuk përputhen.'
+                : 'Passwords do not match.',
+        ];
+    }
 }

@@ -295,9 +295,11 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
         month: 'short',
         hour: '2-digit',
         minute: '2-digit',
+        hourCycle: 'h23',
     }).format(new Date(value));
     const submit = (event: React.FormEvent) => {
         event.preventDefault();
+        if (form.processing) return;
         const options = { preserveScroll: true, onSuccess: () => { setModalOpen(false); setEditing(null); } };
         if (editing) form.put(`/reservations/${editing.id}`, options);
         else form.post('/reservations', options);
@@ -315,7 +317,7 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
     };
     const submitCancel = (event: React.FormEvent) => {
         event.preventDefault();
-        if (!cancelling) return;
+        if (!cancelling || cancelForm.processing) return;
         cancelForm.delete(`/reservations/${cancelling.id}`, {
             preserveScroll: true,
             preserveState: true,
@@ -338,7 +340,7 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
     };
     const submitCorrection = (event: React.FormEvent) => {
         event.preventDefault();
-        if (!correcting) return;
+        if (!correcting || correctionForm.processing) return;
         correctionForm.post(`/reservations/${correcting.id}/correction-requests`, {
             preserveScroll: true,
             preserveState: true,
@@ -448,7 +450,7 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                 {drawerReservation.status === 'completed' && <div className="drawer-readonly-note"><span>{t('readOnly')}</span><strong>{t('completedReservationReadOnly')}</strong></div>}
                 <div><UserRound size={17} /><span>{t('customer')}</span><strong>{drawerReservation.customer_name}</strong></div>
                 <a href={`tel:${drawerReservation.customer_phone}`}><Phone size={17} /><span>{t('phone')}</span><strong>{drawerReservation.customer_phone}</strong></a>
-                <div><Clock3 size={17} /><span>{t('reservationTime')}</span><strong>{formatCalendarDate(new Date(drawerReservation.starts_at), locale, { weekday: 'short', day: 'numeric', month: 'short' })} · {new Intl.DateTimeFormat(locale === 'sq' ? 'sq-AL' : 'en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit' }).format(new Date(drawerReservation.starts_at))}</strong></div>
+                <div><Clock3 size={17} /><span>{t('reservationTime')}</span><strong>{formatCalendarDate(new Date(drawerReservation.starts_at), locale, { weekday: 'short', day: 'numeric', month: 'short' })} · {new Intl.DateTimeFormat(locale === 'sq' ? 'sq-AL' : 'en-GB', { timeZone: timezone, hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(drawerReservation.starts_at))}</strong></div>
                 <div><CreditCard size={17} /><span>{t('payment')}</span><strong><Badge value={drawerReservation.payment_status} /></strong></div>
                 <div><CalendarDays size={17} /><span>{t('status')}</span><strong><Badge value={drawerReservation.status} /></strong></div>
                 {(drawerReservation.waiting_list_requests?.length ?? 0) > 0 && <section className="drawer-waiting-list"><span>{t('waitingList')}</span><div>{drawerReservation.waiting_list_requests?.map(item => <article key={item.id}>
@@ -472,13 +474,13 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
             {form.data.payment_status !== 'unpaid' && <Field label={t('amountPaid')}><Input type="number" min="0" step=".01" value={form.data.paid_amount} onChange={event => form.setData('paid_amount', Number(event.target.value))} /></Field>}
             <Field label={t('bookingPrivateNote')} error={form.errors.notes}><textarea className="input" value={form.data.notes} onChange={event => form.setData('notes', event.target.value)} /></Field>
             <label className="check-row"><input type="checkbox" checked={form.data.is_walk_in} onChange={event => form.setData('is_walk_in', event.target.checked)} /> {t('walkIn')}</label>
-        </div>{flash.slot_suggestions && flash.slot_suggestions.length > 0 && <div className="form-callout"><strong>{t('suggestedSlots')}</strong><div className="actions">{flash.slot_suggestions.map(slot => <Button key={slot.starts_at} type="button" variant="secondary" onClick={() => form.setData(data => ({ ...data, starts_at: slot.starts_at, ends_at: slot.ends_at }))}>{slot.label}</Button>)}</div></div>}<div className="form-actions"><Button type="button" variant="secondary" onClick={() => setModalOpen(false)}>{t('close')}</Button><Button disabled={form.processing}>{t('save')}</Button></div></form></Modal>
+        </div>{flash.slot_suggestions && flash.slot_suggestions.length > 0 && <div className="form-callout"><strong>{t('suggestedSlots')}</strong><div className="actions">{flash.slot_suggestions.map(slot => <Button key={slot.starts_at} type="button" variant="secondary" disabled={form.processing} onClick={() => form.setData(data => ({ ...data, starts_at: slot.starts_at, ends_at: slot.ends_at }))}>{slot.label}</Button>)}</div></div>}<div className="form-actions"><Button type="button" variant="secondary" disabled={form.processing} onClick={() => setModalOpen(false)}>{t('close')}</Button><Button disabled={form.processing}>{form.processing ? t('saving') : t('save')}</Button></div></form></Modal>
         <Modal open={Boolean(cancelling)} title={t('cancelAppointment')} onClose={() => setCancelling(null)}>
             <form onSubmit={submitCancel} className="board-reservation-form">
                 <p className="modal-copy">{t('cancelReservationHelp')}</p>
                 <Field label={t('cancellationReason')} error={cancelForm.errors.reason} required><Select value={cancelForm.data.reason} onChange={event => cancelForm.setData('reason', event.target.value)}>{cancellationReasons.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</Select></Field>
                 <Field label={t('cancellationNote')} error={cancelForm.errors.note} required={cancelForm.data.reason === 'other'}><textarea className="input" value={cancelForm.data.note} onChange={event => cancelForm.setData('note', event.target.value)} /></Field>
-                <div className="form-actions"><Button type="button" variant="secondary" onClick={() => setCancelling(null)}>{t('close')}</Button><Button variant="danger" disabled={cancelForm.processing}>{t('cancelAppointment')}</Button></div>
+                <div className="form-actions"><Button type="button" variant="secondary" disabled={cancelForm.processing} onClick={() => setCancelling(null)}>{t('close')}</Button><Button variant="danger" disabled={cancelForm.processing}>{cancelForm.processing ? t('processing') : t('cancelAppointment')}</Button></div>
             </form>
         </Modal>
         <Modal open={Boolean(correcting)} title={t('reportProblem')} onClose={() => setCorrecting(null)}>
@@ -486,7 +488,7 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
                 <Field label={t('correctionReason')} error={correctionForm.errors.reason} required><Select value={correctionForm.data.reason} onChange={event => changeCorrectionReason(event.target.value)}>{correctionReasons.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</Select></Field>
                 {correctionForm.data.reason === 'completed_by_mistake' && <Field label={t('whatShouldHappen')} error={correctionForm.errors.action} required><Select value={correctionForm.data.action} onChange={event => correctionForm.setData('action', event.target.value)}>{completedMistakeActions.map(([value, label]) => <option key={value} value={value}>{t(label)}</option>)}</Select></Field>}
                 <Field label={t('correctionNote')} error={correctionForm.errors.note} required={correctionForm.data.reason === 'other' || correctionForm.data.action === 'cancel'}><textarea className="input" value={correctionForm.data.note} onChange={event => correctionForm.setData('note', event.target.value)} /></Field>
-                <div className="form-actions"><Button type="button" variant="secondary" onClick={() => setCorrecting(null)}>{t('close')}</Button><Button disabled={correctionForm.processing}>{t('reportProblem')}</Button></div>
+                <div className="form-actions"><Button type="button" variant="secondary" disabled={correctionForm.processing} onClick={() => setCorrecting(null)}>{t('close')}</Button><Button disabled={correctionForm.processing}>{correctionForm.processing ? t('processing') : t('reportProblem')}</Button></div>
             </form>
         </Modal>
     </div>;

@@ -39,6 +39,9 @@ html { overflow-x: clip; }
 body { margin: 0; min-width: 320px; min-height: 100vh; overflow-x: clip; background: #f5f7fa; color: var(--text); }
 .dark body { background: #111317; }
 button, input, select, textarea { font: inherit; }
+input[type="number"] { appearance: textfield; -moz-appearance: textfield; }
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button { margin: 0; appearance: none; -webkit-appearance: none; }
 button, a { -webkit-tap-highlight-color: transparent; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
 
@@ -357,7 +360,8 @@ main { width: min(1440px, 100%); margin: 0 auto; padding: 24px; }
 .board-week-strip button:hover { color: var(--text); background: var(--surface); }
 .board-week-strip button.active { color: #166534; border-color: #86efac; background: #f0fdf4; }
 .dark .board-week-strip button.active { color: #bbf7d0; border-color: #166534; background: #052e16; }
-.booking-board-scroll { width: 100%; overflow: auto; overscroll-behavior: contain; }
+.booking-board-scroll { width: 100%; overflow-x: auto; overflow-y: visible; overscroll-behavior-x: contain; overscroll-behavior-y: auto; touch-action: pan-x pan-y; -webkit-overflow-scrolling: touch; }
+.booking-board-scroll * { touch-action: pan-x pan-y; }
 .booking-board-grid { min-width: max-content; display: grid; grid-template-columns: 76px repeat(var(--board-fields), minmax(190px, 1fr)); }
 .board-row { display: contents; }
 .board-corner, .board-field-header { min-height: 58px; position: sticky; top: 0; z-index: 4; display: flex; align-items: center; border-bottom: 1px solid var(--border); background: var(--surface-2); }

@@ -30,6 +30,10 @@ class NewPasswordController extends Controller
             'token' => ['required'],
             'email' => ['required', 'email'],
             'password' => ['required', 'confirmed', PasswordRule::defaults()],
+        ], [
+            'password.confirmed' => app()->getLocale() === 'sq'
+                ? 'Fjalëkalimet nuk përputhen.'
+                : 'Passwords do not match.',
         ]);
 
         $status = Password::reset($request->only('email', 'password', 'password_confirmation', 'token'), function (User $user, string $password) {
