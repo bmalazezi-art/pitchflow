@@ -1,5 +1,5 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
-import { useEffect, useRef, useState, type CSSProperties, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { ArrowUp, BadgeCheck, Building2, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Lightbulb, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
 import { Button, Field, Input, Modal } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
@@ -326,86 +326,25 @@ export function PublicNav({ dark, setLocale, setDark }: {
     const t = useTranslation();
     const activeLocale = useLocale();
     const [languageOpen, setLanguageOpen] = useState(false);
-    const languageSelectorRef = useRef<HTMLDivElement | null>(null);
-    const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
-    const [languageMenuStyle, setLanguageMenuStyle] = useState<CSSProperties>({});
     const languageOptions = [
         { code: 'en' as const, short: 'EN', label: 'English', flag: '🇬🇧' },
         { code: 'sq' as const, short: 'SQ', label: 'Shqip', flag: '🇦🇱' },
     ];
     const activeLanguage = languageOptions.find(option => option.code === activeLocale) ?? languageOptions[1];
-    const positionLanguageMenu = () => {
-        const trigger = languageTriggerRef.current;
-
-        if (!trigger) return;
-
-        const rect = trigger.getBoundingClientRect();
-        const menuWidth = Math.min(188, window.innerWidth - 20);
-        const left = Math.min(Math.max(10, rect.left), window.innerWidth - menuWidth - 10);
-
-        setLanguageMenuStyle({
-            position: 'fixed',
-            top: rect.bottom + 6,
-            left,
-            right: 'auto',
-            width: menuWidth,
-            maxWidth: 'calc(100vw - 20px)',
-        });
-    };
-    const openLanguageMenu = () => {
-        positionLanguageMenu();
-        setLanguageOpen(true);
-    };
-    const toggleLanguageMenu = () => {
-        if (languageOpen) {
-            setLanguageOpen(false);
-            return;
-        }
-
-        openLanguageMenu();
-    };
     const chooseLanguage = (nextLocale: 'en' | 'sq') => {
         setLanguageOpen(false);
         setLocale(nextLocale);
     };
-    useEffect(() => {
-        if (!languageOpen) return;
-
-        const updatePosition = () => positionLanguageMenu();
-        const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
-            if (languageSelectorRef.current?.contains(event.target as Node)) return;
-
-            setLanguageOpen(false);
-        };
-
-        window.addEventListener('resize', updatePosition);
-        window.addEventListener('scroll', updatePosition, { passive: true });
-        document.addEventListener('click', closeOnOutsideClick, true);
-        document.addEventListener('touchstart', closeOnOutsideClick, true);
-
-        return () => {
-            window.removeEventListener('resize', updatePosition);
-            window.removeEventListener('scroll', updatePosition);
-            document.removeEventListener('click', closeOnOutsideClick, true);
-            document.removeEventListener('touchstart', closeOnOutsideClick, true);
-        };
-    }, [languageOpen]);
 
     return <nav className="public-nav">
         <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div>
         <div className="public-nav-actions">
-            <div ref={languageSelectorRef} className={`language-selector public-language-selector${languageOpen ? ' open' : ''}`}>
-                <button ref={languageTriggerRef} type="button" className="language-selector-trigger" onClick={event => {
-                    event.stopPropagation();
-                    toggleLanguageMenu();
-                }} aria-expanded={languageOpen} aria-label={t('language')}>
+            <div className="language-selector public-language-selector">
+                <button type="button" className="language-selector-trigger" onClick={() => setLanguageOpen(isOpen => !isOpen)} aria-expanded={languageOpen} aria-label={t('language')}>
                     <span aria-hidden="true">{activeLanguage.flag}</span><strong>{activeLanguage.short}</strong><ChevronDown size={14} />
                 </button>
-                {languageOpen && <div className="language-selector-menu" style={languageMenuStyle}>
-                    {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onClick={event => {
-                        event.stopPropagation();
-                        chooseLanguage(option.code);
-                    }}>
+                {languageOpen && <div className="language-selector-menu">
+                    {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onClick={() => chooseLanguage(option.code)}>
                         <span aria-hidden="true">{option.flag}</span><strong>{option.label}</strong>{activeLocale === option.code && <Check size={15} />}
                     </button>)}
                 </div>}

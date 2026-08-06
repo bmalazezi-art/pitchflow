@@ -834,7 +834,6 @@ textarea.input { min-height: 90px; resize: vertical; }
 .public-nav-actions { min-width: 0; flex: 0 1 auto; display: flex; align-items: center; gap: 9px; }
 .public-language-selector .language-selector-trigger { border-color: #e5e7eb; color: #374151; background: #fff; }
 .public-language-selector .language-selector-menu { border-color: #e5e7eb; background: #fff; }
-.public-language-selector.open .language-selector-menu { z-index: 2000; }
 .public-dark .public-language-selector .language-selector-trigger { color: #d1d5db; border-color: #374151; background: #111827; }
 .public-dark .public-language-selector .language-selector-menu { color: #f9fafb; border-color: #374151; background: #111827; }
 .public-dark .public-language-selector .language-selector-menu button { color: #e5e7eb; }
@@ -1304,9 +1303,9 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-nav .btn { min-width: 0; min-height: 38px; padding: 0 9px; white-space: nowrap; }
     .public-nav .btn-primary { flex: 0 1 auto; max-width: 144px; padding: 0 14px; border-radius: 10px; overflow: hidden; text-overflow: ellipsis; }
     .public-theme-toggle { width: 36px; height: 36px; flex: 0 0 36px; }
-    .public-language-selector { position: relative; z-index: 80; flex: 0 0 auto; }
+    .public-language-selector { position: relative; flex: 0 0 auto; }
     .public-language-selector .language-selector-trigger { position: relative; z-index: 2; min-height: 36px; padding: 0 8px; gap: 5px; pointer-events: auto; touch-action: manipulation; }
-    .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 2000; width: max-content; min-width: 156px; max-width: calc(100vw - 24px); pointer-events: auto; }
+    .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 180; width: max-content; min-width: 156px; max-width: calc(100vw - 24px); pointer-events: auto; }
     .public-directory-hero, .field-discovery, .availability-results, .public-content-section { width: min(100% - 24px, 1200px); max-width: calc(100vw - 24px); }
     .public-directory-hero { padding-top: 24px; }
     .public-directory-hero h1 { font-size: clamp(34px, 11vw, 44px); line-height: 1.06; }
@@ -1349,7 +1348,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-nav .btn-primary { flex: 0 1 auto; justify-content: center; max-width: 140px; padding: 0 13px; border-radius: 10px; }
     .public-theme-toggle { width: 36px; height: 36px; flex-basis: 36px; }
     .public-language-selector .language-selector-trigger { min-height: 36px; padding: 0 8px; }
-    .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 2000; min-width: 156px; max-width: calc(100vw - 24px); }
+    .public-language-selector .language-selector-menu { top: calc(100% + 6px); right: auto; left: 0; z-index: 180; min-width: 156px; max-width: calc(100vw - 24px); }
     .language-selector-menu button { min-height: 42px; font-size: 16px; }
     .auth-shell { min-height: 100dvh; }
     .auth-form { min-height: 100dvh; padding: 18px 14px; justify-content: flex-start; }
