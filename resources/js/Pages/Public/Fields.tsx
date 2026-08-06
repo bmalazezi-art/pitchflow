@@ -7,7 +7,7 @@ import { trackPublicEvent } from '../../lib/analytics';
 import { useTodayDate } from '../../hooks/useTodayDate';
 import { setClientLocale, useLocale, useTranslation } from '../../lib/i18n';
 import { zonedNowInput } from '../../lib/slotStatus';
-import { BusinessCard, PublicFooter, PublicNav, type PublicBusiness } from './Availability';
+import { BackToTopButton, BusinessCard, PublicFooter, PublicNav, type PublicBusiness } from './Availability';
 
 interface Props {
     cities: Array<{ id: number; name: string }>;
@@ -113,5 +113,6 @@ export default function Fields({ cities, businesses, filters }: Props) {
             </section>
         </main>
         <PublicFooter />
+        <BackToTopButton />
     </div>;
 }

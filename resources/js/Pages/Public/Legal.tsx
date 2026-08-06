@@ -1,7 +1,7 @@
 import { Head, Link, router } from '@inertiajs/react';
 import { ArrowLeft, Mail, ShieldCheck } from 'lucide-react';
 import { useEffect, useState } from 'react';
-import { PublicNav } from './Availability';
+import { BackToTopButton, PublicNav } from './Availability';
 import { setClientLocale, useLocale, useTranslation } from '../../lib/i18n';
 
 export default function Legal({ document }: { document: 'privacy' | 'terms' }) {
@@ -38,9 +38,10 @@ export default function Legal({ document }: { document: 'privacy' | 'terms' }) {
             <section className="legal-contact-card">
                 <div><Mail size={20} /><h2>{content.contactHeading}</h2></div>
                 <p>{content.contactText}</p>
-                <a href="mailto:pitchflowks@hotmail.com">pitchflowks@hotmail.com</a>
+                <a href="mailto:pitchflowks@gmail.com">pitchflowks@gmail.com</a>
             </section>
         </main>
+        <BackToTopButton />
     </div>;
 }
 

@@ -1,6 +1,6 @@
 import { Head, Link, router, useForm, usePage } from '@inertiajs/react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
-import { BadgeCheck, Building2, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Lightbulb, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
+import { ArrowUp, BadgeCheck, Building2, Check, CheckCircle2, ChevronDown, ChevronLeft, ChevronRight, Clock3, Coffee, Facebook, Lightbulb, MapPin, MapPinned, Moon, ParkingCircle, Phone, Search, ShieldCheck, ShowerHead, Sparkles, Sun, TreePine, Trophy, Warehouse, Zap } from 'lucide-react';
 import { Button, Field, Input, Modal } from '../../Components/UI';
 import { DatePicker } from '../../Components/DateControls';
 import { slotStatusForAnalytics, trackPublicEvent } from '../../lib/analytics';
@@ -222,6 +222,7 @@ export default function Availability({ cities, businesses, recentBusinesses, sta
             </>}
         </main>
         {!hasBusiness && <PublicFooter />}
+        <BackToTopButton />
     </div>;
 }
 
@@ -290,7 +291,26 @@ function FrequentlyAskedQuestions() {
 
 export function PublicFooter() {
     const t = useTranslation();
-    return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:pitchflowks@hotmail.com">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://www.facebook.com/profile.php?id=61593008453044" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
+    return <footer className="public-footer"><div className="public-footer-main"><div className="public-footer-brand"><div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div><p>{t('footerDescription')}</p><span><CheckCircle2 size={15} />{t('availabilityOnly')}</span></div><nav aria-label={t('footerNavigation')}><div><strong>{t('platform')}</strong><a href="#why-pitchflow">{t('about')}</a><a href="mailto:pitchflowks@gmail.com">{t('contact')}</a><a href="#faq">FAQ</a></div><div><strong>{t('legal')}</strong><Link href="/privacy">{t('privacyPolicy')}</Link><Link href="/terms">{t('terms')}</Link></div><div><strong>{t('followUs')}</strong><a href="https://www.facebook.com/profile.php?id=61593008453044" target="_blank" rel="noreferrer"><Facebook size={16} />Facebook</a></div></nav></div><div className="public-footer-bottom"><span>© {new Date().getFullYear()} PitchFlow. {t('allRightsReserved')}</span><span>{t('reservationsDirect')}</span></div></footer>;
+}
+
+export function BackToTopButton() {
+    const t = useTranslation();
+    const [visible, setVisible] = useState(false);
+
+    useEffect(() => {
+        const updateVisibility = () => setVisible(window.scrollY > 400);
+
+        updateVisibility();
+        window.addEventListener('scroll', updateVisibility, { passive: true });
+
+        return () => window.removeEventListener('scroll', updateVisibility);
+    }, []);
+
+    return <button type="button" className={`back-to-top${visible ? ' visible' : ''}`} onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} aria-label={t('backToTop')} tabIndex={visible ? 0 : -1}>
+        <ArrowUp size={16} />
+        <span>{t('backToTop')}</span>
+    </button>;
 }
 
 export function PublicNav({ dark, setLocale, setDark }: {
