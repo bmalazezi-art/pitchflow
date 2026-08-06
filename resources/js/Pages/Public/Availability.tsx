@@ -326,8 +326,8 @@ export function PublicNav({ dark, setLocale, setDark }: {
     const t = useTranslation();
     const activeLocale = useLocale();
     const [languageOpen, setLanguageOpen] = useState(false);
+    const languageSelectorRef = useRef<HTMLDivElement | null>(null);
     const languageTriggerRef = useRef<HTMLButtonElement | null>(null);
-    const ignoreLanguageClick = useRef(false);
     const [languageMenuStyle, setLanguageMenuStyle] = useState<CSSProperties>({});
     const languageOptions = [
         { code: 'en' as const, short: 'EN', label: 'English', flag: '🇬🇧' },
@@ -372,43 +372,40 @@ export function PublicNav({ dark, setLocale, setDark }: {
         if (!languageOpen) return;
 
         const updatePosition = () => positionLanguageMenu();
+        const closeOnOutsideClick = (event: MouseEvent | TouchEvent) => {
+            if (languageSelectorRef.current?.contains(event.target as Node)) return;
+
+            setLanguageOpen(false);
+        };
 
         window.addEventListener('resize', updatePosition);
         window.addEventListener('scroll', updatePosition, { passive: true });
+        document.addEventListener('click', closeOnOutsideClick, true);
+        document.addEventListener('touchstart', closeOnOutsideClick, true);
 
         return () => {
             window.removeEventListener('resize', updatePosition);
             window.removeEventListener('scroll', updatePosition);
+            document.removeEventListener('click', closeOnOutsideClick, true);
+            document.removeEventListener('touchstart', closeOnOutsideClick, true);
         };
     }, [languageOpen]);
 
     return <nav className="public-nav">
         <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong></div>
         <div className="public-nav-actions">
-            <div className={`language-selector public-language-selector${languageOpen ? ' open' : ''}`}>
-                <button ref={languageTriggerRef} type="button" className="language-selector-trigger" onPointerDown={event => {
-                    if (event.pointerType === 'touch' || event.pointerType === 'pen') {
-                        event.preventDefault();
-                        ignoreLanguageClick.current = true;
-                        toggleLanguageMenu();
-                    }
-                }} onClick={() => {
-                    if (ignoreLanguageClick.current) {
-                        ignoreLanguageClick.current = false;
-                        return;
-                    }
-
+            <div ref={languageSelectorRef} className={`language-selector public-language-selector${languageOpen ? ' open' : ''}`}>
+                <button ref={languageTriggerRef} type="button" className="language-selector-trigger" onClick={event => {
+                    event.stopPropagation();
                     toggleLanguageMenu();
                 }} aria-expanded={languageOpen} aria-label={t('language')}>
                     <span aria-hidden="true">{activeLanguage.flag}</span><strong>{activeLanguage.short}</strong><ChevronDown size={14} />
                 </button>
                 {languageOpen && <div className="language-selector-menu" style={languageMenuStyle}>
-                    {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onPointerDown={event => {
-                        if (event.pointerType === 'touch' || event.pointerType === 'pen') {
-                            event.preventDefault();
-                            chooseLanguage(option.code);
-                        }
-                    }} onClick={() => chooseLanguage(option.code)}>
+                    {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onClick={event => {
+                        event.stopPropagation();
+                        chooseLanguage(option.code);
+                    }}>
                         <span aria-hidden="true">{option.flag}</span><strong>{option.label}</strong>{activeLocale === option.code && <Check size={15} />}
                     </button>)}
                 </div>}
