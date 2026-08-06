@@ -349,6 +349,11 @@ export function PublicNav({ dark, setLocale, setDark }: {
                     </button>)}
                 </div>}
             </div>
+            <div className="public-mobile-language-buttons" aria-label={t('language')}>
+                {languageOptions.map(option => <button key={option.code} type="button" className={activeLocale === option.code ? 'active' : ''} onClick={() => chooseLanguage(option.code)} aria-pressed={activeLocale === option.code}>
+                    {option.short}
+                </button>)}
+            </div>
             <button className="public-theme-toggle" onClick={() => setDark(!dark)} title={dark ? 'Light mode' : 'Dark mode'} aria-label={dark ? 'Light mode' : 'Dark mode'}>
                 {dark ? <Sun size={18} /> : <Moon size={18} />}
             </button>
