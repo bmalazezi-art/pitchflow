@@ -6,6 +6,7 @@ import { addDays, formatCalendarDate, formatDateLabel, formatMonthYear, shiftMon
 import { useTodayDate } from '../hooks/useTodayDate';
 
 type QuickDateMode = 'today' | 'tomorrow' | 'week';
+type NavigationUnit = 'day' | 'week' | 'month';
 
 const localDate = (date: string) => new Date(`${date}T12:00:00`);
 const dateFromIso = (date: string) => new Date(`${date}T12:00:00`);
@@ -104,34 +105,50 @@ export function SingleDateNavigator({
     mode,
     onChange,
     onModeChange,
+    onNavigate,
+    navigationUnit,
     showWeek = false,
 }: {
     value: string;
     mode?: QuickDateMode;
     onChange: (value: string, mode?: QuickDateMode) => void;
     onModeChange?: (mode: QuickDateMode) => void;
+    onNavigate?: (value: string) => void;
+    navigationUnit?: NavigationUnit;
     showWeek?: boolean;
 }) {
     const t = useTranslation();
     const today = useTodayDate();
     const quickModes: QuickDateMode[] = showWeek ? ['today', 'tomorrow', 'week'] : ['today', 'tomorrow'];
-    const moveDays = mode === 'week' ? 7 : 1;
+    const currentUnit = navigationUnit ?? (mode === 'week' ? 'week' : 'day');
     const chooseMode = (nextMode: QuickDateMode) => {
         const nextDate = nextMode === 'tomorrow' ? addDays(today, 1) : nextMode === 'week' ? startOfWeek(today) : today;
         onModeChange?.(nextMode);
         onChange(nextDate, nextMode);
     };
-    const previous = () => onChange(addDays(mode === 'week' ? startOfWeek(value) : value, -moveDays), mode);
-    const next = () => onChange(addDays(mode === 'week' ? startOfWeek(value) : value, moveDays), mode);
-    const previousLabel = mode === 'week' ? t('previousWeek') : t('previousDay');
-    const nextLabel = mode === 'week' ? t('nextWeek') : t('nextDay');
+    const move = (direction: -1 | 1) => {
+        const nextDate = currentUnit === 'month'
+            ? shiftMonths(value, direction, 'start')
+            : currentUnit === 'week'
+                ? addDays(startOfWeek(value), 7 * direction)
+                : addDays(value, direction);
+
+        if (onNavigate) {
+            onNavigate(nextDate);
+            return;
+        }
+
+        onChange(nextDate, mode);
+    };
+    const previousLabel = currentUnit === 'month' ? t('previousMonth') : currentUnit === 'week' ? t('previousWeek') : t('previousDay');
+    const nextLabel = currentUnit === 'month' ? t('nextMonth') : currentUnit === 'week' ? t('nextWeek') : t('nextDay');
 
     return <div className="pf-period-panel pf-single-date-panel">
         <div className="pf-period-tabs">{quickModes.map(item => <button key={item} type="button" className={mode === item ? 'active' : ''} onClick={() => chooseMode(item)}>{item === 'week' ? t('thisWeek') : t(item)}</button>)}</div>
         <div className="pf-period-nav">
-            <Button type="button" variant="secondary" onClick={previous}><ChevronLeft size={16} />{previousLabel}</Button>
+            <Button type="button" variant="secondary" onClick={() => move(-1)}><ChevronLeft size={16} />{previousLabel}</Button>
             <DatePicker value={value} onChange={date => onChange(date, mode)} />
-            <Button type="button" variant="secondary" onClick={next}>{nextLabel}<ChevronRight size={16} /></Button>
+            <Button type="button" variant="secondary" onClick={() => move(1)}>{nextLabel}<ChevronRight size={16} /></Button>
         </div>
     </div>;
 }

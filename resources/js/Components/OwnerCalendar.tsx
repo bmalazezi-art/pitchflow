@@ -10,6 +10,7 @@ import AppLayout from '../Layouts/AppLayout';
 import { PageHeader, Select } from './UI';
 import { SingleDateNavigator } from './DateControls';
 import { useTodayDate } from '../hooks/useTodayDate';
+import { startOfWeek } from '../lib/dateControls';
 import { useLocale, useTranslation } from '../lib/i18n';
 import type { CalendarProps } from '../Pages/Reservations/Calendar';
 
@@ -53,7 +54,6 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
         calendarRef.current?.getApi().changeView(view, today);
     }, [dateManuallySelected, today, view]);
     const handleDatesSet = useCallback((info: { startStr: string; endStr: string }) => {
-        setSelectedDate(info.startStr.slice(0, 10));
         if (!didMountCalendar.current) {
             didMountCalendar.current = true;
             return;
@@ -78,18 +78,27 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
         setSelectedDate(date);
         calendarRef.current?.getApi().changeView(nextView, date);
     };
+    const navigateDate = (date: string) => {
+        setDateManuallySelected(date !== today || view !== 'timeGridDay');
+        setSelectedDate(date);
+        calendarRef.current?.getApi().changeView(view, date);
+    };
     const changeView = (nextView: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') => {
+        const nextDate = nextView === 'timeGridWeek' ? startOfWeek(selectedDate) : selectedDate;
         setView(nextView);
         if (nextView === 'timeGridWeek') setQuickMode('week');
         if (nextView === 'timeGridDay') setQuickMode('today');
-        calendarRef.current?.getApi().changeView(nextView, selectedDate);
+        setDateManuallySelected(nextDate !== today || nextView !== 'timeGridDay');
+        setSelectedDate(nextDate);
+        calendarRef.current?.getApi().changeView(nextView, nextDate);
     };
+    const navigationUnit = view === 'dayGridMonth' ? 'month' : view === 'timeGridWeek' ? 'week' : 'day';
 
     return <AppLayout title={t('calendar')}><Head title={t('calendar')} /><div className="owner-page calendar-page">
         <PageHeader eyebrow={t('schedule')} title={t('calendar')} description={t('readOnlyCalendarHelp')} actions={<span className="read-only-indicator">{t('readOnly')}</span>} />
         <section className="calendar-shell read-only">
             <div className="calendar-date-panel">
-                <SingleDateNavigator value={selectedDate} mode={quickMode} showWeek onModeChange={setQuickMode} onChange={(date, mode = quickMode) => selectDate(date, mode)} />
+                <SingleDateNavigator value={selectedDate} mode={quickMode} showWeek navigationUnit={navigationUnit} onNavigate={navigateDate} onModeChange={setQuickMode} onChange={(date, mode = quickMode) => selectDate(date, mode)} />
                 <div className="calendar-view-switch" aria-label={t('calendar')}>
                     <button type="button" className={view === 'dayGridMonth' ? 'active' : ''} onClick={() => changeView('dayGridMonth')}><CalendarDays size={15} />{t('month')}</button>
                     <button type="button" className={view === 'timeGridWeek' ? 'active' : ''} onClick={() => changeView('timeGridWeek')}><CalendarDays size={15} />{t('week')}</button>

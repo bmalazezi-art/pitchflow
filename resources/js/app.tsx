@@ -95,5 +95,5 @@ createInertiaApp({
         syncAuthenticatedState(props.initialPage.props);
         createRoot(el).render(<App {...props} />);
     },
-    progress: { color: '#2563eb', showSpinner: false },
+    progress: { color: '#16a34a', showSpinner: false },
 });
