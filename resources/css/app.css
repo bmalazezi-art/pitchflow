@@ -1306,7 +1306,9 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-theme-toggle { width: 36px; height: 36px; flex: 0 0 36px; }
     .public-language-selector { display: none; }
     .public-mobile-language-buttons { min-height: 36px; padding: 3px; display: inline-flex; align-items: center; gap: 2px; flex: 0 0 auto; border: 1px solid #e5e7eb; border-radius: 999px; background: #fff; box-shadow: 0 8px 24px rgb(17 24 39 / .05); }
-    .public-mobile-language-buttons button { min-width: 34px; min-height: 30px; padding: 0 8px; border: 0; border-radius: 999px; color: #4b5563; background: transparent; font-size: 12px; font-weight: 850; cursor: pointer; }
+    .public-mobile-language-buttons button { min-width: 48px; min-height: 30px; padding: 0 8px; display: inline-flex; align-items: center; justify-content: center; gap: 4px; border: 0; border-radius: 999px; color: #4b5563; background: transparent; font-size: 12px; font-weight: 850; cursor: pointer; }
+    .public-mobile-language-buttons button span { font-size: 14px; line-height: 1; }
+    .public-mobile-language-buttons button strong { line-height: 1; }
     .public-mobile-language-buttons button.active { color: #166534; background: #dcfce7; }
     .public-dark .public-mobile-language-buttons { border-color: #374151; background: #111827; box-shadow: 0 8px 24px rgb(0 0 0 / .24); }
     .public-dark .public-mobile-language-buttons button { color: #d1d5db; }
@@ -1508,7 +1510,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-nav .brand { height: 28px; }
     .public-nav .brand strong { max-width: 120px; font-size: 17px; }
     .public-nav .brand-mark { width: 26px; height: 26px; flex-basis: 26px; }
-    .public-mobile-language-buttons button { min-width: 32px; padding: 0 7px; }
+    .public-mobile-language-buttons button { min-width: 46px; padding: 0 7px; gap: 3px; }
     .public-nav .btn { min-height: 38px; padding: 0 8px; font-size: 12px; }
     .public-nav .btn-primary { max-width: 128px; padding: 0 10px; }
     .public-theme-toggle { width: 36px; height: 36px; flex-basis: 36px; }
@@ -1520,7 +1522,8 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-nav .brand strong { display: inline; max-width: 96px; }
     .public-nav .brand { width: 100%; height: 28px; flex: 0 0 100%; }
     .public-nav-actions { width: 100%; margin-left: 0; justify-content: flex-start; gap: 3px; }
-    .public-mobile-language-buttons button { min-width: 30px; padding: 0 6px; font-size: 11px; }
+    .public-mobile-language-buttons button { min-width: 42px; padding: 0 6px; gap: 2px; font-size: 11px; }
+    .public-mobile-language-buttons button span { font-size: 13px; }
     .public-nav .btn { padding: 0 7px; font-size: 11px; }
     .public-nav .btn-primary { min-width: 0; max-width: 116px; }
     .back-to-top span { max-width: 86px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
