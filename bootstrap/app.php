@@ -47,4 +47,13 @@ return Application::configure(basePath: dirname(__DIR__))
 
             return null;
         });
+        $exceptions->respond(function ($response, Throwable $exception, Request $request) {
+            if ($response->getStatusCode() !== 419) {
+                return $response;
+            }
+
+            return $request->expectsJson()
+                ? response()->json(['message' => __('messages.session_expired')], 419)
+                : redirect()->guest(route('login'))->with('error', __('messages.session_expired'));
+        });
     })->create();

@@ -4,7 +4,10 @@ namespace Tests\Feature;
 
 use App\Enums\UserRole;
 use App\Models\User;
+use Illuminate\Contracts\Debug\ExceptionHandler;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Request;
+use Illuminate\Session\TokenMismatchException;
 use Tests\TestCase;
 
 class AuthenticatedPageCacheTest extends TestCase
@@ -63,5 +66,15 @@ class AuthenticatedPageCacheTest extends TestCase
         $this->assertStringContainsString('no-cache', $cacheControl);
         $this->assertStringContainsString('must-revalidate', $cacheControl);
         $this->assertStringContainsString('max-age=0', $cacheControl);
+    }
+
+    public function test_expired_session_exception_redirects_to_login_instead_of_raw_419(): void
+    {
+        $request = Request::create('/logout', 'POST');
+
+        $response = app(ExceptionHandler::class)->render($request, new TokenMismatchException);
+
+        $this->assertTrue($response->isRedirect(route('login')));
+        $this->assertSame(__('messages.session_expired'), session('error'));
     }
 }
