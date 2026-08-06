@@ -13,6 +13,7 @@ import type { SharedProps } from '../../types';
 export interface PublicField {
     id: number;
     name: string;
+    status?: 'active' | 'closed' | 'maintenance';
     address?: string | null;
     price_per_hour?: string | number | null;
     opening_time?: string | null;
@@ -396,6 +397,7 @@ export function BusinessCard({ business, index, onView }: { business: PublicBusi
     const price = startingPrice(business.football_fields ?? [], business.currency ?? 'EUR');
     const pitchCount = business.football_fields?.length || business.number_of_fields || 1;
     const hours = openingHours(business.football_fields ?? []);
+    const fieldStatuses = visibleFieldStatuses(business.football_fields ?? []);
     return <article className="field-discovery-card">
         <div className="venue-cover light-cover" style={{ background: venueImages[index % venueImages.length] }}>
             <div className="venue-badges">
@@ -417,6 +419,7 @@ export function BusinessCard({ business, index, onView }: { business: PublicBusi
                 <p><Trophy size={15} /><span>{t('fields')}</span><strong>{pitchLabel(t, pitchCount)}</strong></p>
             </div>
             {price && <p className="venue-price"><span>{t('startingAt')}</span><strong>{price}</strong></p>}
+            {fieldStatuses.length > 0 && <div className="venue-status-list">{fieldStatuses.map(status => <span key={status} className={`venue-status-badge ${status}`}>{t(status === 'maintenance' ? 'underMaintenance' : 'closed')}</span>)}</div>}
             {amenities.length > 0 && <AmenityList amenities={amenities} />}
             <div className="venue-card-actions">
                 <Button className="card-cta" onClick={onView}>{t('viewAvailability')} <ChevronRight size={15} /></Button>
@@ -519,12 +522,17 @@ function AvailabilitySection({ business, date, pitchAvailability, now }: {
             {joinedWaitingList && <div className="waiting-list-success"><CheckCircle2 size={17} />{t('waitingListJoined')}</div>}
             {pitchAvailability.map((pitch, index) => <section className="pitch-slots" key={pitch.field.id}>
                 <div className="pitch-slots-header">
-                    <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
+                    <div>
+                        <h3>{pitch.field.name || `${t('footballPitch')} ${index + 1}`}</h3>
+                        {pitch.field.status && pitch.field.status !== 'active' && <span className={`venue-status-badge ${pitch.field.status}`}>{t(pitch.field.status === 'maintenance' ? 'underMaintenance' : 'closed')}</span>}
+                    </div>
                     {pitch.field.price_per_hour !== undefined && pitch.field.price_per_hour !== null && <span>{formatMoney(pitch.field.price_per_hour, business.currency ?? 'EUR')} / h</span>}
                 </div>
-                <div className="slot-card-grid compact">
-                    {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} now={now} onJoinWaitlist={() => openWaitingList(pitch.field, slot)} />)}
-                </div>
+                {pitch.slots.length === 0
+                    ? <ClosedAvailabilityNotice field={pitch.field} date={date} />
+                    : <div className="slot-card-grid compact">
+                        {pitch.slots.map(slot => <TimeSlotCard key={slot.starts_at} slot={slot} now={now} onJoinWaitlist={() => openWaitingList(pitch.field, slot)} />)}
+                    </div>}
             </section>)}
         </div>
         <Modal open={Boolean(waitingSlot)} title={t('joinWaitingList')} onClose={() => setWaitingSlot(null)} className="waiting-list-modal">
@@ -540,6 +548,21 @@ function AvailabilitySection({ business, date, pitchAvailability, now }: {
             </form>
         </Modal>
     </section>;
+}
+
+function ClosedAvailabilityNotice({ field, date }: { field: PublicField; date: string }) {
+    const t = useTranslation();
+    const locale = useLocale();
+
+    if (field.status === 'closed') {
+        return <div className="availability-closed-notice"><strong>{t('closedToday')}</strong><p>{t('fieldCurrentlyClosedMessage')}</p></div>;
+    }
+
+    if (field.status === 'maintenance') {
+        return <div className="availability-closed-notice maintenance"><strong>{t('underMaintenance')}</strong><p>{t('fieldUnderMaintenanceMessage')}</p></div>;
+    }
+
+    return <div className="availability-closed-notice"><strong>{t('closedToday')}</strong><p>{weekdayClosedMessage(date, locale)}</p></div>;
 }
 
 function TimeSlotCard({ slot, now, onJoinWaitlist }: { slot: Props['pitchAvailability'][number]['slots'][number]; now: string; onJoinWaitlist: () => void }) {
@@ -605,6 +628,20 @@ function openingHours(fields: PublicField[]) {
     }
 
     return `${field.opening_time.slice(0, 5)} - ${field.closing_time.slice(0, 5)}`;
+}
+
+function visibleFieldStatuses(fields: PublicField[]) {
+    return Array.from(new Set(fields.map(field => field.status).filter((status): status is 'closed' | 'maintenance' => status === 'closed' || status === 'maintenance')));
+}
+
+function weekdayClosedMessage(date: string, locale: string) {
+    const weekday = new Date(`${date}T12:00:00`).getDay();
+    const enWeekdays = ['Sundays', 'Mondays', 'Tuesdays', 'Wednesdays', 'Thursdays', 'Fridays', 'Saturdays'];
+    const sqWeekdays = ['dielave', 'hënave', 'martave', 'mërkurave', 'enjteve', 'premteve', 'shtunave'];
+
+    return locale === 'sq'
+        ? `Kjo fushë nuk punon të ${sqWeekdays[weekday]}. Ju lutemi zgjidhni një datë tjetër.`
+        : `This field is closed on ${enWeekdays[weekday]}. Please choose another date.`;
 }
 
 function formatMoney(value: string | number, currency: string) {

@@ -12,10 +12,10 @@ class ProfileController extends Controller
 {
     public function edit(): Response
     {
-        abort_unless(request()->user()->isEmployee(), 403);
+        $user = request()->user();
 
         return Inertia::render('Employee/Profile', [
-            'employee' => request()->user()->load('assignedFields:id,name,status'),
+            'employee' => $user->load('assignedFields:id,name,status'),
         ]);
     }
 

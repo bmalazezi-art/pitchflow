@@ -26,7 +26,7 @@ class PublicFieldListingController extends Controller
         $search = trim((string) ($filters['search'] ?? ''));
         $selectedDate = $filters['date'] ?? CarbonImmutable::now('Europe/Belgrade')->toDateString();
         $activeFields = fn ($query) => $query
-            ->where('status', FieldStatus::Active)
+            ->whereIn('status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
             ->when($cityId, fn ($fieldQuery) => $fieldQuery
                 ->where(fn ($cityQuery) => $cityQuery
                     ->where('city_id', $cityId)
@@ -40,7 +40,7 @@ class PublicFieldListingController extends Controller
                 'city:id,name',
                 'footballFields' => fn ($query) => $activeFields($query)
                     ->orderBy('name')
-                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time', 'status']),
                 'footballFields.city:id,name',
                 'footballFields.organization:id,timezone',
                 'footballFields.operatingHours',

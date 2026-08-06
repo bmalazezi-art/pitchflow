@@ -58,6 +58,7 @@ return [
     'waiting_list_marked_notified' => 'Waiting list request marked as notified.',
     'waiting_list_whatsapp_message' => 'Hi :name, the :start_time slot at :field_name is now available. Please contact the field if you still want to reserve it.',
     'customer_updated' => 'Customer updated.',
+    'profile_saved_successfully' => 'Profile saved successfully.',
     'customer_phone_taken' => 'This phone number already belongs to another customer in your organization.',
     'note_created' => 'Private note added.',
     'note_updated' => 'Private note updated.',

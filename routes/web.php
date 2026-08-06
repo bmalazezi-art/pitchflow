@@ -75,6 +75,8 @@ Route::middleware(['auth', 'no.cache.auth'])->group(function () {
     Route::patch('/email', [EmailVerificationController::class, 'updateEmail'])
         ->middleware('throttle:6,1')->name('verification.email.update');
     Route::get('/approval-pending', fn () => Inertia::render('Auth/ApprovalPending'))->name('approval.pending');
+    Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
+    Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
 
     Route::middleware(['organization.approved'])->group(function () {
         Route::get('/dashboard', DashboardController::class)->name('dashboard');
@@ -102,8 +104,6 @@ Route::middleware(['auth', 'no.cache.auth'])->group(function () {
         Route::get('/settings/organization', [OrganizationSettingsController::class, 'edit'])->name('settings.organization');
         Route::put('/settings/organization', [OrganizationSettingsController::class, 'update'])->name('settings.organization.update');
         Route::post('/support-requests', [SupportRequestController::class, 'store'])->name('support-requests.store');
-        Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
-        Route::put('/profile', [ProfileController::class, 'update'])->name('profile.update');
         Route::get('/search', SearchController::class)->name('search')->middleware('throttle:60,1');
         Route::get('/admin/organizations', [AdminOrganizationController::class, 'index'])->name('admin.organizations');
         Route::post('/admin/organizations', [AdminOrganizationController::class, 'store'])->name('admin.organizations.store');

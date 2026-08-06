@@ -58,6 +58,7 @@ return [
     'waiting_list_marked_notified' => 'Kërkesa në listën e pritjes u shënua si e njoftuar.',
     'waiting_list_whatsapp_message' => 'Përshëndetje :name, orari :start_time te :field_name tani është i lirë. Ju lutemi kontaktoni fushën nëse ende dëshironi ta rezervoni.',
     'customer_updated' => 'Klienti u përditësua.',
+    'profile_saved_successfully' => 'Profili u ruajt me sukses.',
     'customer_phone_taken' => 'Ky numër telefoni i përket tashmë një klienti tjetër në organizatën tuaj.',
     'note_created' => 'Shënimi privat u shtua.',
     'note_updated' => 'Shënimi privat u përditësua.',

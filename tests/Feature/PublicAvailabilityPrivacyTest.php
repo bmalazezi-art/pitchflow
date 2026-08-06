@@ -10,6 +10,7 @@ use App\Enums\UserRole;
 use App\Models\City;
 use App\Models\Customer;
 use App\Models\FootballField;
+use App\Models\OperatingHour;
 use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\User;
@@ -41,7 +42,7 @@ class PublicAvailabilityPrivacyTest extends TestCase
             ->assertDontSee('reliability_status');
     }
 
-    public function test_public_directory_only_contains_approved_businesses_with_active_non_deleted_fields_in_the_selected_city(): void
+    public function test_public_directory_only_contains_approved_businesses_with_public_non_deleted_fields_in_the_selected_city(): void
     {
         Carbon::setTestNow('2026-06-29 12:00:00');
         $city = City::factory()->create(['name' => 'Prizren']);
@@ -70,21 +71,95 @@ class PublicAvailabilityPrivacyTest extends TestCase
         FootballField::factory()->for($elsewhere)->create(['city_id' => $otherCity->id]);
 
         $this->get('/?city='.$city->id)->assertOk()->assertInertia(fn (Assert $page) => $page
-            ->has('businesses', 1)
-            ->where('businesses.0.name', 'Visible Arena')
-            ->where('businesses.0.is_verified', true)
-            ->where('businesses.0.is_new', true)
-            ->where('businesses.0.amenities', ['parking', 'showers'])
-            ->has('businesses.0.football_fields', 1)
-            ->where('businesses.0.football_fields.0.name', 'Visible Pitch')
-            ->where('businesses.0.operating_status.is_open', true)
-            ->has('recentBusinesses', 1)
-            ->where('recentBusinesses.0.name', 'Visible Arena')
+            ->has('businesses', 2)
+            ->where('businesses.0.name', 'Maintenance Arena')
+            ->where('businesses.0.football_fields.0.status', 'maintenance')
+            ->where('businesses.1.name', 'Visible Arena')
+            ->where('businesses.1.is_verified', true)
+            ->where('businesses.1.is_new', true)
+            ->where('businesses.1.amenities', ['parking', 'showers'])
+            ->has('businesses.1.football_fields', 1)
+            ->where('businesses.1.football_fields.0.name', 'Visible Pitch')
+            ->where('businesses.1.operating_status.is_open', true)
+            ->has('recentBusinesses', 2)
+            ->where('recentBusinesses.0.name', 'Maintenance Arena')
             ->has('popularCities', 2)
-            ->where('statistics.football_fields', 2)
+            ->where('statistics.football_fields', 3)
             ->where('statistics.cities', 2)
             ->where('statistics.registered_businesses', 6)
             ->where('statistics.verified_businesses', 5)
+        );
+    }
+
+    public function test_closed_and_maintenance_fields_stay_public_but_do_not_generate_slots(): void
+    {
+        $city = City::factory()->create(['name' => 'Ferizaj']);
+        $closed = Organization::factory()->for($city)->create(['name' => 'Alpha Closed Arena']);
+        $closedField = FootballField::factory()->for($closed)->create([
+            'city_id' => $city->id,
+            'name' => 'Closed Pitch',
+            'status' => FieldStatus::Closed,
+        ]);
+        $maintenance = Organization::factory()->for($city)->create(['name' => 'Beta Maintenance Arena']);
+        $maintenanceField = FootballField::factory()->for($maintenance)->create([
+            'city_id' => $city->id,
+            'name' => 'Maintenance Pitch',
+            'status' => FieldStatus::Maintenance,
+        ]);
+
+        $this->get('/?city='.$city->id)->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->has('businesses', 2)
+            ->where('businesses.0.name', 'Alpha Closed Arena')
+            ->where('businesses.0.football_fields.0.status', 'closed')
+            ->where('businesses.1.name', 'Beta Maintenance Arena')
+            ->where('businesses.1.football_fields.0.status', 'maintenance')
+        );
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $closedField->id,
+            'date' => '2026-08-09',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('pitchAvailability.0.field.status', 'closed')
+            ->has('pitchAvailability.0.slots', 0)
+        );
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $maintenanceField->id,
+            'date' => '2026-08-09',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('pitchAvailability.0.field.status', 'maintenance')
+            ->has('pitchAvailability.0.slots', 0)
+        );
+    }
+
+    public function test_closed_weekday_public_availability_shows_field_with_no_slots(): void
+    {
+        $city = City::factory()->create(['name' => 'Gjakovë']);
+        $organization = Organization::factory()->for($city)->create(['timezone' => 'Europe/Pristina']);
+        $field = FootballField::factory()->for($organization)->create([
+            'city_id' => $city->id,
+            'name' => 'Sunday Closed Pitch',
+            'opening_time' => '16:00',
+            'closing_time' => '00:00',
+        ]);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'day_of_week' => 0,
+            'opening_time' => '16:00',
+            'closing_time' => '00:00',
+            'is_closed' => true,
+        ]);
+
+        $this->get('/?'.http_build_query([
+            'city' => $city->id,
+            'field' => $field->id,
+            'date' => '2026-08-09',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('pitchAvailability.0.field.name', 'Sunday Closed Pitch')
+            ->has('pitchAvailability.0.slots', 0)
         );
     }
 

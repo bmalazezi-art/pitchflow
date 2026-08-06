@@ -69,6 +69,17 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
         }
     }, [auth.user]);
 
+    useEffect(() => {
+        if (!open) return;
+
+        const previousOverflow = document.body.style.overflow;
+        document.body.style.overflow = 'hidden';
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+        };
+    }, [open]);
+
     if (! auth.user) {
         return null;
     }
@@ -103,7 +114,8 @@ export default function AppLayout({ children, title }: { children: ReactNode; ti
             ] : []),
         ];
 
-    return <div className={clsx('app-shell', auth.user?.role === 'employee' && 'employee-shell', auth.user?.role === 'owner' && 'owner-shell')}>
+    return <div className={clsx('app-shell', auth.user?.role === 'employee' && 'employee-shell', auth.user?.role === 'owner' && 'owner-shell', open && 'sidebar-is-open')}>
+        {open && <button type="button" className="sidebar-backdrop mobile-only" aria-label={t('close')} onClick={() => setOpen(false)} />}
         <aside className={clsx('sidebar', open && 'open')}>
             <div className="brand"><span className="brand-mark">P</span><strong>PitchFlow</strong><button className="icon-btn mobile-only" onClick={() => setOpen(false)} aria-label={t('close')}><X size={20} /></button></div>
             <nav>{nav.map(({ label, href, icon: Icon }) => <Link key={href} href={href} className={location.pathname.startsWith(href) ? 'active' : ''} onClick={() => setOpen(false)} title={label}><Icon size={19} /><span>{label}</span></Link>)}</nav>

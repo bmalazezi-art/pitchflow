@@ -28,7 +28,7 @@ class PublicAvailabilityController extends Controller
         $clientNow = $request->input('client_now');
         $selectedDate = (string) $request->input('date', CarbonImmutable::now('Europe/Belgrade')->toDateString());
         $activeFields = fn ($query) => $query
-            ->where('status', FieldStatus::Active)
+            ->whereIn('status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
             ->where(fn ($cityQuery) => $cityQuery
                 ->where('city_id', $cityId)
                 ->orWhereNull('city_id'));
@@ -40,7 +40,7 @@ class PublicAvailabilityController extends Controller
                 'city:id,name',
                 'footballFields' => fn ($query) => $activeFields($query)
                     ->orderBy('name')
-                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time', 'status']),
                 'footballFields.city:id,name',
                 'footballFields.organization:id,timezone',
                 'footballFields.operatingHours',
@@ -62,10 +62,10 @@ class PublicAvailabilityController extends Controller
             ->with([
                 'city:id,name',
                 'footballFields' => fn ($query) => $query
-                    ->where('status', FieldStatus::Active)
+                    ->whereIn('status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
                     ->when($request->filled('city'), fn ($query) => $activeFields($query))
                     ->orderBy('name')
-                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
+                    ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time', 'status']),
                 'footballFields.organization:id,timezone',
                 'footballFields.operatingHours',
                 'footballFields.operatingHourOverrides' => fn ($query) => $query
@@ -91,7 +91,7 @@ class PublicAvailabilityController extends Controller
             ->whereNotNull('organizations.phone')
             ->where('organizations.phone', '!=', '')
             ->whereNull('organizations.deleted_at')
-            ->where('football_fields.status', FieldStatus::Active)
+            ->whereIn('football_fields.status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
             ->whereNotNull('football_fields.opening_time')
             ->whereNotNull('football_fields.closing_time')
             ->whereNull('football_fields.deleted_at')
@@ -123,7 +123,7 @@ class PublicAvailabilityController extends Controller
                     'city:id,name',
                     'footballFields' => fn ($query) => $activeFields($query)
                         ->orderBy('name')
-                        ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time']),
+                        ->select(['id', 'organization_id', 'city_id', 'name', 'address', 'price_per_hour', 'opening_time', 'closing_time', 'status']),
                     'footballFields.city:id,name',
                     'footballFields.organization:id,timezone',
                 ])
@@ -138,7 +138,7 @@ class PublicAvailabilityController extends Controller
         } elseif ($request->filled(['city', 'field'])) {
             $field = FootballField::query()
                 ->whereKey($request->integer('field'))
-                ->where('status', FieldStatus::Active)
+                ->whereIn('status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
                 ->where(function ($cityQuery) use ($request) {
                     $cityQuery->where('city_id', $request->integer('city'))
                         ->orWhere(function ($organizationCityQuery) use ($request) {

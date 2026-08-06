@@ -8,7 +8,7 @@ class EmployeeProfileRequest extends FormRequest
 {
     public function authorize(): bool
     {
-        return $this->user()?->isEmployee() === true;
+        return $this->user() !== null;
     }
 
     public function rules(): array

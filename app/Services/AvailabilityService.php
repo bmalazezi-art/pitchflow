@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Enums\FieldStatus;
 use App\Enums\ReservationStatus;
 use App\Models\FootballField;
 use App\Support\Timezones;
@@ -16,6 +17,11 @@ class AvailabilityService
         $organization = $field->organization;
         $timezone = Timezones::resolve($organization->timezone);
         $localDate = CarbonImmutable::parse($date, $timezone)->startOfDay();
+
+        if ($field->status !== FieldStatus::Active) {
+            return [];
+        }
+
         $override = $field->operatingHourOverrides()->whereDate('date', $localDate)->first();
         $hours = $field->operatingHours()->where('day_of_week', $localDate->dayOfWeek)->first();
 

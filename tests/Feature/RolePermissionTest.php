@@ -152,20 +152,33 @@ class RolePermissionTest extends TestCase
         $this->assertDatabaseCount('reservation_slots', 1);
     }
 
-    public function test_employee_can_update_own_profile_but_owner_cannot_open_employee_profile(): void
+    public function test_owner_and_employee_can_open_and_update_their_own_profile(): void
     {
         $organization = Organization::factory()->create();
         $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
         $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
 
+        $this->actingAs($owner)->get('/profile')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Employee/Profile')
+                ->where('employee.id', $owner->id));
+        $this->actingAs($owner)->put('/profile', [
+            'name' => 'Owner User',
+            'phone' => '+38344111112',
+            'preferred_language' => 'en',
+        ])->assertRedirect();
+        $this->assertDatabaseHas('users', ['id' => $owner->id, 'name' => 'Owner User']);
+
+        $this->actingAs($employee)->get('/profile')->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->component('Employee/Profile')
+                ->where('employee.id', $employee->id));
         $this->actingAs($employee)->put('/profile', [
             'name' => 'Reception User',
             'phone' => '+38344111111',
             'preferred_language' => 'sq',
         ])->assertRedirect();
         $this->assertDatabaseHas('users', ['id' => $employee->id, 'name' => 'Reception User']);
-
-        $this->actingAs($owner)->get('/profile')->assertForbidden();
     }
 
     private function reservationPayload(FootballField $field, $start): array

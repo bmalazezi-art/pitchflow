@@ -81,7 +81,7 @@ class Organization extends Model
     public static function constrainPublicReadyField(Builder $query): Builder
     {
         return $query
-            ->where('status', FieldStatus::Active)
+            ->whereIn('status', [FieldStatus::Active, FieldStatus::Closed, FieldStatus::Maintenance])
             ->where(function (Builder $scheduleQuery) {
                 $scheduleQuery
                     ->where(fn (Builder $fieldSchedule) => $fieldSchedule

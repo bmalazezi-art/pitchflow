@@ -137,6 +137,6 @@ class CustomerController extends Controller
         $customer->update($updates);
         $activity->log('customer_updated', $customer);
 
-        return back()->with('success', __('messages.customer_updated'));
+        return back()->with('success', __('messages.profile_saved_successfully'));
     }
 }

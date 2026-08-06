@@ -25,6 +25,14 @@ export default function Customers({ customers, filters, fields }: { customers: P
         setEditingNoteId(null);
         profile.setData({ name: customer.name, phone: customer.phone, preferred_field_id: customer.preferred_field_id ?? '', reliability_status: customer.reliability_status ?? 'reliable' });
     };
+    const saveProfile = () => {
+        if (!selected || profile.processing) return;
+
+        profile.put(`/customers/${selected.id}`, {
+            preserveScroll: true,
+            onSuccess: () => setSelected(null),
+        });
+    };
     const formatDate = (value?: string | null) => value ? new Intl.DateTimeFormat(formatterLocale, { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(value)) : t('noData');
     const formatDateTime = (value?: string | null) => value ? new Intl.DateTimeFormat(formatterLocale, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(value)) : t('noData');
     const formatTimeRange = (reservation: any) => `${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reservation.starts_at))}–${new Intl.DateTimeFormat(formatterLocale, { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(reservation.ends_at))}`;
@@ -44,7 +52,7 @@ export default function Customers({ customers, filters, fields }: { customers: P
                 <td data-label={t('customer')}><div className="identity-cell"><span><UserRound size={17} /></span><div><strong>{customer.name}</strong><small>{customer.phone}</small></div></div></td><td data-label={t('reliability')}><div className="score-cell"><strong>{reliabilityLabel(customer.reliability_status)}</strong><Badge value={customer.reliability_status} /></div></td><td data-label={t('totalBookings')}>{customer.total_reservations}</td><td data-label={t('lastBooking')}>{formatDate(customer.last_visit_at)}</td><td data-label={t('unpaidBookings')}><strong>{customer.unpaid_reservations_count ?? 0}</strong></td><td data-label={t('noShows')}>{customer.no_shows}</td><td data-label={t('actions')}><button className="icon-btn bordered" onClick={event => { event.stopPropagation(); openCustomer(customer); }} aria-label={t('profile')}><ChevronRight size={18} /></button></td>
             </tr>)}</tbody></table></div>{customers.last_page > 1 && <Pagination links={customers.links} />}</>}
 
-        <Drawer open={Boolean(selected)} title={selected?.name ?? ''} subtitle={selected?.phone} onClose={() => setSelected(null)} footer={<><Button variant="secondary" onClick={() => setSelected(null)}>{t('close')}</Button>{canManageCustomers && <Button disabled={profile.processing} onClick={() => profile.put(`/customers/${selected.id}`)}>{t('saveProfile')}</Button>}</>}>
+        <Drawer open={Boolean(selected)} title={selected?.name ?? ''} subtitle={selected?.phone} onClose={() => setSelected(null)} footer={<><Button variant="secondary" onClick={() => setSelected(null)}>{t('close')}</Button>{canManageCustomers && <Button disabled={profile.processing} onClick={saveProfile}>{profile.processing ? t('saving') : t('saveProfile')}</Button>}</>}>
             {selected && <div className="drawer-sections">
                 <section className="drawer-summary"><div><span>{t('reliability')}</span><strong>{reliabilityLabel(selected.reliability_status)}</strong><Badge value={selected.reliability_status} /></div><div><span>{t('totalBookings')}</span><strong>{selected.total_reservations}</strong></div><div><span>{t('lastBooking')}</span><strong>{formatDate(selected.last_visit_at)}</strong></div><div><span>{t('unpaidBookings')}</span><strong>{selected.unpaid_reservations_count ?? 0}</strong></div><div><span>{t('noShows')}</span><strong>{selected.no_shows}</strong></div></section>
                 {selected.reliability_status === 'high_risk' && <p className="form-callout danger">{t('customerBlockedWarning')}</p>}
