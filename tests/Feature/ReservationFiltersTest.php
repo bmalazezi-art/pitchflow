@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\FootballField;
+use App\Models\OperatingHour;
 use App\Models\Organization;
 use App\Models\Reservation;
 use App\Models\User;
@@ -62,6 +63,62 @@ class ReservationFiltersTest extends TestCase
             ->assertInertia(fn (Assert $page) => $page
                 ->has('reservations.data', 1)
                 ->where('reservations.data.0.id', $todayUnpaid->id));
+    }
+
+    public function test_reservation_list_uses_business_day_for_after_midnight_slots(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-06 12:00:00', Timezones::resolve('Europe/Pristina')));
+        $organization = Organization::factory()->create(['timezone' => 'Europe/Pristina']);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create([
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+        ]);
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'day_of_week' => 4,
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+            'is_closed' => false,
+        ]);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'day_of_week' => 5,
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+            'is_closed' => true,
+        ]);
+        $customer = Customer::factory()->for($organization)->create();
+        $reservation = $this->reservation(
+            $organization,
+            $field,
+            $customer,
+            CarbonImmutable::parse('2026-08-07 00:00:00', Timezones::resolve('Europe/Pristina')),
+            'confirmed',
+            'unpaid',
+        );
+
+        $this->actingAs($employee)->get('/reservations?'.http_build_query([
+            'date_filter' => 'custom',
+            'from' => '2026-08-06',
+            'to' => '2026-08-06',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 1)
+            ->has('reservations.data', 1)
+            ->where('reservations.data.0.id', $reservation->id));
+
+        $this->actingAs($employee)->get('/reservations?'.http_build_query([
+            'date_filter' => 'custom',
+            'from' => '2026-08-07',
+            'to' => '2026-08-07',
+        ]))->assertOk()->assertInertia(fn (Assert $page) => $page
+            ->where('summary.total', 0)
+            ->has('reservations.data', 0));
+
+        CarbonImmutable::setTestNow();
     }
 
     private function reservation(Organization $organization, FootballField $field, Customer $customer, CarbonImmutable $start, string $status, string $paymentStatus): Reservation

@@ -54,7 +54,7 @@ class CustomerController extends Controller
                     ->orWhere('phone', 'like', "%{$search}%")
                     ->orWhere('phone_normalized', 'like', "%{$search}%");
             }))
-            ->latest('last_visit_at')->paginate(20)->withQueryString();
+            ->latest('last_visit_at')->paginate(10)->withQueryString();
 
         return Inertia::render('Customers/Index', [
             'customers' => $customers,

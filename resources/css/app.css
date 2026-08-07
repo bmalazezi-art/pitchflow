@@ -1238,7 +1238,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .popular-city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .public-footer-main { grid-template-columns: 1fr; gap: 34px; }
     .reservation-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
-    .reservation-summary-grid article { display: flex; min-width: 0; }
+    .reservation-summary-grid article { display: flex; min-width: 0; visibility: visible; opacity: 1; }
     .reservation-filter-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
     .reservation-filter-toolbar form { width: 100%; flex-basis: auto; }
     .reservation-filter-grid { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -1309,6 +1309,11 @@ textarea.input { min-height: 90px; resize: vertical; }
     .report-period-nav .btn { width: 100%; }
     .pf-period-nav, .pf-date-range-form, .calendar-date-panel { grid-template-columns: 1fr; }
     .pf-period-nav .btn, .pf-date-range-form .btn { width: 100%; }
+    .calendar-date-panel .pf-period-nav { grid-template-columns: 40px minmax(0, 1fr) 40px; gap: 7px; }
+    .calendar-date-panel .pf-period-nav .btn { width: 40px; min-height: 40px; padding: 0; justify-content: center; overflow: hidden; font-size: 0; border-radius: 9px; }
+    .calendar-date-panel .pf-period-nav .btn svg { width: 17px; height: 17px; }
+    .calendar-date-panel .calendar-trigger { min-height: 40px; padding: 0 10px; gap: 6px; border-radius: 9px; font-size: 13px; }
+    .calendar-date-panel .calendar-trigger svg { width: 16px; height: 16px; }
     .pf-date-range-form > span { display: none; }
     .calendar-view-switch { width: 100%; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
     .calendar-view-switch button { min-width: 0; }
@@ -1473,6 +1478,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .report-kpi-grid { grid-template-columns: 1fr; }
     .owner-summary-grid { grid-template-columns: 1fr; }
     .reservation-summary-grid { grid-template-columns: 1fr; }
+    .reservation-summary-grid article { display: flex; }
     .operations-stat-grid { grid-template-columns: 1fr; }
     .operations-upcoming article { padding: 10px 0; grid-template-columns: 46px 10px minmax(0, 1fr); }
     .operations-upcoming article > div:last-child { grid-column: 3; flex-wrap: wrap; }

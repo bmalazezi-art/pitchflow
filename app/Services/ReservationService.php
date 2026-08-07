@@ -373,13 +373,22 @@ class ReservationService
     private function customerFromPayload(Organization $organization, array $data): Customer
     {
         $normalizedPhone = $this->phones->normalize($data['customer_phone']);
-        $customer = Customer::withTrashed()->firstOrNew([
-            'organization_id' => $organization->id,
-            'phone_normalized' => $normalizedPhone,
-        ]);
+        $customer = Customer::withTrashed()
+            ->where('organization_id', $organization->id)
+            ->where(function ($query) use ($data, $normalizedPhone) {
+                $query->where('phone_normalized', $normalizedPhone)
+                    ->orWhere(fn ($fallback) => $fallback
+                        ->where('name', $data['customer_name'])
+                        ->where('phone', $data['customer_phone']));
+            })
+            ->first() ?? new Customer([
+                'organization_id' => $organization->id,
+                'phone_normalized' => $normalizedPhone,
+            ]);
         $customer->fill([
             'name' => $data['customer_name'],
             'phone' => $data['customer_phone'],
+            'phone_normalized' => $normalizedPhone,
         ]);
         $customer->deleted_at = null;
         $customer->save();

@@ -139,7 +139,7 @@ class EmployeeFieldAccessTest extends TestCase
         );
     }
 
-    public function test_midnight_reservation_is_returned_for_selected_calendar_date(): void
+    public function test_midnight_reservation_is_returned_for_previous_business_date(): void
     {
         CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-07-01 10:00:00', 'Europe/Belgrade'));
         $organization = Organization::factory()->create();
@@ -159,11 +159,11 @@ class EmployeeFieldAccessTest extends TestCase
         ])->assertRedirect();
 
         $reservation = Reservation::query()->firstOrFail();
-        $range = ['from' => '2026-07-22', 'to' => '2026-07-22'];
+        $range = ['from' => '2026-07-21', 'to' => '2026-07-21'];
 
         $this->actingAs($owner)->get('/calendar?'.http_build_query($range))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Reservations/Calendar')
-            ->where('initialDate', '2026-07-22')
+            ->where('initialDate', '2026-07-21')
             ->has('reservations', 1)
             ->where('reservations.0.id', $reservation->id)
             ->where('reservations.0.customer_name', 'Ahmed')
@@ -171,10 +171,63 @@ class EmployeeFieldAccessTest extends TestCase
 
         $this->actingAs($employee)->get('/calendar?'.http_build_query($range))->assertOk()->assertInertia(fn (Assert $page) => $page
             ->component('Reservations/Calendar')
-            ->where('initialDate', '2026-07-22')
+            ->where('initialDate', '2026-07-21')
             ->has('reservations', 1)
             ->where('reservations.0.customer_name', 'Ahmed')
         );
+
+        CarbonImmutable::setTestNow();
+    }
+
+    public function test_after_midnight_reservation_belongs_to_previous_business_day(): void
+    {
+        CarbonImmutable::setTestNow(CarbonImmutable::parse('2026-08-06 12:00:00', Timezones::resolve('Europe/Pristina')));
+        $organization = Organization::factory()->create(['timezone' => 'Europe/Pristina']);
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        $employee = User::factory()->for($organization)->create(['role' => UserRole::Employee]);
+        $field = FootballField::factory()->for($organization)->create([
+            'name' => 'Overnight Arena',
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+        ]);
+        $employee->assignedFields()->attach($field, ['organization_id' => $organization->id]);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'day_of_week' => 4,
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+            'is_closed' => false,
+        ]);
+        OperatingHour::query()->create([
+            'organization_id' => $organization->id,
+            'football_field_id' => $field->id,
+            'day_of_week' => 5,
+            'opening_time' => '16:00',
+            'closing_time' => '01:00',
+            'is_closed' => true,
+        ]);
+
+        $this->actingAs($employee)->post('/reservations', [
+            'customer_name' => 'Night Customer',
+            'customer_phone' => '+38344123456',
+            'football_field_id' => $field->id,
+            'starts_at' => '2026-08-07T00:00',
+            'ends_at' => '2026-08-07T01:00',
+            'payment_status' => 'unpaid',
+        ])->assertRedirect();
+
+        $reservation = Reservation::query()->firstOrFail();
+
+        $this->actingAs($owner)->get('/calendar?'.http_build_query(['from' => '2026-08-06', 'to' => '2026-08-06']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page
+                ->has('reservations', 1)
+                ->where('reservations.0.id', $reservation->id));
+
+        $this->actingAs($owner)->get('/calendar?'.http_build_query(['from' => '2026-08-07', 'to' => '2026-08-07']))
+            ->assertOk()
+            ->assertInertia(fn (Assert $page) => $page->has('reservations', 0));
 
         CarbonImmutable::setTestNow();
     }

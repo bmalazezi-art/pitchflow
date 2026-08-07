@@ -62,6 +62,26 @@ class OperatingScheduleService
         return false;
     }
 
+    public function businessDateFor(FootballField $field, CarbonImmutable $startsAtUtc): CarbonImmutable
+    {
+        $timezone = $this->timezone($field);
+        $localStart = $startsAtUtc->setTimezone($timezone);
+
+        foreach ([$localStart->subDay()->startOfDay(), $localStart->startOfDay()] as $businessDate) {
+            [$scheduleStart, $scheduleEnd] = $this->windowForDate($field, $businessDate);
+            if (
+                $scheduleStart !== null
+                && $scheduleEnd !== null
+                && $localStart->greaterThanOrEqualTo($scheduleStart)
+                && $localStart->lessThan($scheduleEnd)
+            ) {
+                return $businessDate;
+            }
+        }
+
+        return $localStart->startOfDay();
+    }
+
     private function windowForDate(FootballField $field, CarbonImmutable $businessDate): array
     {
         $timezone = $this->timezone($field);

@@ -7,6 +7,7 @@ use App\Enums\UserRole;
 use App\Models\Customer;
 use App\Models\FootballField;
 use App\Models\Organization;
+use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -59,6 +60,43 @@ class CustomerIdentityTest extends TestCase
         ])->assertRedirect();
 
         $this->assertSame(2, Customer::query()->where('organization_id', $organization->id)->where('name', 'Bajram')->count());
+    }
+
+    public function test_same_customer_name_and_phone_reuses_existing_customer_even_without_normalized_phone(): void
+    {
+        [$organization, $employee, $field] = $this->context();
+        $existing = Customer::factory()->for($organization)->create([
+            'name' => 'Bajram Malazezi',
+            'phone' => '044 123 456',
+            'phone_normalized' => '',
+        ]);
+        $start = now(Timezones::resolve($organization->timezone))->addDay()->setTime(12, 0);
+
+        $this->actingAs($employee)->post('/reservations', [
+            ...$this->payload($field, $start),
+            'customer_name' => 'Bajram Malazezi',
+            'customer_phone' => '044 123 456',
+        ])->assertRedirect();
+
+        $this->assertSame(1, Customer::query()->where('organization_id', $organization->id)->count());
+        $this->assertSame($existing->id, Reservation::query()->firstOrFail()->customer_id);
+        $this->assertDatabaseHas('customers', [
+            'id' => $existing->id,
+            'phone_normalized' => '044123456',
+        ]);
+    }
+
+    public function test_customers_index_paginates_ten_per_page(): void
+    {
+        [$organization] = $this->context();
+        $owner = User::factory()->for($organization)->create(['role' => UserRole::Owner]);
+        Customer::factory()->for($organization)->count(12)->create();
+
+        $this->actingAs($owner)->get('/customers')->assertOk()
+            ->assertInertia(fn ($page) => $page
+                ->has('customers.data', 10)
+                ->where('customers.per_page', 10)
+                ->where('customers.last_page', 2));
     }
 
     public function test_blocked_customer_cannot_receive_a_new_reservation(): void

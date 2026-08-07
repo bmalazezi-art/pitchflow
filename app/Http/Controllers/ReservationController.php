@@ -8,6 +8,7 @@ use App\Models\FootballField;
 use App\Models\Reservation;
 use App\Models\ReservationCorrectionRequest;
 use App\Models\WaitingListRequest;
+use App\Services\OperatingScheduleService;
 use App\Services\ReservationService;
 use App\Support\EmployeePermissions;
 use App\Support\Timezones;
@@ -19,7 +20,7 @@ use Inertia\Response;
 
 class ReservationController extends Controller
 {
-    public function index(Request $request): Response
+    public function index(Request $request, OperatingScheduleService $schedule): Response
     {
         abort_if($request->user()->isEmployee() && ! $request->user()->hasEmployeePermission(EmployeePermissions::VIEW_CALENDAR), 403);
         $user = $request->user();
@@ -35,9 +36,9 @@ class ReservationController extends Controller
             ? CarbonImmutable::parse($selectedReservation->starts_at)->setTimezone($timezone)
             : CarbonImmutable::now($timezone);
         $localFrom = CarbonImmutable::parse($request->input('from', $localNow->startOfMonth()->subWeek()), $timezone)->startOfDay();
-        $localTo = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->endOfDay();
+        $localTo = CarbonImmutable::parse($request->input('to', $localNow->endOfMonth()->addWeek()), $timezone)->startOfDay();
         $from = $localFrom->utc();
-        $to = $localTo->utc();
+        $to = $localTo->addDays(2)->utc();
 
         $reservations = Reservation::query()
             ->forOrganization($organization->id)
@@ -45,7 +46,11 @@ class ReservationController extends Controller
             ->where('starts_at', '<', $to)
             ->where('ends_at', '>', $from)
             ->with([
-                'footballField:id,name',
+                'footballField:id,organization_id,name,opening_time,closing_time',
+                'footballField.organization:id,timezone',
+                'footballField.operatingHours',
+                'footballField.operatingHourOverrides' => fn ($query) => $query
+                    ->whereBetween('date', [$localFrom->toDateString(), $localTo->toDateString()]),
                 'customer:id,name,phone,reliability_status,total_reservations,no_shows,late_cancellations',
                 'waitingListRequests' => fn ($query) => $query
                     ->where('status', 'waiting')
@@ -53,7 +58,9 @@ class ReservationController extends Controller
                     ->select('id', 'organization_id', 'football_field_id', 'reservation_id', 'customer_name', 'phone', 'note', 'status', 'created_at'),
             ])
             ->orderBy('starts_at')
-            ->get();
+            ->get()
+            ->filter(fn (Reservation $reservation) => $this->reservationBusinessDate($reservation, $schedule)->betweenIncluded($localFrom, $localTo))
+            ->values();
 
         return Inertia::render('Reservations/Calendar', [
             'reservations' => $reservations,
@@ -61,7 +68,7 @@ class ReservationController extends Controller
                 ->forOrganization($organization->id)
                 ->whereIn('id', $fieldIds)
                 ->with(['operatingHours', 'operatingHourOverrides' => fn ($query) => $query
-                    ->whereBetween('date', [$from->setTimezone($timezone)->toDateString(), $to->setTimezone($timezone)->toDateString()])])
+                    ->whereBetween('date', [$localFrom->toDateString(), $localTo->toDateString()])])
                 ->orderBy('name')
                 ->get(['id', 'name', 'status', 'opening_time', 'closing_time']),
             'timezone' => $timezone,
@@ -73,7 +80,7 @@ class ReservationController extends Controller
         ]);
     }
 
-    public function list(Request $request): Response
+    public function list(Request $request, OperatingScheduleService $schedule): Response
     {
         $query = trim((string) $request->input('search'));
         $dateFilter = (string) $request->input('date_filter', $request->input('filter', 'today'));
@@ -82,16 +89,32 @@ class ReservationController extends Controller
         $fieldIds = $this->accessibleFieldIds($request);
         $timezone = Timezones::resolve($request->user()->organization->timezone);
         $today = CarbonImmutable::now($timezone)->startOfDay();
-        [$from, $to] = $this->reservationListRange($request, $dateFilter, $today, $timezone);
+        [$businessFrom, $businessTo] = $this->reservationListRange($request, $dateFilter, $today, $timezone);
+        $from = $businessFrom->utc();
+        $to = $businessTo->addDays(2)->utc();
 
         $baseQuery = Reservation::query()
             ->forOrganization($request->user()->organization_id)
             ->whereIn('football_field_id', $fieldIds)
-            ->whereBetween('starts_at', [$from, $to])
+            ->where('starts_at', '>=', $from)
+            ->where('starts_at', '<', $to)
             ->when($query, fn ($builder) => $builder->where(function ($nested) use ($query) {
                 $nested->where('customer_name', 'like', "%{$query}%")
                     ->orWhere('customer_phone', 'like', "%{$query}%");
             }));
+        $reservationIdsForBusinessDates = (clone $baseQuery)
+            ->with([
+                'footballField:id,organization_id,opening_time,closing_time',
+                'footballField.organization:id,timezone',
+                'footballField.operatingHours',
+                'footballField.operatingHourOverrides' => fn ($query) => $query
+                    ->whereBetween('date', [$businessFrom->toDateString(), $businessTo->toDateString()]),
+            ])
+            ->get(['id', 'football_field_id', 'starts_at'])
+            ->filter(fn (Reservation $reservation) => $this->reservationBusinessDate($reservation, $schedule)->betweenIncluded($businessFrom, $businessTo))
+            ->pluck('id')
+            ->all();
+        $baseQuery->whereIn('id', $reservationIdsForBusinessDates);
 
         $summaryReservations = (clone $baseQuery)->get(['id', 'status', 'payment_status']);
         $statusValue = fn (Reservation $reservation): string => is_string($reservation->status)
@@ -118,8 +141,8 @@ class ReservationController extends Controller
                 'date_filter' => $dateFilter,
                 'payment_filter' => $paymentFilter,
                 'status_filter' => $statusFilter,
-                'from' => $request->input('from', $from->setTimezone($timezone)->toDateString()),
-                'to' => $request->input('to', $to->setTimezone($timezone)->toDateString()),
+                'from' => $request->input('from', $businessFrom->toDateString()),
+                'to' => $request->input('to', $businessTo->toDateString()),
             ],
             'summary' => [
                 'total' => $summaryReservations->count(),
@@ -289,16 +312,24 @@ class ReservationController extends Controller
     private function reservationListRange(Request $request, string $dateFilter, CarbonImmutable $today, string $timezone): array
     {
         return match ($dateFilter) {
-            'yesterday' => [$today->subDay()->utc(), $today->subDay()->endOfDay()->utc()],
-            'this_week', 'week' => [$today->startOfWeek()->utc(), $today->endOfWeek()->utc()],
-            'last_week' => [$today->subWeek()->startOfWeek()->utc(), $today->subWeek()->endOfWeek()->utc()],
-            'this_month' => [$today->startOfMonth()->utc(), $today->endOfMonth()->utc()],
+            'yesterday' => [$today->subDay(), $today->subDay()],
+            'this_week', 'week' => [$today->startOfWeek(), $today->endOfWeek()->startOfDay()],
+            'last_week' => [$today->subWeek()->startOfWeek(), $today->subWeek()->endOfWeek()->startOfDay()],
+            'this_month' => [$today->startOfMonth(), $today->endOfMonth()->startOfDay()],
             'custom' => [
-                CarbonImmutable::parse($request->input('from', $today->toDateString()), $timezone)->startOfDay()->utc(),
-                CarbonImmutable::parse($request->input('to', $today->toDateString()), $timezone)->endOfDay()->utc(),
+                CarbonImmutable::parse($request->input('from', $today->toDateString()), $timezone)->startOfDay(),
+                CarbonImmutable::parse($request->input('to', $today->toDateString()), $timezone)->startOfDay(),
             ],
-            default => [$today->utc(), $today->endOfDay()->utc()],
+            default => [$today, $today],
         };
+    }
+
+    private function reservationBusinessDate(Reservation $reservation, OperatingScheduleService $schedule): CarbonImmutable
+    {
+        return $schedule->businessDateFor(
+            $reservation->footballField,
+            CarbonImmutable::parse($reservation->starts_at)->utc(),
+        );
     }
 
     private function correctionRequests(Request $request): array
