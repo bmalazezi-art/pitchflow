@@ -14,6 +14,69 @@ import { startOfWeek } from '../lib/dateControls';
 import { useLocale, useTranslation } from '../lib/i18n';
 import type { CalendarProps } from '../Pages/Reservations/Calendar';
 
+const timeMinutes = (value: string) => {
+    const [hours, minutes] = value.slice(0, 5).split(':').map(Number);
+    return hours * 60 + minutes;
+};
+
+const pad = (value: number) => String(value).padStart(2, '0');
+const slotTime = (minutes: number) => `${pad(Math.floor(minutes / 60))}:00:00`;
+const dayOfWeek = (date: string) => new Date(`${date}T12:00:00`).getDay();
+const startOfMonthDate = (date: string) => new Date(`${date.slice(0, 7)}-01T12:00:00`);
+const businessSlotOrder = (minutes: number) => {
+    const normalized = minutes % 1440;
+    return normalized === 0 ? 1440 : normalized;
+};
+
+const addDays = (date: string, days: number) => {
+    const value = new Date(`${date}T12:00:00`);
+    value.setDate(value.getDate() + days);
+    return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+};
+
+const visibleDates = (date: string, view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') => {
+    if (view === 'timeGridDay') return [date];
+    if (view === 'timeGridWeek') {
+        const firstDay = startOfWeek(date);
+        return Array.from({ length: 7 }, (_, index) => addDays(firstDay, index));
+    }
+
+    const first = startOfMonthDate(date);
+    return Array.from({ length: new Date(first.getFullYear(), first.getMonth() + 1, 0).getDate() }, (_, index) => {
+        const value = new Date(first);
+        value.setDate(index + 1);
+        return `${value.getFullYear()}-${pad(value.getMonth() + 1)}-${pad(value.getDate())}`;
+    });
+};
+
+const scheduleWindowFor = (field: any, date: string) => {
+    const override = field.operating_hour_overrides?.find((item: any) => item.date.slice(0, 10) === date);
+    const weekly = field.operating_hours?.find((item: any) => item.day_of_week === dayOfWeek(date));
+    if (override?.is_closed || (!override && weekly?.is_closed)) return null;
+    const opening = override?.opening_time ?? weekly?.opening_time ?? field.opening_time;
+    const closing = override?.closing_time ?? weekly?.closing_time ?? field.closing_time;
+    const start = timeMinutes(opening);
+    let end = timeMinutes(closing);
+    if (end <= start) end += 1440;
+
+    return { start, end };
+};
+
+const calendarSlotBounds = (fields: any[], selectedDate: string, view: 'dayGridMonth' | 'timeGridWeek' | 'timeGridDay') => {
+    const windows = fields.flatMap(field => visibleDates(selectedDate, view)
+        .map(date => scheduleWindowFor(field, date))
+        .filter(Boolean) as Array<{ start: number; end: number }>);
+
+    if (!windows.length) return { min: 1 * 60, max: 25 * 60 };
+
+    const starts = windows.map(window => businessSlotOrder(window.start));
+    const ends = windows.map(window => window.end > 1440 ? window.end : businessSlotOrder(window.end));
+    const min = Math.max(60, Math.min(...starts));
+    const max = Math.max(min + 60, Math.min(25 * 60, Math.max(...ends)));
+
+    return { min, max };
+};
+
 const reservationColor = (reservation: any, fields: any[]) => {
     const field = fields.find(item => item.id === reservation.football_field_id);
     if (field?.status === 'maintenance') return '#64748b';
@@ -48,6 +111,8 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
             borderColor: reservationColor(reservation, fields),
             extendedProps: { reservation },
         })), [fieldFilter, fields, reservations]);
+    const visibleFields = useMemo(() => fields.filter(field => fieldFilter === 'all' || field.id === fieldFilter), [fieldFilter, fields]);
+    const slotBounds = useMemo(() => calendarSlotBounds(visibleFields, selectedDate, view), [selectedDate, view, visibleFields]);
     useEffect(() => {
         if (dateManuallySelected) return;
         setSelectedDate(today);
@@ -106,7 +171,7 @@ export default function OwnerCalendar({ reservations, fields, timezone, selected
                 </div>
             </div>
             <div className="calendar-filterbar"><div><SlidersHorizontal size={17} /><strong>{t('fieldFilter')}</strong></div><Select aria-label={t('fieldFilter')} value={fieldFilter} onChange={event => setFieldFilter(event.target.value === 'all' ? 'all' : Number(event.target.value))}><option value="all">{t('allFields')}</option>{fields.map(field => <option key={field.id} value={field.id}>{field.name}</option>)}</Select><div className="calendar-legend"><span className="paid">{t('paid')}</span><span className="confirmed">{t('confirmed')}</span><span className="partial">{t('partial')}</span><span className="problem">{t('cancelled')}</span></div></div>
-            <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]} locales={[sqLocale]} locale={locale} timeZone={timezone} initialView={view} initialDate={selectedDate} headerToolbar={false} buttonText={{ today: t('today'), month: t('month'), week: t('week'), day: t('day') }} slotMinTime="00:00:00" slotMaxTime="26:00:00" slotDuration="01:00:00" slotLabelInterval="01:00:00" allDaySlot={false} height="auto" nowIndicator editable={false} selectable={false} events={events} datesSet={handleDatesSet} eventDidMount={info => { info.el.title = `${info.event.title}\n${info.event.extendedProps.reservation.customer_phone}`; }} />
+            <FullCalendar ref={calendarRef} plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]} locales={[sqLocale]} locale={locale} timeZone={timezone} initialView={view} initialDate={selectedDate} headerToolbar={false} buttonText={{ today: t('today'), month: t('month'), week: t('week'), day: t('day') }} slotMinTime={slotTime(slotBounds.min)} slotMaxTime={slotTime(slotBounds.max)} slotDuration="01:00:00" slotLabelInterval="01:00:00" slotLabelContent={info => `${pad(info.date.getHours())}:${pad(info.date.getMinutes())}`} eventTimeFormat={{ hour: '2-digit', minute: '2-digit', hour12: false }} allDaySlot={false} height="auto" nowIndicator editable={false} selectable={false} events={events} datesSet={handleDatesSet} eventDidMount={info => { info.el.title = `${info.event.title}\n${info.event.extendedProps.reservation.customer_phone}`; }} />
         </section>
     </div></AppLayout>;
 }

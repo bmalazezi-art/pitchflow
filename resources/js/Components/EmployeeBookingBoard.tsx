@@ -103,6 +103,10 @@ const timeMinutes = (value: string) => {
 
 const pad = (value: number) => String(value).padStart(2, '0');
 const displayTime = (minutes: number) => `${pad(Math.floor((minutes % 1440) / 60))}:${pad(minutes % 60)}`;
+const businessSlotOrder = (minutes: number) => {
+    const normalized = minutes % 1440;
+    return normalized === 0 ? 1440 : normalized;
+};
 const sanitizePhoneInput = (value: string) => {
     const hasLeadingPlus = value.trimStart().startsWith('+');
     const withoutPluses = value.replace(/\+/g, '');
@@ -144,19 +148,9 @@ const rawScheduleFor = (field: BoardField, date: string): ScheduleWindow | null 
 };
 
 const scheduleFor = (field: BoardField, date: string): ScheduleWindow[] => {
-    const windows: ScheduleWindow[] = [];
-    const previous = rawScheduleFor(field, addDays(date, -1));
     const current = rawScheduleFor(field, date);
 
-    if (previous && previous.end > 1440) {
-        windows.push({ start: 0, end: previous.end - 1440 });
-    }
-
-    if (current) {
-        windows.push(current);
-    }
-
-    return windows;
+    return current ? [current] : [];
 };
 
 const formatDate = (date: string, locale: string, options: Intl.DateTimeFormatOptions = {}) => formatCalendarDate(
@@ -204,11 +198,14 @@ export default function EmployeeBookingBoard({ reservations, fields, timezone, s
 
     const schedules = useMemo(() => new Map(fields.map(field => [field.id, scheduleFor(field, selectedDate)])), [fields, selectedDate]);
     const slots = useMemo(() => {
-        const active = [...schedules.values()].flat();
-        if (!active.length) return [];
-        const start = Math.min(...active.map(schedule => schedule.start));
-        const end = Math.max(...active.map(schedule => schedule.end));
-        return Array.from({ length: Math.ceil((end - start) / 60) }, (_, index) => start + index * 60);
+        const uniqueSlots = new Set<number>();
+        [...schedules.values()].flat().forEach(schedule => {
+            for (let slot = schedule.start; slot + 60 <= schedule.end; slot += 60) {
+                uniqueSlots.add(slot);
+            }
+        });
+
+        return [...uniqueSlots].sort((left, right) => businessSlotOrder(left) - businessSlotOrder(right));
     }, [schedules]);
     const weekDates = useMemo(() => {
         const firstDay = startOfWeek(selectedDate);
