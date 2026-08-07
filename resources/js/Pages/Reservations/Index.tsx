@@ -133,8 +133,13 @@ export default function Reservations({ reservations, correctionRequests = [], fi
             default: return reason.replaceAll('_', ' ');
         }
     };
+    const quickDates = [
+        { label: t('periodYesterday'), date: addDays(todayIso(), -1) },
+        { label: t('today'), date: todayIso() },
+        { label: t('tomorrow'), date: addDays(todayIso(), 1) },
+    ];
     const periodLabel = selectedDate && from === to ? formatSelectedDate(selectedDate) : dateFilter === 'this_week' ? t('thisWeek') : dateFilter === 'last_week' ? t('last_week') : dateFilter === 'this_month' ? t('this_month') : dateFilter === 'custom' ? t('customDateRange') : dateFilter === 'yesterday' ? t('periodYesterday') : t('today');
-    const fourthCard = { label: t('cancelled'), value: summary.cancelled, icon: XCircle, tone: 'danger' };
+    const fourthCard = { label: `${t('cancelled')} / ${t('completed')}`, value: `${summary.cancelled} / ${summary.completed}`, icon: XCircle, tone: 'danger' };
     const FourthCardIcon = fourthCard.icon;
 
     return <AppLayout title={t('reservations')}><Head title={t('reservations')} /><div className="owner-page">
@@ -144,7 +149,9 @@ export default function Reservations({ reservations, correctionRequests = [], fi
             <article><span className="success"><CircleDollarSign size={18} /></span><div><small>{t('paid')}</small><strong>{summary.paid}</strong></div></article>
             <article><span className="warning"><WalletCards size={18} /></span><div><small>{t('unpaid')}</small><strong>{summary.unpaid}</strong></div></article>
             <article><span className={fourthCard.tone}><FourthCardIcon size={18} /></span><div><small>{fourthCard.label}</small><strong>{fourthCard.value}</strong></div></article>
-            <article><span className="success"><CheckCircle2 size={18} /></span><div><small>{t('completed')}</small><strong>{summary.completed}</strong></div></article>
+        </section>
+        <section className="reservation-mobile-quick-filters" aria-label={t('chooseDate')}>
+            {quickDates.map(item => <button key={item.date} type="button" className={selectedDate === item.date && from === to ? 'active' : ''} onClick={() => selectReservationDate(item.date)}>{item.label}</button>)}
         </section>
         {correctionRequests.length > 0 && <section className="dashboard-panel correction-request-panel">
             <div className="dashboard-section-heading"><div><span className="dashboard-eyebrow">{t('needsAttention')}</span><h2>{t('correctionRequests')}</h2><p>{t('correctionRequestsIntro')}</p></div></div>
