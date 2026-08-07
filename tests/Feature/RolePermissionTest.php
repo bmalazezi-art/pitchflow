@@ -11,6 +11,7 @@ use App\Models\Reservation;
 use App\Models\User;
 use App\Support\Timezones;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Testing\AssertableInertia as Assert;
 use Tests\TestCase;
 
@@ -164,10 +165,16 @@ class RolePermissionTest extends TestCase
                 ->where('employee.id', $owner->id));
         $this->actingAs($owner)->put('/profile', [
             'name' => 'Owner User',
-            'phone' => '+38344111112',
+            'phone' => '+383 44 111 112',
             'preferred_language' => 'en',
         ])->assertRedirect();
-        $this->assertDatabaseHas('users', ['id' => $owner->id, 'name' => 'Owner User']);
+        $this->assertDatabaseHas('users', ['id' => $owner->id, 'name' => 'Owner User', 'phone_normalized' => '+38344111112']);
+
+        Auth::logout();
+        $this->post('/login', [
+            'email' => '+383 44 111 112',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
 
         $this->actingAs($employee)->get('/profile')->assertOk()
             ->assertInertia(fn (Assert $page) => $page
@@ -175,10 +182,16 @@ class RolePermissionTest extends TestCase
                 ->where('employee.id', $employee->id));
         $this->actingAs($employee)->put('/profile', [
             'name' => 'Reception User',
-            'phone' => '+38344111111',
+            'phone' => '+383 44 111 111',
             'preferred_language' => 'sq',
         ])->assertRedirect();
-        $this->assertDatabaseHas('users', ['id' => $employee->id, 'name' => 'Reception User']);
+        $this->assertDatabaseHas('users', ['id' => $employee->id, 'name' => 'Reception User', 'phone_normalized' => '+38344111111']);
+
+        Auth::logout();
+        $this->post('/login', [
+            'email' => '+383 44 111 111',
+            'password' => 'password',
+        ])->assertRedirect(route('dashboard'));
     }
 
     private function reservationPayload(FootballField $field, $start): array

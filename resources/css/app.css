@@ -755,7 +755,7 @@ textarea.input { min-height: 90px; resize: vertical; }
 .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; }
 .filter-bar .input { max-width: 300px; }
 
-.modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: 16px; background: rgb(15 23 42 / .55); }
+.modal-backdrop { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: 16px; overflow: hidden; background: rgb(15 23 42 / .55); }
 .drawer-backdrop ~ .modal-backdrop { background: transparent; backdrop-filter: none; }
 .modal { position: relative; z-index: calc(var(--z-modal) + 1); width: min(680px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 20px; background: var(--surface); border-radius: 8px; box-shadow: 0 24px 70px rgb(0 0 0 / .25); }
 .modal select,
@@ -1237,6 +1237,8 @@ textarea.input { min-height: 90px; resize: vertical; }
     .public-stat-band > div { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .popular-city-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
     .public-footer-main { grid-template-columns: 1fr; gap: 34px; }
+    .reservation-summary-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .reservation-summary-grid article { display: flex; min-width: 0; }
     .reservation-filter-toolbar { align-items: stretch; flex-direction: column; gap: 10px; }
     .reservation-filter-toolbar form { width: 100%; flex-basis: auto; }
     .reservation-filter-grid { width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 9px; }
@@ -1391,6 +1393,8 @@ textarea.input { min-height: 90px; resize: vertical; }
 @media (max-width: 640px) {
     html, body, #app { max-width: 100%; overflow-x: clip; }
     .public-page, .public-home, .public-fields-page, .auth-shell, .auth-form, .auth-card, .modal { max-width: 100%; }
+    .modal-backdrop { padding: 16px 12px; align-items: center; justify-items: center; }
+    .modal { left: auto; right: auto; width: min(680px, calc(100vw - 24px)); max-width: calc(100vw - 24px); max-height: calc(100dvh - 32px); overflow-x: hidden; overflow-y: auto; }
     input, textarea, select,
     .input,
     .public-input input,
@@ -1462,7 +1466,7 @@ textarea.input { min-height: 90px; resize: vertical; }
     .drawer-footer .btn { flex: 1; }
     .drawer { width: min(100vw, 560px); max-height: 100dvh; }
     .drawer-backdrop { align-items: stretch; }
-    .modal { width: min(100%, calc(100vw - 24px)); max-height: calc(100dvh - 32px); overflow-y: auto; }
+    .modal { width: calc(100vw - 24px); max-width: calc(100vw - 24px); max-height: calc(100dvh - 32px); overflow-x: hidden; overflow-y: auto; }
     .input, select, textarea { font-size: 16px; }
     .assignment-grid { grid-template-columns: 1fr; }
     .settings-readonly-grid { grid-template-columns: 1fr; }
