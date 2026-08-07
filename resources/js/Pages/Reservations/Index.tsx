@@ -63,18 +63,26 @@ export default function Reservations({ reservations, correctionRequests = [], fi
     const [selected, setSelected] = useState<any>(null);
     const [cancelling, setCancelling] = useState<any>(null);
     const [reviewing, setReviewing] = useState<any>(null);
+    const [applyingFilters, setApplyingFilters] = useState(false);
     const cancelForm = useForm({ reason: 'customer_called', note: '' });
     const reviewForm = useForm({ action: 'reopen', reason: '' });
     const selectedDate = from || to || todayIso();
     const applyFilters = (overrides: Partial<Filters> = {}) => {
+        if (applyingFilters) return;
         const nextDateFilter = (overrides.date_filter === 'week' ? 'this_week' : overrides.date_filter === 'tomorrow' ? 'today' : overrides.date_filter ?? dateFilter) as RangePeriod;
+        setApplyingFilters(true);
         router.get('/reservations', {
             search: overrides.search ?? search,
             date_filter: nextDateFilter,
             payment_filter: overrides.payment_filter ?? paymentFilter,
             status_filter: overrides.status_filter ?? statusFilter,
             ...(nextDateFilter === 'custom' ? { from: overrides.from ?? from, to: overrides.to ?? to } : {}),
-        }, { preserveState: true, replace: true });
+        }, {
+            preserveScroll: true,
+            preserveState: true,
+            replace: true,
+            onFinish: () => setApplyingFilters(false),
+        });
     };
     const formatDate = (value: string) => formatCalendarDate(new Date(value), locale, { day: '2-digit', month: 'short', year: 'numeric' });
     const formatSelectedDate = (value: string) => formatDateLabel(value, locale);
@@ -173,13 +181,13 @@ export default function Reservations({ reservations, correctionRequests = [], fi
                 </div>
             </section>
             <div className="reservation-filter-grid">
-                <Field label={t('paymentFilter')}><Select value={paymentFilter} onChange={event => { setPaymentFilter(event.target.value); applyFilters({ payment_filter: event.target.value }); }}>
+                <Field label={t('paymentFilter')}><Select value={paymentFilter} onChange={event => setPaymentFilter(event.target.value)}>
                     <option value="all">{t('all')}</option>
                     <option value="paid">{t('paid')}</option>
                     <option value="unpaid">{t('unpaid')}</option>
                     <option value="partial">{t('partiallyPaid')}</option>
                 </Select></Field>
-                <Field label={t('statusFilter')}><Select value={statusFilter} onChange={event => { setStatusFilter(event.target.value); applyFilters({ status_filter: event.target.value }); }}>
+                <Field label={t('statusFilter')}><Select value={statusFilter} onChange={event => setStatusFilter(event.target.value)}>
                     <option value="all">{t('all')}</option>
                     <option value="pending">{t('pending')}</option>
                     <option value="confirmed">{t('confirmed')}</option>
@@ -187,7 +195,7 @@ export default function Reservations({ reservations, correctionRequests = [], fi
                     <option value="cancelled">{t('cancelled')}</option>
                     <option value="no_show">{t('noShow')}</option>
                 </Select></Field>
-                <Button type="button" onClick={() => applyFilters()}>{t('apply')}</Button>
+                <Button type="button" disabled={applyingFilters} onClick={() => applyFilters()}>{t('apply')}</Button>
             </div>
         </section>
         {reservations.data.length === 0 ? <section className="dashboard-panel"><EmptyState title={t('noResults')} action={canCreateReservations ? <Link className="btn btn-primary" href="/calendar"><CalendarPlus size={17} />{t('newReservation')}</Link> : undefined} /></section> : <>
